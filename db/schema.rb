@@ -18,7 +18,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_20_001517) do
     t.string "title"
     t.text "description"
     t.datetime "start_date"
-    t.decimal "current_price", precision: 4, scale: 2
+    t.decimal "current_price", precision: 6, scale: 2
     t.string "image_url"
     t.string "status"
     t.datetime "created_at", null: false
