@@ -14,6 +14,7 @@ Auction.destroy_all
 #   password_confirmation: "password",
 #   role: :user
 # )
+today = Date.today
 
 20.times do |i|
   Auction.create!(
@@ -21,7 +22,8 @@ Auction.destroy_all
     description: Faker::Movie.quote,
     current_price: Faker::Commerce.price(range: 10..1000).round(2),
     image_url: Faker::Avatar.unique.image,
-    status: "inactive"
+    status: "inactive",
+    start_date: Faker::Date.between(from: today + 1, to: today +4)
   )
   print "*"
 end
