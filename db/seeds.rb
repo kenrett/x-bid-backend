@@ -1,19 +1,19 @@
 Auction.destroy_all
-# User.destroy_all
+User.destroy_all
 
-# User.create!(
-#   email_address: "admin@example.com",
-#   password: "password",
-#   password_confirmation: "password",
-#   role: :admin
-# )
+User.create!(
+  email_address: "admin@example.com",
+  password: "password",
+  password_confirmation: "password",
+  role: :admin
+)
 
-# User.create!(
-#   email_address: "user@example.com",
-#   password: "password",
-#   password_confirmation: "password",
-#   role: :user
-# )
+User.create!(
+  email_address: "user@example.com",
+  password: "password",
+  password_confirmation: "password",
+  role: :user
+)
 today = Date.today
 
 20.times do |i|
