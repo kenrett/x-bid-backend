@@ -1,4 +1,5 @@
 Auction.destroy_all
+BidPack.destroy_all
 User.destroy_all
 
 User.create!(
@@ -14,6 +15,40 @@ User.create!(
   password_confirmation: "password",
   role: :user
 )
+
+bid_packs_data = [
+  {
+    name: "The Flirt",
+    bids: 69,
+    price: 42.0,
+    highlight: false,
+    description: "A perfect start to get a feel for the action."
+  },
+  {
+    name: "The Rendezvous",
+    bids: 150,
+    price: 82.0,
+    highlight: false,
+    description: "For the bidder who's ready to commit to the chase."
+  },
+  {
+    name: "The All-Nighter",
+    bids: 300,
+    price: 150.0,
+    highlight: true,
+    description: "Our most popular pack. Dominate the auctions."
+  },
+  {
+    name: "The Affair",
+    bids: 600,
+    price: 270.0,
+    highlight: false,
+    description: "The ultimate arsenal for the serious player. Best value."
+  }
+]
+
+bid_packs_data.each { |pack_data| BidPack.create!(pack_data) }
+
 today = Date.today
 
 20.times do |i|

@@ -3,8 +3,6 @@ class User < ApplicationRecord
 
   enum :role, { user: 0, admin: 1 }
 
-  has_many :sessions, dependent: :destroy
-
   normalizes :email_address, with: ->(e) { e.strip.downcase }
 
   validates :email_address, :role, :password_digest, presence: true
