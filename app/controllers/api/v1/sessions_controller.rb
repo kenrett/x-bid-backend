@@ -1,12 +1,14 @@
+require 'jwt'
+
 module Api
   module V1
     class SessionsController < ApplicationController
       # POST /api/v1/login
       def create
-        user = User.find_by(email: params[:email])
-        if user&.authenticate(params[:password])
+        user = User.find_by(email_address: params[:session][:email_address])
+        if user&.authenticate(params[:session][:password])
           token = encode_jwt(user_id: user.id)
-          render json: { token:, user: user.slice(:id, :email, :role) }
+          render json: { token:, user: user.slice(:id, :email_address, :role) }
         else
           render json: { error: "Invalid credentials" }, status: :unauthorized
         end
