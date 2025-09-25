@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_24_025722) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_24_214045) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -23,6 +23,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_24_025722) do
     t.string "status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "winning_user_id"
+    t.index ["winning_user_id"], name: "index_auctions_on_winning_user_id"
   end
 
   create_table "bid_packs", force: :cascade do |t|
@@ -35,6 +37,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_24_025722) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "bids", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "auction_id", null: false
+    t.decimal "amount", precision: 6, scale: 2
+    t.boolean "auto"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["auction_id"], name: "index_bids_on_auction_id"
+    t.index ["user_id"], name: "index_bids_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "name"
     t.string "email_address", null: false
@@ -42,6 +55,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_24_025722) do
     t.integer "role"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "bid_credits", default: 0, null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
+
+  add_foreign_key "auctions", "users", column: "winning_user_id"
+  add_foreign_key "bids", "auctions"
+  add_foreign_key "bids", "users"
 end
