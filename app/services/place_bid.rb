@@ -1,22 +1,22 @@
 class PlaceBid
   Result = Struct.new(:success?, :error, :bid, keyword_init: true)
+  BID_INCREMENT = 0.01.to_d
 
-  def initialize(user:, auction:, amount:)
+  def initialize(user:, auction:)
     @user = user
     @auction = auction
-    @amount = amount
   end
 
   def call
     return failure("Auction is closed") if @auction.closed?
     return failure("Insufficient bid credits") if @user.bid_credits <= 0
-    return failure("Bid must be higher than current price") if @amount <= @auction.current_price
 
     Bid.transaction do
       # Lock auction row so only one bid is processed at a time
       @auction.lock!
 
-      bid = @auction.bids.build(user: @user, amount: @amount)
+      new_price = @auction.current_price + BID_INCREMENT
+      bid = @auction.bids.build(user: @user, amount: new_price)
 
       if bid.save
         # Deduct one credit from the user
@@ -24,9 +24,9 @@ class PlaceBid
 
         # Update auction price and current highest bidder
         @auction.update!(
-          current_price: @amount,
+          current_price: new_price,
           winning_user: @user,
-          end_time: [@auction.end_time, 10.seconds.from_now].max # extend timer
+          end_time: [@auction.end_time, 10.seconds.from_now].compact.max # extend timer
         )
 
         # Broadcast via Action Cable

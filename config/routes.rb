@@ -3,9 +3,10 @@ Rails.application.routes.draw do
   
   namespace :api do
     namespace :v1 do
-      get "bids/create"
       resources :bid_packs, only: [:index]
-      resources :auctions
+      resources :auctions do
+        resources :bids, only: [:create]
+      end
 
       # Routes for user registration
       resources :users, only: [:create]

@@ -3,6 +3,8 @@ require 'jwt'
 module Api
   module V1
     class SessionsController < ApplicationController
+      before_action :authenticate_request!, only: [:logged_in?]
+
       # POST /api/v1/login
       def create
         user = User.find_by(email_address: params[:session][:email_address])

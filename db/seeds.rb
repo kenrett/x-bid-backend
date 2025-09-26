@@ -6,14 +6,16 @@ User.create!(
   email_address: "admin@example.com",
   password: "password",
   password_confirmation: "password",
-  role: :admin
+  role: :admin,
+  bid_credits: 1000
 )
 
 User.create!(
   email_address: "user@example.com",
   password: "password",
   password_confirmation: "password",
-  role: :user
+  role: :user,
+  bid_credits: 100
 )
 
 bid_packs_data = [
@@ -52,13 +54,15 @@ bid_packs_data.each { |pack_data| BidPack.create!(pack_data) }
 today = Date.today
 
 20.times do |i|
+  start_date = Faker::Date.between(from: today + 1, to: today + 4)
   Auction.create!(
     title: Faker::Commerce.product_name,
     description: Faker::Movie.quote,
     current_price: Faker::Commerce.price(range: 10..1000).round(2),
     image_url: Faker::Avatar.unique.image,
-    status: "inactive",
-    start_date: Faker::Date.between(from: today + 1, to: today + 4)
+    status: Auction.statuses[:active],
+    start_date: start_date,
+    end_time: start_date + 2.days
   )
   print "*"
 end

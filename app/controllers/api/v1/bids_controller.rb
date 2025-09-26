@@ -1,13 +1,9 @@
 class Api::V1::BidsController < ApplicationController
-  before_action :authenticate_user!
+  before_action :authenticate_request!
   before_action :set_auction
 
   def create
-    service = PlaceBid.new(
-      user: current_user,
-      auction: @auction,
-      amount: bid_params[:amount].to_d
-    )
+    service = PlaceBid.new(user: current_user, auction: @auction)
 
     result = service.call
 
@@ -31,7 +27,7 @@ class Api::V1::BidsController < ApplicationController
       render json: {
         success: false,
         error: result.error
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -39,9 +35,5 @@ class Api::V1::BidsController < ApplicationController
 
   def set_auction
     @auction = Auction.find(params[:auction_id])
-  end
-
-  def bid_params
-    params.require(:bid).permit(:amount)
   end
 end

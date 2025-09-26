@@ -43,12 +43,12 @@ module Api
       private
         # Use callbacks to share common setup or constraints between actions.
         def set_auction
-          @auction = Auction.find(params.expect(:id))
+          @auction = Auction.find(params[:id])
         end
 
         # Only allow a list of trusted parameters through.
         def auction_params
-          params.expect(auction: [ :title, :description, :start_date, :current_price, :image_url, :status ])
+          params.require(:auction).permit(:title, :description, :start_date, :current_price, :image_url, :status)
         end
     end
   end

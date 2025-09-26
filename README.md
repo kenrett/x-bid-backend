@@ -61,8 +61,7 @@ All endpoints are prefixed with `/api/v1`.
 
 ### Bidding
 
-*   `POST /auctions/:auction_id/bids` - Place a bid on an auction. Requires authentication.
-    *   **Body:** `{ "bid": { "amount": 12.50 } }`
+*   `POST /auctions/:auction_id/bids` - Places a bid on an auction, consuming one bid credit. Requires authentication. The request body is not used.
 
 ### Bid Packs
 
