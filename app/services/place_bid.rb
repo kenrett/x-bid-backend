@@ -1,57 +1,76 @@
 class PlaceBid
-  Result = Struct.new(:success?, :error, :bid, keyword_init: true)
+  Result = Struct.new(:success?, :bid, :error, keyword_init: true)
   BID_INCREMENT = 0.01.to_d
+  EXTENSION_WINDOW = 10.seconds
+  MAX_RETRIES = 3
+
+  attr_reader :auction
 
   def initialize(user:, auction:)
     @user = user
     @auction = auction
+    @bid = nil
   end
 
   def call
-    return failure("Auction is closed") if @auction.closed?
-    return failure("Insufficient bid credits") if @user.bid_credits <= 0
+    # Pre-transaction checks for immediate failure
+    return Result.new(success?: false, error: "Auction is not active") unless @auction.active?
+    return Result.new(success?: false, error: "Insufficient bid credits") if @user.bid_credits <= 0
 
-    Bid.transaction do
-      # Lock auction row so only one bid is processed at a time
-      @auction.lock!
+    begin
+      ActiveRecord::Base.transaction do
+        # Calculate the intended new price based on the auction's state *before* the lock.
+        new_price = @auction.current_price + BID_INCREMENT
 
-      new_price = @auction.current_price + BID_INCREMENT
-      bid = @auction.bids.build(user: @user, amount: new_price)
+        # Lock the auction row to prevent race conditions.
+        @auction.lock!
 
-      if bid.save
-        # Deduct one credit from the user
-        @user.decrement!(:bid_credits, 1)
+        # After acquiring the lock, re-verify that our bid is still valid against the reloaded auction state.
+        return Result.new(success?: false, error: "Another bid was placed first.") if @auction.current_price >= new_price
 
-        # Update auction price and current highest bidder
-        @auction.update!(
-          current_price: new_price,
-          winning_user: @user,
-          end_time: [@auction.end_time, 10.seconds.from_now].compact.max # extend timer
-        )
-
-        # Broadcast via Action Cable
-        AuctionChannel.broadcast_to(@auction, {
-          current_price: @auction.current_price,
-          highest_bidder: @user.id,
-          bid: { id: bid.id, amount: bid.amount, user_id: bid.user_id, created_at: bid.created_at }
-        })
-
-        return success(bid)
-      else
-        raise ActiveRecord::Rollback, "Bid failed"
+        @user.decrement!(:bid_credits)
+        # Create the bid. The model validation will ensure its amount is > current_price.
+        # If another bid was processed while this one was waiting for the lock, this will fail.
+        @bid = @auction.bids.create!(user: @user, amount: new_price)
+        # After the bid is successfully created, update the auction's price and winner.
+        @auction.update!(current_price: new_price, winning_user: @user)
+        extend_auction_if_needed!
       end
+      broadcast_bid
+      Result.new(success?: true, bid: @bid)
+    rescue ActiveRecord::RecordInvalid => e
+      log_error(e)
+      return Result.new(success?: false, error: "Another bid was placed first.") if e.record.errors.include?(:amount)
+      Result.new(success?: false, error: "Bid could not be placed: #{e.message}")
+    rescue => e
+      log_error(e)
+      Result.new(success?: false, error: "An unexpected error occurred.")
     end
-  rescue => e
-    failure(e.message)
   end
 
   private
 
-  def success(bid)
-    Result.new(success?: true, bid: bid)
+  def extend_auction_if_needed!
+    return unless @auction.ends_within?(EXTENSION_WINDOW)
+
+    new_end_time = @auction.end_time + EXTENSION_WINDOW
+    @auction.update!(end_time: new_end_time)
+
+    Rails.logger.info(
+      "Auction ##{@auction.id} extended by #{EXTENSION_WINDOW} due to last-second bid ##{@bid.id} by user ##{@user.id}"
+    )
   end
 
-  def failure(message)
-    Result.new(success?: false, error: message)
+  def broadcast_bid
+    return unless @bid.present?
+
+    AuctionChannel.broadcast_to(@auction, bid: @bid.as_json(include: { user: { only: [:id] } }))
+  end
+
+  def log_error(exception)
+    Rails.logger.error(
+      "PlaceBid Error | User: #{@user.id}, Auction: #{@auction.id}\n" \
+      "Error: #{exception.message}\n#{exception.backtrace.join("\n")}"
+    )
   end
 end

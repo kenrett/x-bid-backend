@@ -11,4 +11,11 @@ class Auction < ApplicationRecord
   def closed?
     status != "active" || (end_time.present? && end_time < Time.current)
   end
+
+  # Checks if the auction is ending within a given duration.
+  def ends_within?(duration)
+    return false unless end_time
+    (Time.current..Time.current + duration).cover?(end_time)
+  end
+
 end
