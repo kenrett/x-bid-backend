@@ -2,7 +2,8 @@ module Api
   module V1
     class AuctionsController < ApplicationController
       before_action :set_auction, only: %i[ show update destroy ]
-
+      before_action :authenticate_request!, only: %i[ create update destroy ]
+      before_action :authorize_admin!, only: %i[ create update destroy ]
       # GET /auctions
       def index
         @auctions = Auction.all

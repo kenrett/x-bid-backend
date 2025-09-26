@@ -36,7 +36,11 @@ module Api
       private
 
       def encode_jwt(payload)
-        JWT.encode(payload.merge(exp: 24.hours.from_now.to_i), Rails.application.secret_key_base)
+        # Explicitly set the algorithm for better security.
+        # HS256 is the default, but it's best practice to be explicit.
+        algorithm = 'HS256'
+        payload_with_exp = payload.merge(exp: 24.hours.from_now.to_i)
+        JWT.encode(payload_with_exp, Rails.application.secret_key_base, algorithm)
       end
     end
   end

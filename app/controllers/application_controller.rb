@@ -7,9 +7,13 @@ class ApplicationController < ActionController::API
     return render json: { error: "Token missing from Authorization header" }, status: :unauthorized unless token
 
     begin
-      decoded = JWT.decode(token, Rails.application.secret_key_base)[0]
+      decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: 'HS256' })[0]
       @current_user = User.find_by(id: decoded["user_id"])
-    rescue ActiveRecord::RecordNotFound, JWT::DecodeError
+    rescue JWT::ExpiredSignature
+      render json: { error: "Token has expired" }, status: :unauthorized
+    rescue JWT::DecodeError => e
+      render json: { error: "Invalid token: #{e.message}" }, status: :unauthorized
+    rescue ActiveRecord::RecordNotFound
       render json: { error: "Unauthorized" }, status: :unauthorized
     end
   end
