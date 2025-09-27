@@ -3,6 +3,7 @@ BidPack.destroy_all
 User.destroy_all
 
 User.create!(
+  name: "Admin",
   email_address: "admin@example.com",
   password: "password",
   password_confirmation: "password",
@@ -11,7 +12,7 @@ User.create!(
 )
 
 User.create!(
-  name: "Ken Ken",
+  name: "User One",
   email_address: "user@example.com",
   password: "password",
   password_confirmation: "password",
@@ -20,7 +21,7 @@ User.create!(
 )
 
 User.create!(
-  name: "User 2",
+  name: "User Two",
   email_address: "user2@example.com",
   password: "password",
   password_confirmation: "password",
