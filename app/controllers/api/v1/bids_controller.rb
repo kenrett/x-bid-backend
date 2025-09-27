@@ -14,6 +14,7 @@ class Api::V1::BidsController < ApplicationController
           id: result.bid.id,
           amount: result.bid.amount,
           user_id: result.bid.user_id,
+          username: result.bid.user.name,
           created_at: result.bid.created_at
         },
         auction: {

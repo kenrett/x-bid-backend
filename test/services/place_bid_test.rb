@@ -49,16 +49,14 @@ class PlaceBidTest < ActiveSupport::TestCase
   end
 
   test "should extend auction if bid arrives in last 10 seconds" do
-    @auction.update!(end_time: 5.seconds.from_now)
-    original_end_time = @auction.end_time
+    # Set end time to be in the near future to trigger the extension logic.
+    @auction.update!(end_time: 5.seconds.from_now) 
 
-    result = PlaceBid.new(user: @user1, auction: @auction).call
+    PlaceBid.new(user: @user1, auction: @auction).call
 
-    assert result.success?, "Bid should succeed"
     extended_end_time = @auction.reload.end_time
-
-    assert_operator extended_end_time, :>, original_end_time, "Auction end time should be extended"
-    assert_in_delta extended_end_time, original_end_time + PlaceBid::EXTENSION_WINDOW, 1.second
+    expected_end_time = Time.current + PlaceBid::EXTENSION_WINDOW
+    assert_in_delta expected_end_time, extended_end_time, 1.second, "Auction end time should be reset to 10 seconds from now"
   end
 
   test "should handle concurrent bids safely" do

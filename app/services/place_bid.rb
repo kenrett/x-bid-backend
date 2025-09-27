@@ -53,11 +53,11 @@ class PlaceBid
   def extend_auction_if_needed!
     return unless @auction.ends_within?(EXTENSION_WINDOW)
 
-    new_end_time = @auction.end_time + EXTENSION_WINDOW
+    new_end_time = Time.current + EXTENSION_WINDOW
     @auction.update!(end_time: new_end_time)
 
     Rails.logger.info(
-      "Auction ##{@auction.id} extended by #{EXTENSION_WINDOW} due to last-second bid ##{@bid.id} by user ##{@user.id}"
+      "Auction ##{@auction.id} end time reset to #{EXTENSION_WINDOW} from now due to last-second bid ##{@bid.id} by user ##{@user.id}"
     )
   end
 

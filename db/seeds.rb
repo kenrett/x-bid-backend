@@ -11,7 +11,17 @@ User.create!(
 )
 
 User.create!(
+  name: "Ken Ken",
   email_address: "user@example.com",
+  password: "password",
+  password_confirmation: "password",
+  role: :user,
+  bid_credits: 100
+)
+
+User.create!(
+  name: "User 2",
+  email_address: "user2@example.com",
   password: "password",
   password_confirmation: "password",
   role: :user,
