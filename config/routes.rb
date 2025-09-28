@@ -6,6 +6,7 @@ Rails.application.routes.draw do
       resources :bid_packs, only: [:index]
       resources :auctions do
         resources :bids, only: [:create]
+        resources :bid_history, only: [:index]
       end
 
       # Routes for user registration

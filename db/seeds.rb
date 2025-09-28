@@ -69,7 +69,7 @@ today = Date.today
   Auction.create!(
     title: Faker::Commerce.product_name,
     description: Faker::Movie.quote,
-    current_price: Faker::Commerce.price(range: 10..1000).round(2),
+    current_price: 0,
     image_url: Faker::Avatar.unique.image,
     status: Auction.statuses[:active],
     start_date: start_date,

@@ -1,4 +1,4 @@
-class BidHistorySerializer < ActiveModel::Serializer
+class Api::V1::BidHistorySerializer < ActiveModel::Serializer
   attributes :id, :amount, :created_at, :username
 
   def username

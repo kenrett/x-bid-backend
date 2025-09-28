@@ -12,7 +12,7 @@ class PlaceBid
     @bid = nil
   end
 
-  def call
+  def call(broadcast: true)
     # Pre-transaction checks for immediate failure
     return Result.new(success?: false, error: "Auction is not active") unless @auction.active?
     return Result.new(success?: false, error: "Insufficient bid credits") if @user.bid_credits <= 0
@@ -36,7 +36,7 @@ class PlaceBid
         @auction.update!(current_price: new_price, winning_user: @user)
         extend_auction_if_needed!
       end
-      broadcast_bid
+      broadcast_bid if broadcast
       Result.new(success?: true, bid: @bid)
     rescue ActiveRecord::RecordInvalid => e
       log_error(e)
@@ -64,7 +64,17 @@ class PlaceBid
   def broadcast_bid
     return unless @bid.present?
 
-    AuctionChannel.broadcast_to(@auction, bid: @bid.as_json(include: { user: { only: [:id] } }))
+    # Broadcast the update to the auction's stream. The `stop_stream` action,
+    # called by the bidder's client, prevents this from being echoed to them.
+    AuctionChannel.broadcast_to(
+      @auction,
+      {
+        current_price: @auction.current_price,
+        winning_user_id: @auction.winning_user_id,
+        end_time: @auction.end_time,
+        bid: BidSerializer.new(@bid).as_json
+      }
+    )
   end
 
   def log_error(exception)
