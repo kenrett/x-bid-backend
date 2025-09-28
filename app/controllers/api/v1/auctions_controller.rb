@@ -4,11 +4,11 @@ module Api
       before_action :set_auction, only: %i[ show update destroy ]
       before_action :authenticate_request!, only: %i[ create update destroy ]
       before_action :authorize_admin!, only: %i[ create update destroy ]
-      # GET /auctions
+     
+      # GET /api/v1/auctions
       def index
-        @auctions = Auction.all
-
-        render json: @auctions
+        @auctions = Auction.active
+        render json: @auctions, each_serializer: Api::V1::AuctionSerializer
       end
 
       # GET /auctions/1
