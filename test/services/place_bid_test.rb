@@ -2,8 +2,8 @@ require "test_helper"
 
 class PlaceBidTest < ActiveSupport::TestCase
   def setup
-    @user1 = User.create!(email_address: "user1@example.com", password: "password", bid_credits: 10, role: :user)
-    @user2 = User.create!(email_address: "user2@example.com", password: "password", bid_credits: 5, role: :user)
+    @user1 = User.create!(name: "User 1", email_address: "user1@example.com", password: "password", bid_credits: 10, role: :user)
+    @user2 = User.create!(name: "User 2", email_address: "user2@example.com", password: "password", bid_credits: 5, role: :user)
 
     @auction = Auction.create!(
       title: "Test Auction",
@@ -27,7 +27,8 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal @user1.id, result.bid.user_id
     assert_equal 9, @user1.reload.bid_credits
     assert_equal expected_price, @auction.reload.current_price
-    assert_equal @user1.id, @auction.reload.winning_user_id
+    assert_equal @user1.id, @auction.reload.winning_user.id
+    assert_equal @user1.name, @auction.reload.winning_user.name
   end
 
   test "should fail if auction is not active" do

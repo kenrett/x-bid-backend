@@ -1,10 +1,23 @@
 class AuctionChannel < ApplicationCable::Channel
-  # Called when a consumer successfully becomes a subscriber to this channel.
   def subscribed
-    @auction = Auction.find_by(id: params[:id])
+    auction_id = params[:auction_id]
+
+    # 1. First, check if the client even sent an ID
+    unless auction_id
+      Rails.logger.error "❌ SUBSCRIPTION REJECTED: No auction_id was provided by the client."
+      reject
+      return
+    end
+    
+    # 2. Next, try to find the auction using the ID
+    @auction = Auction.find_by(id: auction_id)
+
+    # 3. Finally, subscribe if the auction was found, otherwise reject
     if @auction
       stream_for @auction
+      Rails.logger.info "✅ Client successfully subscribed to stream for Auction ##{@auction.id}"
     else
+      Rails.logger.error "❌ SUBSCRIPTION REJECTED: Could not find an Auction with ID #{auction_id}."
       reject
     end
   end
@@ -18,5 +31,11 @@ class AuctionChannel < ApplicationCable::Channel
   # preventing the user from receiving an echo of their own bid.
   def stop_stream
     stop_stream_for @auction if @auction
+  end
+
+  # This action can be called by the client after a bid is placed to resume
+  # receiving broadcasts for this auction.
+  def start_stream
+    stream_for @auction if @auction
   end
 end

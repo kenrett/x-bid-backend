@@ -20,7 +20,7 @@ class Api::V1::BidsController < ApplicationController
         auction: {
           id: @auction.id,
           current_price: @auction.current_price,
-          highest_bidder_id: @auction.winning_user_id,
+          highest_bidder: @auction.winning_user&.name,
           end_time: @auction.end_time
         }
       }, status: :created

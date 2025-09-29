@@ -10,7 +10,7 @@ module Api
         user = User.find_by(email_address: params[:session][:email_address])
         if user&.authenticate(params[:session][:password])
           token = encode_jwt(user_id: user.id)
-          render json: { token:, user: user.slice(:id, :email_address, :role) }
+          render json: { token:, user: user.slice(:id, :email_address, :role, :name) }
         else
           render json: { error: "Invalid credentials" }, status: :unauthorized
         end

@@ -32,6 +32,7 @@ class PlaceBid
         # Create the bid. The model validation will ensure its amount is > current_price.
         # If another bid was processed while this one was waiting for the lock, this will fail.
         @bid = @auction.bids.create!(user: @user, amount: new_price)
+        Rails.logger.info "✅ Bid saved successfully: #{@bid.inspect}"
         # After the bid is successfully created, update the auction's price and winner.
         @auction.update!(current_price: new_price, winning_user: @user)
         extend_auction_if_needed!
@@ -66,11 +67,12 @@ class PlaceBid
 
     # Broadcast the update to the auction's stream. The `stop_stream` action,
     # called by the bidder's client, prevents this from being echoed to them.
+    Rails.logger.info "📡 Broadcasting bid to Auction ##{@auction.id}"
     AuctionChannel.broadcast_to(
       @auction,
       {
         current_price: @auction.current_price,
-        winning_user_id: @auction.winning_user_id,
+        winning_user_name: @auction.winning_user&.name,
         end_time: @auction.end_time,
         bid: BidSerializer.new(@bid).as_json
       }
