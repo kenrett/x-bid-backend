@@ -3,6 +3,16 @@ require 'jwt'
 module Api
   module V1
     class SessionsController < ApplicationController
+      resource_description do
+        short 'User sessions and authentication'
+      end
+
+      api :POST, '/login', 'Authenticate a user and receive a JWT'
+      param :session, Hash, desc: 'Session credentials', required: true do
+        param :email_address, String, desc: 'User email', required: true
+        param :password, String, desc: 'User password', required: true
+      end
+      error code: 401, desc: 'Unauthorized - Invalid credentials'
       before_action :authenticate_request!, only: [:logged_in?]
 
       # POST /api/v1/login
@@ -16,6 +26,9 @@ module Api
         end
       end
 
+      api :GET, '/logged_in', 'Check if the current user token is valid'
+      description 'Requires a valid JWT in the Authorization header (Bearer <token>).'
+      error code: 401, desc: 'Unauthorized - Token is missing, invalid, or expired'
       # GET /api/v1/logged_in
       def logged_in?
         # This action relies on an authentication method that decodes the token
@@ -27,6 +40,8 @@ module Api
         end
       end
 
+      api :DELETE, '/logout', 'Log out a user'
+      description 'This is a dummy endpoint. JWTs are stateless; logout is handled client-side by deleting the token.'
       # DELETE /api/v1/logout
       def destroy
         # TODO: Make sure JWT is deleted on the frontend
@@ -34,14 +49,6 @@ module Api
       end
     
       private
-
-      def encode_jwt(payload)
-        # Explicitly set the algorithm for better security.
-        # HS256 is the default, but it's best practice to be explicit.
-        algorithm = 'HS256'
-        payload_with_exp = payload.merge(exp: 24.hours.from_now.to_i)
-        JWT.encode(payload_with_exp, Rails.application.secret_key_base, algorithm)
-      end
     end
   end
 end

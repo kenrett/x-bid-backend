@@ -1,40 +1,27 @@
-class Api::V1::BidsController < ApplicationController
-  before_action :authenticate_request!
-  before_action :set_auction
+module Api
+  module V1
+    class BidsController < ApplicationController
+      before_action :authenticate_request!
 
-  def create
-    service = PlaceBid.new(user: current_user, auction: @auction)
+      resource_description do
+        short 'Bidding on auctions'
+      end
 
-    result = service.call
+      api :POST, '/auctions/:auction_id/bids', 'Place a bid on an auction'
+      description 'Places a bid on behalf of the authenticated user. Requires a valid JWT.'
+      param :auction_id, :number, desc: 'ID of the auction to bid on', required: true
+      error code: 401, desc: 'Unauthorized'
+      error code: 422, desc: 'Unprocessable Entity (e.g., auction not active, insufficient credits)'
+      def create
+        auction = Auction.find(params[:auction_id])
+        result = PlaceBid.new(user: @current_user, auction: auction).call
 
-    if result.success?
-      render json: {
-        success: true,
-        bid: {
-          id: result.bid.id,
-          amount: result.bid.amount,
-          user_id: result.bid.user_id,
-          username: result.bid.user.name,
-          created_at: result.bid.created_at
-        },
-        auction: {
-          id: @auction.id,
-          current_price: @auction.current_price,
-          highest_bidder: @auction.winning_user&.name,
-          end_time: @auction.end_time
-        }
-      }, status: :created
-    else
-      render json: {
-        success: false,
-        error: result.error
-      }, status: :unprocessable_content
+        if result.success?
+          render json: { success: true, bid: result.bid }, status: :ok
+        else
+          render json: { success: false, error: result.error }, status: :unprocessable_entity
+        end
+      end
     end
-  end
-
-  private
-
-  def set_auction
-    @auction = Auction.find(params[:auction_id])
   end
 end

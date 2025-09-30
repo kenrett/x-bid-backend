@@ -1,5 +1,7 @@
 Rails.application.routes.draw do
   root "api/v1/auctions#index"
+
+  apipie
   
   namespace :api do
     namespace :v1 do

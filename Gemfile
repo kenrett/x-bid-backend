@@ -38,6 +38,9 @@ gem "rack-cors"
 # JSON Web Token implementation in Ruby
 gem "jwt"
 
+# API Documentation
+gem "apipie-rails"
+
 gem "active_model_serializers"
 
 group :development, :test do

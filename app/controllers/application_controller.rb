@@ -23,4 +23,10 @@ class ApplicationController < ActionController::API
   def current_user
     @current_user
   end
+
+  def encode_jwt(payload)
+    payload_with_exp = payload.merge(exp: 24.hours.from_now.to_i)
+    # Explicitly set the algorithm for better security. HS256 is the default, but it's best practice to be explicit.
+    JWT.encode(payload_with_exp, Rails.application.secret_key_base, 'HS256')
+  end
 end

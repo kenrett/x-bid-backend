@@ -77,6 +77,9 @@ GEM
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
       uri (>= 0.13.1)
+    apipie-rails (1.5.0)
+      actionpack (>= 5.0)
+      activesupport (>= 5.0)
     ast (2.4.3)
     base64 (0.3.0)
     bcrypt (3.1.20)
@@ -333,6 +336,7 @@ PLATFORMS
 
 DEPENDENCIES
   active_model_serializers
+  apipie-rails
   bcrypt (~> 3.1.7)
   bootsnap
   brakeman
