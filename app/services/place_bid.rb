@@ -38,9 +38,10 @@ class PlaceBid
         extend_auction_if_needed!
       end
       broadcast_bid if broadcast
-      Result.new(success?: true, bid: @bid)
+      return Result.new(success?: true, bid: @bid)
     rescue ActiveRecord::RecordInvalid => e
       log_error(e)
+      # This checks if the bid failed because another bid was placed first (race condition).
       return Result.new(success?: false, error: "Another bid was placed first.") if e.record.errors.include?(:amount)
       Result.new(success?: false, error: "Bid could not be placed: #{e.message}")
     rescue => e
@@ -68,6 +69,7 @@ class PlaceBid
     # Broadcast the update to the auction's stream. The `stop_stream` action,
     # called by the bidder's client, prevents this from being echoed to them.
     Rails.logger.info "📡 Broadcasting bid to Auction ##{@auction.id}"
+
     AuctionChannel.broadcast_to(
       @auction,
       {

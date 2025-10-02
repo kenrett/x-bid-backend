@@ -49,6 +49,18 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal "Insufficient bid credits", result.error
   end
 
+  test "should fail and return a specific error if a non-amount validation fails" do
+    # We can simulate a different validation failure by stubbing the auction update.
+    # Here, we pretend updating the winning_user fails for some reason.
+    @auction.errors.add(:winning_user, "is invalid")
+    Auction.any_instance.stubs(:update!).raises(ActiveRecord::RecordInvalid.new(@auction))
+
+    result = PlaceBid.new(user: @user1, auction: @auction).call
+
+    refute result.success?
+    assert_equal "Bid could not be placed: Validation failed: Winning user is invalid", result.error
+  end
+
   test "should extend auction if bid arrives in last 10 seconds" do
     # Set end time to be in the near future to trigger the extension logic.
     @auction.update!(end_time: 5.seconds.from_now) 
