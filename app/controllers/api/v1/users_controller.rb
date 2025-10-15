@@ -18,7 +18,8 @@ module Api
         user = User.new(user_params)
         if user.save
           token = encode_jwt(user_id: user.id)
-          render json: { token:, user: user.slice(:id, :email_address, :role, :name) }, status: :created
+          user_payload = UserSerializer.new(user).as_json
+          render json: { token:, user: user_payload }, status: :created
         else
           render json: { errors: user.errors.full_messages }, status: :unprocessable_entity
         end

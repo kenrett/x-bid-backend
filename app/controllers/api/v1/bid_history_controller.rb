@@ -20,8 +20,7 @@ module Api
             winning_user_id: @auction.winning_user_id,
             winning_user_name: @auction.winning_user&.name
           },
-          # Use SerializableResource to correctly apply the serializer to the collection
-          bids: ActiveModelSerializers::SerializableResource.new(bids, each_serializer: BidHistorySerializer)
+          bids: bids.map { |bid| BidSerializer.new(bid).as_json }
         }
       end
 

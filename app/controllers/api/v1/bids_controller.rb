@@ -17,7 +17,12 @@ module Api
         result = PlaceBid.new(user: @current_user, auction: auction).call
 
         if result.success?
-          render json: { success: true, bid: result.bid }, status: :ok
+          # After a successful bid, include the user's new credit balance in the response
+          # so the frontend can update its state immediately.
+          # We use a serializer for the bid to ensure consistent formatting.
+          render json: {
+            success: true, bid: BidSerializer.new(result.bid).as_json, bidCredits: @current_user.bid_credits
+          }, status: :ok
         else
           render json: { success: false, error: result.error }, status: :unprocessable_entity
         end

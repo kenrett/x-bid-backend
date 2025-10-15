@@ -52,13 +52,17 @@ class PlaceBidTest < ActiveSupport::TestCase
   test "should fail and return a specific error if a non-amount validation fails" do
     # We can simulate a different validation failure by stubbing the auction update.
     # Here, we pretend updating the winning_user fails for some reason.
-    @auction.errors.add(:winning_user, "is invalid")
-    Auction.any_instance.stubs(:update!).raises(ActiveRecord::RecordInvalid.new(@auction))
+    error_message = "Validation failed: Winning user is invalid"
+    @auction.errors.add(:winning_user, "is invalid") # Add a specific error to the object
+    exception = ActiveRecord::RecordInvalid.new(@auction)
+
+    # Temporarily redefine the `update!` method on this specific auction instance
+    # to raise the desired exception.
+    @auction.define_singleton_method(:update!) { |_| raise exception }
 
     result = PlaceBid.new(user: @user1, auction: @auction).call
-
     refute result.success?
-    assert_equal "Bid could not be placed: Validation failed: Winning user is invalid", result.error
+    assert_equal "Bid could not be placed: #{error_message}", result.error
   end
 
   test "should extend auction if bid arrives in last 10 seconds" do

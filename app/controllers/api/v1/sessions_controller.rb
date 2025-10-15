@@ -18,9 +18,11 @@ module Api
       # POST /api/v1/login
       def create
         user = User.find_by(email_address: params[:session][:email_address])
-        if user&.authenticate(params[:session][:password])
+        if user&.authenticate(params[:session][:password]) 
           token = encode_jwt(user_id: user.id)
-          render json: { token:, user: user.slice(:id, :email_address, :role, :name) }
+          # Manually serialize the user to ensure camelCase keys, then build the final payload.
+          user_payload = UserSerializer.new(user).as_json
+          render json: { token:, user: user_payload }
         else
           render json: { error: "Invalid credentials" }, status: :unauthorized
         end
@@ -34,7 +36,8 @@ module Api
         # This action relies on an authentication method that decodes the token
         # from the Authorization header and sets @current_user.
         if @current_user
-          render json: { logged_in: true, user: @current_user }, status: :ok
+          user_payload = UserSerializer.new(@current_user).as_json
+          render json: { logged_in: true, user: user_payload }
         else
           render json: { logged_in: false }, status: :unauthorized
         end

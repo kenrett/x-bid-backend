@@ -6,6 +6,8 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       resources :bid_packs, only: [:index]
+      post '/bid_packs/:id/purchase', to: 'bid_packs#purchase'
+      
       resources :auctions do
         resources :bids, only: [:create]
         resources :bid_history, only: [:index]
