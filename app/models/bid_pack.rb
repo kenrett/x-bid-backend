@@ -1,4 +1,6 @@
 class BidPack < ApplicationRecord
+  has_many :purchases, dependent: :destroy
+
   # Overrides the default as_json method to include a calculated `pricePerBid`.
   # This ensures the API response matches the format expected by the front end.
   def as_json(options = {})

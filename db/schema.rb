@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_24_214045) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_13_221932) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -49,6 +49,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_24_214045) do
     t.index ["user_id"], name: "index_bids_on_user_id"
   end
 
+  create_table "purchases", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "bid_pack_id", null: false
+    t.string "stripe_checkout_session_id"
+    t.string "status"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bid_pack_id"], name: "index_purchases_on_bid_pack_id"
+    t.index ["stripe_checkout_session_id"], name: "index_purchases_on_stripe_checkout_session_id", unique: true
+    t.index ["user_id"], name: "index_purchases_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "name"
     t.string "email_address", null: false
@@ -63,4 +75,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_24_214045) do
   add_foreign_key "auctions", "users", column: "winning_user_id"
   add_foreign_key "bids", "auctions"
   add_foreign_key "bids", "users"
+  add_foreign_key "purchases", "bid_packs"
+  add_foreign_key "purchases", "users"
 end
