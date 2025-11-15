@@ -6,7 +6,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       resources :checkouts, only: [:create]
-      get '/purchase-status', to: 'checkouts#status'
+      get '/checkout/status', to: 'checkouts#status'
       get '/checkout/success', to: 'checkouts#success'
       
       resources :bid_packs, only: [:index]
