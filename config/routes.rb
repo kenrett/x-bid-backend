@@ -22,6 +22,8 @@ Rails.application.routes.draw do
 
       # Routes for sessions (login/logout)
       post '/login', to: 'sessions#create'
+      post '/session/refresh', to: 'sessions#refresh'
+      get '/session/remaining', to: 'sessions#remaining'
       delete '/logout', to: 'sessions#destroy'
       get '/logged_in', to: 'sessions#logged_in?'
     end  

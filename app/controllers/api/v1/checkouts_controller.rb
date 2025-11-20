@@ -49,7 +49,7 @@ class Api::V1::CheckoutsController < ApplicationController
   end
 
   def success
-    # Idempotency check: if this purchase has already been processed, do nothing more.
+    # If this purchase has already been processed, do nothing more.
     if Purchase.exists?(stripe_checkout_session_id: params[:session_id])
       return render json: { status: 'success', message: 'This purchase has already been processed.', updated_bid_credits: @current_user.reload.bid_credits }, status: :already_reported
     end

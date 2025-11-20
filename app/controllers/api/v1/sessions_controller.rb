@@ -1,4 +1,4 @@
-require 'jwt'
+require "jwt"
 
 module Api
   module V1
@@ -7,25 +7,41 @@ module Api
         short 'User sessions and authentication'
       end
 
+      before_action :authenticate_request!, only: [:logged_in?, :destroy, :remaining]
+      rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
+
       api :POST, '/login', 'Authenticate a user and receive a JWT'
       param :session, Hash, desc: 'Session credentials', required: true do
         param :email_address, String, desc: 'User email', required: true
         param :password, String, desc: 'User password', required: true
       end
       error code: 401, desc: 'Unauthorized - Invalid credentials'
-      before_action :authenticate_request!, only: [:logged_in?]
 
       # POST /api/v1/login
       def create
-        user = User.find_by(email_address: params[:session][:email_address])
-        if user&.authenticate(params[:session][:password]) 
-          token = encode_jwt(user_id: user.id)
-          # Manually serialize the user to ensure camelCase keys, then build the final payload.
-          user_payload = UserSerializer.new(user).as_json
-          render json: { token:, user: user_payload }
+        user = User.find_by(email_address: login_params[:email_address])
+        if user&.authenticate(login_params[:password])
+          session_token, refresh_token = SessionToken.generate_for(user:)
+          render json: build_session_response(user:, session_token:, refresh_token:)
         else
           render json: { error: "Invalid credentials" }, status: :unauthorized
         end
+      end
+
+      api :POST, "/session/refresh", "Refresh a session using the issued refresh token"
+      param :session, Hash, required: true do
+        param :refresh_token, String, desc: "The refresh token returned at login", required: true
+      end
+      error code: 401, desc: "Unauthorized - Refresh token invalid or expired"
+      def refresh
+        session_token = SessionToken.find_active_by_raw_token(refresh_params[:refresh_token])
+        return render json: { error: "Invalid or expired session" }, status: :unauthorized unless session_token
+
+        session_token.revoke!
+        SessionEventBroadcaster.session_invalidated(session_token, reason: "refresh_replaced")
+
+        new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
+        render json: build_session_response(user: session_token.user, session_token: new_session_token, refresh_token: refresh_token)
       end
 
       api :GET, '/logged_in', 'Check if the current user token is valid'
@@ -33,25 +49,70 @@ module Api
       error code: 401, desc: 'Unauthorized - Token is missing, invalid, or expired'
       # GET /api/v1/logged_in
       def logged_in?
-        # This action relies on an authentication method that decodes the token
-        # from the Authorization header and sets @current_user.
         if @current_user
           user_payload = UserSerializer.new(@current_user).as_json
-          render json: { logged_in: true, user: user_payload }
+          render json: {
+            logged_in: true,
+            user: user_payload,
+            session_token_id: @current_session_token.id,
+            session_expires_at: @current_session_token.expires_at.iso8601,
+            seconds_remaining: seconds_remaining_for(@current_session_token)
+          }
         else
           render json: { logged_in: false }, status: :unauthorized
         end
       end
 
+      api :GET, "/session/remaining", "Return the remaining session lifetime"
+      description "Requires Authorization header. Can be polled by the client to display an accurate countdown."
+      def remaining
+        expires_at = @current_session_token.expires_at
+        render json: {
+          session_expires_at: expires_at.iso8601,
+          session_token_id: @current_session_token.id,
+          seconds_remaining: seconds_remaining_for(@current_session_token)
+        }
+      end
+
       api :DELETE, '/logout', 'Log out a user'
-      description 'This is a dummy endpoint. JWTs are stateless; logout is handled client-side by deleting the token.'
+      description 'Revokes the active session token and notifies subscribers.'
       # DELETE /api/v1/logout
       def destroy
-        # TODO: Make sure JWT is deleted on the frontend
+        if @current_session_token
+          @current_session_token.revoke!
+          SessionEventBroadcaster.session_invalidated(@current_session_token, reason: "logout")
+        end
+
         render json: { status: 'Logged out successfully' }, status: :ok
       end
     
       private
+
+      def login_params
+        params.require(:session).permit(:email_address, :password)
+      end
+
+      def refresh_params
+        params.require(:session).permit(:refresh_token)
+      end
+
+      def build_session_response(user:, session_token:, refresh_token:)
+        {
+          token: encode_jwt({ user_id: user.id, session_token_id: session_token.id }, expires_at: session_token.expires_at),
+          refresh_token: refresh_token,
+          session_token_id: session_token.id,
+          session_expires_at: session_token.expires_at.iso8601,
+          user: UserSerializer.new(user).as_json
+        }
+      end
+
+      def seconds_remaining_for(session_token)
+        [(session_token.expires_at - Time.current).to_i, 0].max
+      end
+
+      def handle_parameter_missing(exception)
+        render json: { error: exception.message }, status: :bad_request
+      end
     end
   end
 end

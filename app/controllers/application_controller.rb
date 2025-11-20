@@ -1,4 +1,6 @@
 class ApplicationController < ActionController::API
+  attr_reader :current_session_token
+
   def authenticate_request!
     header = request.headers["Authorization"]
     return render json: { error: "Authorization header missing" }, status: :unauthorized unless header
@@ -8,7 +10,14 @@ class ApplicationController < ActionController::API
 
     begin
       decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: 'HS256' })[0]
-      @current_user = User.find_by(id: decoded["user_id"])
+      session_token = SessionToken.find_by(id: decoded["session_token_id"])
+      unless session_token&.active?
+        SessionEventBroadcaster.session_invalidated(session_token, reason: "expired") if session_token
+        return render json: { error: "Session has expired" }, status: :unauthorized
+      end
+
+      @current_session_token = session_token
+      @current_user = session_token.user
     rescue JWT::ExpiredSignature
       render json: { error: "Token has expired" }, status: :unauthorized
     rescue JWT::DecodeError => e
@@ -24,8 +33,9 @@ class ApplicationController < ActionController::API
     @current_user
   end
 
-  def encode_jwt(payload)
-    payload_with_exp = payload.merge(exp: 24.hours.from_now.to_i)
+  def encode_jwt(payload, expires_at: nil)
+    expiration_time = (expires_at || 24.hours.from_now).to_i
+    payload_with_exp = payload.merge(exp: expiration_time)
     # Explicitly set the algorithm for better security. HS256 is the default, but it's best practice to be explicit.
     JWT.encode(payload_with_exp, Rails.application.secret_key_base, 'HS256')
   end
