@@ -11,8 +11,11 @@ module ApplicationCable
     private
 
     def authenticate_connection
-      token = request.params[:token].presence || authorization_header_token
-      reject_unauthorized_connection unless token
+      token = websocket_token
+      unless token
+        Rails.logger.warn("ActionCable connection rejected: no token provided via params, headers, or cookies")
+        reject_unauthorized_connection
+      end
 
       decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
       session_token = SessionToken.find_by(id: decoded["session_token_id"])
@@ -25,6 +28,14 @@ module ApplicationCable
       [session_token.user, session_token.id]
     rescue JWT::DecodeError, ActiveRecord::RecordNotFound
       reject_unauthorized_connection
+    end
+
+    def websocket_token
+      # Prefer explicit params/header, but also fall back to an encrypted cookie if present.
+      request.params[:token].presence ||
+        request.params[:jwt].presence ||
+        authorization_header_token ||
+        cookies.encrypted[:jwt]
     end
 
     def authorization_header_token
