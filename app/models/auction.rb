@@ -12,6 +12,17 @@ class Auction < ApplicationRecord
     status != "active" || (end_time.present? && end_time < Time.current)
   end
 
+  def external_status
+    {
+      "pending" => "scheduled",
+      "ended" => "complete"
+    }.fetch(status, status)
+  end
+
+  def as_json(options = {})
+    super(options).merge("status" => external_status)
+  end
+
   # Checks if the auction is ending within a given duration.
   def ends_within?(duration)
     return false unless end_time

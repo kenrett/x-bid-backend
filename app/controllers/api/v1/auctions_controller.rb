@@ -7,6 +7,8 @@ module Api
         description 'Endpoints for viewing and managing auctions.'
       end
 
+      ALLOWED_STATUSES = %w[inactive scheduled active complete cancelled].freeze
+
       api :GET, '/auctions', 'List all auctions'
       description 'Returns a list of all auctions. This endpoint is public.'
       def index
@@ -36,7 +38,10 @@ module Api
         param :current_price, BigDecimal
       end
       def create
-        auction = Auction.new(auction_params)
+        attrs = normalized_auction_params
+        return render_invalid_status unless attrs
+
+        auction = Auction.new(attrs)
         if auction.save
           render json: auction, status: :created
         else
@@ -47,7 +52,10 @@ module Api
       api :PUT, "/auctions/:id", "Update an auction (admin only)"
       def update
         auction = Auction.find(params[:id])
-        if auction.update(auction_params)
+        attrs = normalized_auction_params
+        return render_invalid_status unless attrs
+
+        if auction.update(attrs)
           render json: auction
         else
           render json: { errors: auction.errors.full_messages }, status: :unprocessable_entity
@@ -59,7 +67,8 @@ module Api
       api :DELETE, "/auctions/:id", "Delete an auction (admin only)"
       def destroy
         auction = Auction.find(params[:id])
-        auction.destroy
+        # Retire instead of hard delete
+        auction.update(status: :inactive)
         head :no_content
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
@@ -77,6 +86,35 @@ module Api
           :end_time,
           :current_price
         )
+      end
+
+      def normalized_auction_params
+        attrs = auction_params.to_h
+        return attrs unless attrs.key?("status")
+
+        normalized = normalize_status(attrs["status"])
+        return nil unless normalized
+
+        attrs.merge("status" => normalized)
+      end
+
+      def normalize_status(raw_status)
+        return if raw_status.blank?
+
+        status_key = raw_status.to_s.downcase
+        mapping = {
+          "inactive" => "inactive",
+          "scheduled" => "pending",
+          "active" => "active",
+          "complete" => "ended",
+          "cancelled" => "cancelled"
+        }
+        mapping[status_key]
+      end
+
+      def render_invalid_status
+        render json: { error: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}" }, status: :unprocessable_entity
+        nil
       end
     end
   end
