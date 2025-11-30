@@ -53,4 +53,16 @@ class AuctionTest < ActiveSupport::TestCase
     @auction.end_time = 15.seconds.from_now
     refute @auction.ends_within?(10.seconds)
   end
+
+  test "#as_json exposes mapped status and bidder info" do
+    @auction.status = :pending
+    @auction.winning_user = User.new(name: "Winner")
+    json = @auction.as_json
+
+    assert_equal "scheduled", json["status"]
+    assert_nil json["highest_bidder_id"]
+    assert_equal "Winner", json["winning_user_name"]
+    # Money fields serialize as strings via JSON; ensure value matches.
+    assert_equal @auction.current_price.to_s, json["current_price"]
+  end
 end
