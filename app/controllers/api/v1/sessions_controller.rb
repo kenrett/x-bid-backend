@@ -54,6 +54,8 @@ module Api
           render json: {
             logged_in: true,
             user: user_payload,
+            is_admin: @current_user.admin? || @current_user.superadmin?,
+            is_superuser: @current_user.superadmin?,
             session_token_id: @current_session_token.id,
             session_expires_at: @current_session_token.expires_at.iso8601,
             seconds_remaining: seconds_remaining_for(@current_session_token)
@@ -97,12 +99,22 @@ module Api
       end
 
       def build_session_response(user:, session_token:, refresh_token:)
+        jwt_payload = {
+          user_id: user.id,
+          session_token_id: session_token.id,
+          is_admin: user.admin? || user.superadmin?,
+          is_superuser: user.superadmin?
+        }
+
         {
-          token: encode_jwt({ user_id: user.id, session_token_id: session_token.id }, expires_at: session_token.expires_at),
+          token: encode_jwt(jwt_payload, expires_at: session_token.expires_at),
           refresh_token: refresh_token,
           session_token_id: session_token.id,
           session_expires_at: session_token.expires_at.iso8601,
-          user: UserSerializer.new(user).as_json
+          user: UserSerializer.new(user).as_json.merge(
+            is_admin: user.admin? || user.superadmin?,
+            is_superuser: user.superadmin?
+          )
         }
       end
 

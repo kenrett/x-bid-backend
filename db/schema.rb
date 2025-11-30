@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_13_221933) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_26_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -36,6 +36,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_13_221933) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "active", default: true, null: false
+    t.index ["active"], name: "index_bid_packs_on_active"
   end
 
   create_table "bids", force: :cascade do |t|
@@ -81,7 +83,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_13_221933) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "bid_credits", default: 0, null: false
+    t.boolean "is_superuser", default: false, null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
+    t.index ["is_superuser"], name: "index_users_on_is_superuser"
   end
 
   add_foreign_key "auctions", "users", column: "winning_user_id"

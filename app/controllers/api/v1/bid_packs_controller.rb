@@ -10,7 +10,7 @@ module Api
       api :GET, '/bid_packs', 'List all available bid packs'
       description 'Returns a list of available bid packs.'
       def index
-        bid_packs = BidPack.all
+        bid_packs = BidPack.active
         render json: bid_packs
       end
 
@@ -18,7 +18,7 @@ module Api
       description 'Purchases a bid pack and credits the user with the bids.'
       param :id, :number, desc: 'ID of the bid pack to purchase', required: true
       def purchase
-        bid_pack = BidPack.find(params[:id])
+        bid_pack = BidPack.active.find(params[:id])
         result = PurchaseBidPack.new(user: @current_user, bid_pack: bid_pack).call
 
         if result.success?

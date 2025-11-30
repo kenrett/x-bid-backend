@@ -26,6 +26,11 @@ Rails.application.routes.draw do
       get '/session/remaining', to: 'sessions#remaining'
       delete '/logout', to: 'sessions#destroy'
       get '/logged_in', to: 'sessions#logged_in?'
+      
+      namespace :admin do
+        resources :bid_packs, path: "bid-packs", only: [:index, :new, :create, :edit, :update]
+        resources :users, only: [:index, :update]
+      end
     end  
   end
 

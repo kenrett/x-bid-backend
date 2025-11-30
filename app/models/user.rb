@@ -6,7 +6,7 @@ class User < ApplicationRecord
   has_many :won_auctions, class_name: "Auction", foreign_key: "winning_user_id"
   has_many :session_tokens, dependent: :destroy
 
-  enum :role, { user: 0, admin: 1 }, default: :user
+  enum :role, { user: 0, admin: 1, superadmin: 2 }, default: :user
 
   normalizes :email_address, with: ->(e) { e.strip.downcase }
 
