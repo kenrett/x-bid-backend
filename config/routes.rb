@@ -28,7 +28,7 @@ Rails.application.routes.draw do
       get '/logged_in', to: 'sessions#logged_in?'
       
       namespace :admin do
-        resources :bid_packs, path: "bid-packs", only: [:index, :new, :create, :edit, :update]
+        resources :bid_packs, path: "bid-packs", only: [:index, :show, :new, :create, :edit, :update, :destroy]
         resources :users, only: [:index, :update]
       end
     end  

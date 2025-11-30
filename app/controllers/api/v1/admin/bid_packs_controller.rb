@@ -3,12 +3,17 @@ module Api
     module Admin
       class BidPacksController < ApplicationController
         before_action :authenticate_request!, :authorize_admin!
-        before_action :set_bid_pack, only: [:edit, :update]
+        before_action :set_bid_pack, only: [:show, :edit, :update, :destroy]
 
         # GET /admin/bid_packs
         def index
           bid_packs = BidPack.all
           render json: bid_packs
+        end
+
+        # GET /admin/bid_packs/:id
+        def show
+          render json: @bid_pack
         end
 
         # GET /admin/bid_packs/new
@@ -22,7 +27,7 @@ module Api
           if bid_pack.save
             render json: bid_pack, status: :created
           else
-            render json: { errors: bid_pack.errors.full_messages }, status: :unprocessable_entity
+            render json: { error: bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_entity
           end
         end
 
@@ -36,7 +41,17 @@ module Api
           if @bid_pack.update(bid_pack_params)
             render json: @bid_pack
           else
-            render json: { errors: @bid_pack.errors.full_messages }, status: :unprocessable_entity
+            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_entity
+          end
+        end
+
+        # DELETE /admin/bid_packs/:id
+        # Soft-deactivates a bid pack to prevent purchase while keeping history.
+        def destroy
+          if @bid_pack.update(active: false)
+            render json: @bid_pack
+          else
+            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_entity
           end
         end
 
