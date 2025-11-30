@@ -12,6 +12,15 @@ User.create!(
 )
 
 User.create!(
+  name: "Superadmin",
+  email_address: "superadmin@example.com",
+  password: "password",
+  password_confirmation: "password",
+  role: :superadmin,
+  bid_credits: 1000
+)
+
+User.create!(
   name: "User One",
   email_address: "user@example.com",
   password: "password",

@@ -33,6 +33,18 @@ class ApplicationController < ActionController::API
     @current_user
   end
 
+  def authorize_admin!
+    return if @current_user&.admin? || @current_user&.superadmin?
+
+    render json: { error: "Admin privileges required" }, status: :forbidden
+  end
+
+  def authorize_superadmin!
+    return if @current_user&.superadmin?
+
+    render json: { error: "Superadmin privileges required" }, status: :forbidden
+  end
+
   def encode_jwt(payload, expires_at: nil)
     expiration_time = (expires_at || 24.hours.from_now).to_i
     payload_with_exp = payload.merge(exp: expiration_time)
