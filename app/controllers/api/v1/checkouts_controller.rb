@@ -2,7 +2,7 @@ class Api::V1::CheckoutsController < ApplicationController
   before_action :authenticate_request!
 
   def create
-    bid_pack = BidPack.find(params[:bid_pack_id])
+    bid_pack = BidPack.active.find(params[:bid_pack_id])
     # debugger
 
     begin
@@ -59,7 +59,7 @@ class Api::V1::CheckoutsController < ApplicationController
     # Only fulfill the order if the payment was successful.
     if session.payment_status == 'paid'
       ActiveRecord::Base.transaction do
-        bid_pack = BidPack.find(session.metadata.bid_pack_id)
+        bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
         
         # Create a purchase record to prevent duplicate processing.
         Purchase.create!(
@@ -79,6 +79,8 @@ class Api::V1::CheckoutsController < ApplicationController
     end
   rescue Stripe::InvalidRequestError => e
     render json: { status: 'error', error: "Invalid session ID: #{e.message}" }, status: :not_found
+  rescue ActiveRecord::RecordNotFound
+    render json: { status: 'error', error: 'Bid pack not found or inactive.' }, status: :not_found
   rescue ActiveRecord::RecordNotUnique
     # This handles a race condition where two requests try to process the same session simultaneously.
     render json: { status: 'success', message: 'This purchase has already been processed.', updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
