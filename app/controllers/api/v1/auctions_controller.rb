@@ -67,7 +67,10 @@ module Api
       api :DELETE, "/auctions/:id", "Delete an auction (admin only)"
       def destroy
         auction = Auction.find(params[:id])
-        # Retire instead of hard delete
+        if auction.bids.exists?
+          return render json: { error: "Cannot retire an auction that has bids." }, status: :unprocessable_entity
+        end
+
         auction.update(status: :inactive)
         head :no_content
       rescue ActiveRecord::RecordNotFound

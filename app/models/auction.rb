@@ -20,7 +20,26 @@ class Auction < ApplicationRecord
   end
 
   def as_json(options = {})
-    super(options).merge("status" => external_status)
+    base = super(
+      {
+        only: [
+          :id,
+          :title,
+          :description,
+          :current_price,
+          :image_url,
+          :status,
+          :start_date,
+          :end_time
+        ]
+      }.merge(options || {})
+    )
+
+    base.merge(
+      "status" => external_status,
+      "highest_bidder_id" => winning_user_id,
+      "winning_user_name" => winning_user&.name
+    )
   end
 
   # Checks if the auction is ending within a given duration.
