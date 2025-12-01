@@ -10,7 +10,7 @@ module Api
         # GET /api/v1/admin/users
         def index
           admins = User.where(role: [:admin, :superadmin])
-          render json: admins, each_serializer: AdminUserSerializer
+          render json: admins, each_serializer: AdminUserSerializer, adapter: :attributes
         end
 
         def grant_admin
