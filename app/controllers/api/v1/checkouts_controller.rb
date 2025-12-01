@@ -75,7 +75,7 @@ class Api::V1::CheckoutsController < ApplicationController
 
       render json: { status: 'success', message: 'Purchase successful!', updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
     else
-      render json: { status: 'error', error: 'Payment was not successful.' }, status: :unprocessable_entity
+      render json: { status: 'error', error: 'Payment was not successful.' }, status: :unprocessable_content
     end
   rescue Stripe::InvalidRequestError => e
     render json: { status: 'error', error: "Invalid session ID: #{e.message}" }, status: :not_found

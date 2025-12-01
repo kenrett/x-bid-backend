@@ -120,6 +120,8 @@ module Api
           refresh_token: refresh_token,
           session_token_id: session_token.id,
           session_expires_at: session_token.expires_at.iso8601,
+          is_admin: user.admin? || user.superadmin?,
+          is_superuser: user.superadmin?,
           user: UserSerializer.new(user).as_json.merge(
             is_admin: user.admin? || user.superadmin?,
             is_superuser: user.superadmin?

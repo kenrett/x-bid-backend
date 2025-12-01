@@ -56,7 +56,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
 
     delete "/api/v1/auctions/#{auction.id}", headers: auth_headers
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     body = JSON.parse(response.body)
     assert_includes body["error"], "Cannot retire an auction that has bids"
   end
@@ -73,7 +73,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
 
     put "/api/v1/auctions/#{auction.id}", params: { auction: { status: "not-a-status" } }, headers: auth_headers
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     body = JSON.parse(response.body)
     assert_includes body["error"], "Invalid status"
   end

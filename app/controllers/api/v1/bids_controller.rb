@@ -24,7 +24,7 @@ module Api
             success: true, bid: BidSerializer.new(result.bid).as_json, bidCredits: @current_user.bid_credits
           }, status: :ok
         else
-          render json: { success: false, error: result.error }, status: :unprocessable_entity
+          render json: { success: false, error: result.error }, status: :unprocessable_content
         end
       end
     end

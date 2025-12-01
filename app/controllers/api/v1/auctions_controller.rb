@@ -45,7 +45,7 @@ module Api
         if auction.save
           render json: auction, status: :created
         else
-          render json: { errors: auction.errors.full_messages }, status: :unprocessable_entity
+          render json: { errors: auction.errors.full_messages }, status: :unprocessable_content
         end
       end
 
@@ -58,7 +58,7 @@ module Api
         if auction.update(attrs)
           render json: auction
         else
-          render json: { errors: auction.errors.full_messages }, status: :unprocessable_entity
+          render json: { errors: auction.errors.full_messages }, status: :unprocessable_content
         end
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
@@ -68,7 +68,7 @@ module Api
       def destroy
         auction = Auction.find(params[:id])
         if auction.bids.exists?
-          return render json: { error: "Cannot retire an auction that has bids." }, status: :unprocessable_entity
+          return render json: { error: "Cannot retire an auction that has bids." }, status: :unprocessable_content
         end
 
         auction.update(status: :inactive)
@@ -116,7 +116,7 @@ module Api
       end
 
       def render_invalid_status
-        render json: { error: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}" }, status: :unprocessable_entity
+        render json: { error: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}" }, status: :unprocessable_content
         nil
       end
     end

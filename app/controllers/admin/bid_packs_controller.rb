@@ -24,7 +24,7 @@ module Admin
       if @bid_pack.update(bid_pack_params)
         render json: @bid_pack
       else
-        render json: { errors: @bid_pack.errors.full_messages }, status: :unprocessable_entity
+        render json: { errors: @bid_pack.errors.full_messages }, status: :unprocessable_content
       end
     end
 

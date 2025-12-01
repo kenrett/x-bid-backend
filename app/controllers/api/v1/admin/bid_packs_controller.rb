@@ -27,7 +27,7 @@ module Api
           if bid_pack.save
             render json: bid_pack, status: :created
           else
-            render json: { error: bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_entity
+            render json: { error: bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
           end
         end
 
@@ -41,7 +41,7 @@ module Api
           if @bid_pack.update(bid_pack_params)
             render json: @bid_pack
           else
-            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_entity
+            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
           end
         end
 
@@ -51,7 +51,7 @@ module Api
           if @bid_pack.update(active: false)
             render json: @bid_pack
           else
-            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_entity
+            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
           end
         end
 
