@@ -38,6 +38,7 @@ Rails.application.routes.draw do
             post :ban
           end
         end
+        resources :payments, only: [:index]
       end
     end  
   end
