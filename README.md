@@ -56,8 +56,10 @@ All endpoints are prefixed with `/api/v1`.
 
 *   `POST /users`: Register a new user.
 *   `POST /login`: Log in to receive a JWT.
+    * Response includes `is_admin` and `is_superuser` flags (also returned by session refresh).
 *   `DELETE /logout`: Log out (for client-side session clearing).
 *   `GET /logged_in`: Check if the current user's JWT is valid.
+*   `POST /session/refresh`: Refresh the active session token.
 
 ### Auctions
 
@@ -75,6 +77,15 @@ All endpoints are prefixed with `/api/v1`.
 ### Bid Packs
 
 *   `GET /bid_packs`: Get a list of available bid packs for purchase.
+*   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE is a soft deactivate).
+
+### Admin & Audit
+
+*   `GET /api/v1/admin/users`: List admin/superadmin users (superadmin only). Member actions to grant/revoke admin/superadmin and ban users:  
+    `POST /api/v1/admin/users/:id/grant_admin`, `.../revoke_admin`, `.../grant_superadmin`, `.../revoke_superadmin`, `.../ban`.
+*   `GET /api/v1/admin/payments`: List purchases with optional `search=userEmail` filter (admin/superadmin).
+*   `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }` (admin/superadmin).
+*   Audit logs are also written automatically for admin actions such as auction create/update/delete, bid pack create/update/deactivate, and admin role changes/bans.
 
 ---
 
