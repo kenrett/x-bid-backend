@@ -18,6 +18,7 @@ module Api
           return render_error("User is already an admin") if @user.admin?
 
           if @user.update(role: :admin)
+            AuditLogger.log(action: "user.grant_admin", actor: @current_user, target: @user)
             render_admin_user(@user)
           else
             render_validation_error(@user)
@@ -29,6 +30,7 @@ module Api
           return render_error("User is not an admin") unless @user.admin?
 
           if @user.update(role: :user)
+            AuditLogger.log(action: "user.revoke_admin", actor: @current_user, target: @user)
             render_admin_user(@user)
           else
             render_validation_error(@user)
@@ -39,6 +41,7 @@ module Api
           return render_error("User is already a superadmin") if @user.superadmin?
 
           if @user.update(role: :superadmin)
+            AuditLogger.log(action: "user.grant_superadmin", actor: @current_user, target: @user)
             render_admin_user(@user)
           else
             render_validation_error(@user)
@@ -49,6 +52,7 @@ module Api
           return render_error("User is not a superadmin") unless @user.superadmin?
 
           if @user.update(role: :admin)
+            AuditLogger.log(action: "user.revoke_superadmin", actor: @current_user, target: @user)
             render_admin_user(@user)
           else
             render_validation_error(@user)
@@ -59,6 +63,7 @@ module Api
           return render_error("User already disabled") if @user.disabled?
 
           @user.disable_and_revoke_sessions!
+          AuditLogger.log(action: "user.ban", actor: @current_user, target: @user)
           render_admin_user(@user)
         rescue ActiveRecord::ActiveRecordError => e
           render_error("Unable to disable user: #{e.message}")
@@ -67,6 +72,7 @@ module Api
         # PATCH/PUT /api/v1/admin/users/:id
         def update
           if @user.update(user_params)
+            AuditLogger.log(action: "user.update", actor: @current_user, target: @user, payload: user_params.to_h)
             render_admin_user(@user)
           else
             render_validation_error(@user)

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_27_001000) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_30_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -26,6 +26,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_27_001000) do
     t.datetime "updated_at", null: false
     t.bigint "winning_user_id"
     t.index ["winning_user_id"], name: "index_auctions_on_winning_user_id"
+  end
+
+  create_table "audit_logs", force: :cascade do |t|
+    t.string "action", null: false
+    t.bigint "actor_id", null: false
+    t.string "target_type"
+    t.bigint "target_id"
+    t.jsonb "payload", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["action"], name: "index_audit_logs_on_action"
+    t.index ["actor_id"], name: "index_audit_logs_on_actor_id"
+    t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
   end
 
   create_table "bid_packs", force: :cascade do |t|
@@ -91,6 +104,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_27_001000) do
   end
 
   add_foreign_key "auctions", "users", column: "winning_user_id"
+  add_foreign_key "audit_logs", "users", column: "actor_id"
   add_foreign_key "bids", "auctions"
   add_foreign_key "bids", "users"
   add_foreign_key "purchases", "bid_packs"

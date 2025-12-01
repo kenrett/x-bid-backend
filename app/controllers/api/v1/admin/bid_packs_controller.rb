@@ -25,6 +25,7 @@ module Api
         def create
           bid_pack = BidPack.new(bid_pack_params)
           if bid_pack.save
+            AuditLogger.log(action: "bid_pack.create", actor: @current_user, target: bid_pack, payload: bid_pack_params.to_h)
             render json: bid_pack, status: :created
           else
             render json: { error: bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
@@ -39,6 +40,7 @@ module Api
         # PATCH/PUT /admin/bid_packs/:id
         def update
           if @bid_pack.update(bid_pack_params)
+            AuditLogger.log(action: "bid_pack.update", actor: @current_user, target: @bid_pack, payload: bid_pack_params.to_h)
             render json: @bid_pack
           else
             render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
@@ -49,6 +51,7 @@ module Api
         # Soft-deactivates a bid pack to prevent purchase while keeping history.
         def destroy
           if @bid_pack.update(active: false)
+            AuditLogger.log(action: "bid_pack.delete", actor: @current_user, target: @bid_pack, payload: { active: false })
             render json: @bid_pack
           else
             render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content

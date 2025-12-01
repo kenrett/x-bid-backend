@@ -43,6 +43,7 @@ module Api
 
         auction = Auction.new(attrs)
         if auction.save
+          AuditLogger.log(action: "auction.create", actor: @current_user, target: auction, payload: attrs)
           render json: auction, status: :created
         else
           render json: { errors: auction.errors.full_messages }, status: :unprocessable_content
@@ -56,6 +57,7 @@ module Api
         return render_invalid_status unless attrs
 
         if auction.update(attrs)
+          AuditLogger.log(action: "auction.update", actor: @current_user, target: auction, payload: attrs)
           render json: auction
         else
           render json: { errors: auction.errors.full_messages }, status: :unprocessable_content
@@ -72,6 +74,7 @@ module Api
         end
 
         auction.update(status: :inactive)
+        AuditLogger.log(action: "auction.delete", actor: @current_user, target: auction, payload: { status: "inactive" })
         head :no_content
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found

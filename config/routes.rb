@@ -39,6 +39,7 @@ Rails.application.routes.draw do
           end
         end
         resources :payments, only: [:index]
+        post "/audit", to: "audit#create"
       end
     end  
   end
