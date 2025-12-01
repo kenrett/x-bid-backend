@@ -20,6 +20,10 @@ module Api
       # POST /api/v1/login
       def create
         user = User.find_by(email_address: login_params[:email_address])
+        if user&.disabled?
+          return render json: { error: "User account disabled" }, status: :forbidden
+        end
+
         if user&.authenticate(login_params[:password])
           session_token, refresh_token = SessionToken.generate_for(user:)
           render json: build_session_response(user:, session_token:, refresh_token:)
@@ -36,6 +40,11 @@ module Api
       def refresh
         session_token = SessionToken.find_active_by_raw_token(refresh_params[:refresh_token])
         return render json: { error: "Invalid or expired session" }, status: :unauthorized unless session_token
+        if session_token.user.disabled?
+          session_token.revoke!
+          SessionEventBroadcaster.session_invalidated(session_token, reason: "user_disabled")
+          return render json: { error: "User account disabled" }, status: :forbidden
+        end
 
         session_token.revoke!
         SessionEventBroadcaster.session_invalidated(session_token, reason: "refresh_replaced")

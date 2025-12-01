@@ -33,9 +33,9 @@ module Api
         param :description, String
         param :image_url, String
         param :status, String
-        param :start_date, DateTime
-        param :end_time, DateTime
-        param :current_price, BigDecimal
+        param :start_date, String, desc: "ISO8601 datetime"
+        param :end_time, String, desc: "ISO8601 datetime"
+        param :current_price, String, desc: "Price as string or numeric"
       end
       def create
         attrs = normalized_auction_params

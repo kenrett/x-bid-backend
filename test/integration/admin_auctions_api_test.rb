@@ -22,8 +22,8 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
       auction: {
         title: "Test Auction",
         description: "Desc",
-        start_date: Time.current.to_s(:db),
-        end_time: 1.day.from_now.to_s(:db),
+        start_date: Time.current.iso8601,
+        end_time: 1.day.from_now.iso8601,
         current_price: 10.0,
         status: "scheduled"
       }

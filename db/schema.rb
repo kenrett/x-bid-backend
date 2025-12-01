@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_26_001000) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_27_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -84,8 +84,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_26_001000) do
     t.datetime "updated_at", null: false
     t.integer "bid_credits", default: 0, null: false
     t.boolean "is_superuser", default: false, null: false
+    t.integer "status", default: 0, null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["is_superuser"], name: "index_users_on_is_superuser"
+    t.index ["status"], name: "index_users_on_status"
   end
 
   add_foreign_key "auctions", "users", column: "winning_user_id"

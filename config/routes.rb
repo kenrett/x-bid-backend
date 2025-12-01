@@ -29,7 +29,15 @@ Rails.application.routes.draw do
       
       namespace :admin do
         resources :bid_packs, path: "bid-packs", only: [:index, :show, :new, :create, :edit, :update, :destroy]
-        resources :users, only: [:index, :update]
+        resources :users, only: [:index, :update] do
+          member do
+            post :grant_admin
+            post :revoke_admin
+            post :grant_superadmin
+            post :revoke_superadmin
+            post :ban
+          end
+        end
       end
     end  
   end

@@ -18,6 +18,11 @@ class ApplicationController < ActionController::API
 
       @current_session_token = session_token
       @current_user = session_token.user
+      if @current_user.disabled?
+        session_token.revoke! unless session_token.revoked_at?
+        SessionEventBroadcaster.session_invalidated(session_token, reason: "user_disabled")
+        return render json: { error: "User account disabled" }, status: :unauthorized
+      end
     rescue JWT::ExpiredSignature
       render json: { error: "Token has expired" }, status: :unauthorized
     rescue JWT::DecodeError => e
