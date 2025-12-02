@@ -61,6 +61,39 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
     assert_includes body["error"], "Cannot retire an auction that has bids"
   end
 
+  test "retires auction without bids and returns no content" do
+    auction = Auction.create!(
+      title: "Retire Cleanly",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :active
+    )
+
+    delete "/api/v1/auctions/#{auction.id}", headers: auth_headers
+
+    assert_response :no_content
+    assert_equal "inactive", auction.reload.status
+  end
+
+  test "returns an error when retiring an already inactive auction" do
+    auction = Auction.create!(
+      title: "Already Inactive",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    delete "/api/v1/auctions/#{auction.id}", headers: auth_headers
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "Auction already inactive", body["error"]
+  end
+
   test "invalid status returns 422" do
     auction = Auction.create!(
       title: "Update Me",
@@ -76,6 +109,24 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
     assert_includes body["error"], "Invalid status"
+  end
+
+  test "blocks hard delete through the model" do
+    auction = Auction.create!(
+      title: "Do Not Delete",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :active
+    )
+
+    assert_no_difference("Auction.count") do
+      assert_not auction.destroy
+    end
+
+    assert_includes auction.errors.full_messages, "Auctions cannot be hard-deleted; retire instead"
+    assert_equal "active", auction.reload.status
   end
 
   private

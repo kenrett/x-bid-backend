@@ -15,6 +15,8 @@ class Auction < ApplicationRecord
   validates :title, :description, :start_date, presence: true
   validates :current_price, numericality: { greater_than_or_equal_to: 0 }
 
+  before_destroy :prevent_destroy
+
   # Accept external status values and map them to internal enum keys.
   def status=(value)
     mapped = self.class.normalize_status(value) || value
@@ -65,5 +67,12 @@ class Auction < ApplicationRecord
   def ends_within?(duration)
     return false unless end_time
     (Time.current..Time.current + duration).cover?(end_time)
+  end
+
+  private
+
+  def prevent_destroy
+    errors.add(:base, "Auctions cannot be hard-deleted; retire instead")
+    throw(:abort)
   end
 end

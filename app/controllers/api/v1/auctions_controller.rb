@@ -94,13 +94,20 @@ module Api
       error code: 422, desc: 'Unprocessable content - cannot delete auction with bids'
       def destroy
         auction = Auction.find(params[:id])
+        if auction.inactive?
+          return render json: { error: "Auction already inactive" }, status: :unprocessable_content
+        end
+
         if auction.bids.exists?
           return render json: { error: "Cannot retire an auction that has bids." }, status: :unprocessable_content
         end
 
-        auction.update(status: :inactive)
-        AuditLogger.log(action: "auction.delete", actor: @current_user, target: auction, payload: { status: "inactive" })
-        head :no_content
+        if auction.update(status: :inactive)
+          AuditLogger.log(action: "auction.delete", actor: @current_user, target: auction, payload: { status: "inactive" })
+          head :no_content
+        else
+          render json: { error: auction.errors.full_messages.to_sentence }, status: :unprocessable_content
+        end
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
       end
@@ -126,10 +133,7 @@ module Api
         normalized = normalize_status(attrs["status"])
         return nil unless normalized
 
-        attrs.merge("status" => normalized)
-        
-        # The model will handle invalid statuses and raise an ArgumentError
-        attrs
+        attrs.merge!("status" => normalized)
       rescue ArgumentError => e
         # Log the error if you want, e.g. Rails.logger.error(e.message)
         nil
