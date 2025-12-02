@@ -59,20 +59,7 @@ module Api
       # GET /api/v1/logged_in
       def logged_in?
         if @current_user
-          user_payload = UserSerializer.new(@current_user).as_json
-          render json: {
-            logged_in: true,
-            user: user_payload,
-            is_admin: @current_user.admin? || @current_user.superadmin?,
-            is_superuser: @current_user.superadmin?,
-            session_token_id: @current_session_token.id,
-            session_expires_at: @current_session_token.expires_at.iso8601,
-            seconds_remaining: seconds_remaining_for(@current_session_token)
-            user: user_data(@current_user),
-            session: session_data(@current_session_token),
-            is_admin: @current_user.is_admin?,
-            is_superuser: @current_user.is_superuser?
-          }
+          render json: build_logged_in_response(@current_user, @current_session_token)
         else
           render json: { logged_in: false }, status: :unauthorized
         end
@@ -121,21 +108,33 @@ module Api
           is_superuser: user.superadmin?
         }
 
-    
         {
           token: encode_jwt(jwt_payload, expires_at: session_token.expires_at),
           refresh_token: refresh_token,
           session: session_data(session_token),
-          is_admin: user.is_admin?,
-          is_superuser: user.is_superuser?,
+          is_admin: user.admin? || user.superadmin?,
+          is_superuser: user.superadmin?,
           user: user_data(user)
+        }
+      end
+
+      def build_logged_in_response(user, session_token)
+        {
+          logged_in: true,
+          user: user_data(user),
+          is_admin: user.admin? || user.superadmin?,
+          is_superuser: user.superadmin?,
+          session_token_id: session_token.id,
+          session_expires_at: session_token.expires_at.iso8601,
+          seconds_remaining: seconds_remaining_for(session_token),
+          session: session_data(session_token)
         }
       end
     
       def user_data(user)
         UserSerializer.new(user).as_json.merge(
-          is_admin: user.is_admin?,
-          is_superuser: user.is_superuser?
+          is_admin: user.admin? || user.superadmin?,
+          is_superuser: user.superadmin?
         )
       end
 
@@ -143,12 +142,6 @@ module Api
         {
           session_token_id: session_token.id,
           session_expires_at: session_token.expires_at.iso8601,
-          is_admin: user.admin? || user.superadmin?,
-          is_superuser: user.superadmin?,
-          user: UserSerializer.new(user).as_json.merge(
-            is_admin: user.admin? || user.superadmin?,
-            is_superuser: user.superadmin?
-          )
           seconds_remaining: seconds_remaining_for(session_token)
         }
       end
