@@ -16,6 +16,7 @@ module Api
       description 'Returns a list of all auctions. This endpoint is public.'
       def index
         auctions = Auction.all
+        auctions = Auction.with_attached_image # Or whatever scope is appropriate
         render json: auctions
       end
 
@@ -39,6 +40,12 @@ module Api
         param :start_date, String, desc: "ISO8601 datetime", required: true
         param :end_time, String, desc: "ISO8601 datetime", required: false, default_value: nil
         param :current_price, String, desc: "Price as string or numeric", required: true
+        param :description, String
+        param :image_url, String
+        param :status, String
+        param :start_date, String, desc: "ISO8601 datetime"
+        param :end_time, String, desc: "ISO8601 datetime"
+        param :current_price, String, desc: "Price as string or numeric"
       end
       error code: 200, desc: 'Success'
       error code: 401, desc: 'Unauthorized'
@@ -120,6 +127,12 @@ module Api
         return nil unless normalized
 
         attrs.merge("status" => normalized)
+        
+        # The model will handle invalid statuses and raise an ArgumentError
+        attrs
+      rescue ArgumentError => e
+        # Log the error if you want, e.g. Rails.logger.error(e.message)
+        nil
       end
 
       def normalize_status(raw_status)
