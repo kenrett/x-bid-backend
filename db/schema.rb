@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_01_000000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_02_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -66,6 +66,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_01_000000) do
     t.index ["user_id"], name: "index_bids_on_user_id"
   end
 
+  create_table "password_reset_tokens", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token_digest", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "used_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_password_reset_tokens_on_expires_at"
+    t.index ["token_digest"], name: "index_password_reset_tokens_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_password_reset_tokens_on_user_id"
+  end
+
   create_table "purchases", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.bigint "bid_pack_id", null: false
@@ -109,6 +121,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_01_000000) do
   add_foreign_key "audit_logs", "users", column: "actor_id"
   add_foreign_key "bids", "auctions"
   add_foreign_key "bids", "users"
+  add_foreign_key "password_reset_tokens", "users"
   add_foreign_key "purchases", "bid_packs"
   add_foreign_key "purchases", "users"
   add_foreign_key "session_tokens", "users"
