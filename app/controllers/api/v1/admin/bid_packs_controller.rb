@@ -48,10 +48,12 @@ module Api
         end
 
         # DELETE /admin/bid_packs/:id
-        # Soft-deactivates a bid pack to prevent purchase while keeping history.
+        # Retires a bid pack to prevent purchase while keeping history.
         def destroy
-          if @bid_pack.update(active: false)
-            AuditLogger.log(action: "bid_pack.delete", actor: @current_user, target: @bid_pack, payload: { active: false })
+          if @bid_pack.retired?
+            render json: { error: "Bid pack already retired" }, status: :unprocessable_content
+          elsif @bid_pack.update(status: :retired, active: false)
+            AuditLogger.log(action: "bid_pack.delete", actor: @current_user, target: @bid_pack, payload: { status: "retired" })
             render json: @bid_pack
           else
             render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
@@ -67,7 +69,14 @@ module Api
         end
 
         def bid_pack_params
-          params.require(:bid_pack).permit(:name, :price, :bids, :highlight, :description, :active)
+          permitted = params.require(:bid_pack).permit(:name, :price, :bids, :highlight, :description, :status, :active)
+
+          # Map legacy `active` flag to the new status enum.
+          if permitted.key?(:active)
+            permitted[:status] = ActiveRecord::Type::Boolean.new.cast(permitted.delete(:active)) ? "active" : "retired"
+          end
+
+          permitted
         end
       end
     end

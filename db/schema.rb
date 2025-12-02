@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_30_001000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_01_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -50,7 +50,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_30_001000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.boolean "active", default: true, null: false
+    t.integer "status", default: 0, null: false
     t.index ["active"], name: "index_bid_packs_on_active"
+    t.index ["status"], name: "index_bid_packs_on_status"
   end
 
   create_table "bids", force: :cascade do |t|

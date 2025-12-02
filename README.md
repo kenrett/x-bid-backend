@@ -77,7 +77,7 @@ All endpoints are prefixed with `/api/v1`.
 ### Bid Packs
 
 *   `GET /bid_packs`: Get a list of available bid packs for purchase.
-*   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE is a soft deactivate).
+*   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE retires a bid pack; hard delete is blocked to preserve purchase history).
 
 ### Admin & Audit
 
