@@ -2,12 +2,23 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <style>
-      /* Email styles need to be inline */
-    </style>
   </head>
-
-  <body>
-    <%= yield %>
+  <body style="margin:0; padding:0; background-color:#0d0d1a; font-family:'Segoe UI', Arial, sans-serif; color:#f8fafc;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#0d0d1a; padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background-color:#121226; border-radius:16px; overflow:hidden; border:1px solid #1f1f33;">
+            <tr>
+              <td style="height:8px; background:linear-gradient(90deg, #ff69b4, #c43de3, #a020f0);"></td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <%= yield %>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>

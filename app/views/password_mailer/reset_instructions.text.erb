@@ -1,0 +1,12 @@
+Reset your password
+
+Hello <%= @user.name.presence || "there" %>,
+
+Use the secure link below to set a new password for your X-Bid account:
+<%= @reset_url %>
+
+<% unless Rails.env.production? %>
+Token (dev/test only): <%= @reset_url.split("token=").last %>
+<% end %>
+
+If you didn’t request this, you can safely ignore this email.

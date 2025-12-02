@@ -5,15 +5,7 @@ class PasswordMailer < ApplicationMailer
 
     mail(
       to: user.email_address,
-      subject: "Reset your X-Bid password",
-      body: <<~BODY
-        Hello #{user.name.presence || "there"},
-
-        A password reset was requested for your X-Bid account. If this was you, reset your password here:
-        #{@reset_url}
-
-        If you did not request this, you can ignore this email.
-      BODY
+      subject: "Reset your X-Bid password"
     )
   end
 
