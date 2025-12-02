@@ -68,6 +68,10 @@ module Api
             session_token_id: @current_session_token.id,
             session_expires_at: @current_session_token.expires_at.iso8601,
             seconds_remaining: seconds_remaining_for(@current_session_token)
+            user: user_data(@current_user),
+            session: session_data(@current_session_token),
+            is_admin: @current_user.is_admin?,
+            is_superuser: @current_user.is_superuser?
           }
         else
           render json: { logged_in: false }, status: :unauthorized
@@ -76,6 +80,7 @@ module Api
 
       api :GET, "/session/remaining", "Return the remaining session lifetime"
       description "Requires Authorization header. Can be polled by the client to display an accurate countdown."
+      error code: 401, desc: "Unauthorized - missing or invalid token"
       def remaining
         expires_at = @current_session_token.expires_at
         render json: {
@@ -87,6 +92,7 @@ module Api
 
       api :DELETE, '/logout', 'Log out a user'
       description 'Revokes the active session token and notifies subscribers.'
+      error code: 401, desc: 'Unauthorized - missing or invalid token'
       # DELETE /api/v1/logout
       def destroy
         if @current_session_token
@@ -115,9 +121,26 @@ module Api
           is_superuser: user.superadmin?
         }
 
+    
         {
           token: encode_jwt(jwt_payload, expires_at: session_token.expires_at),
           refresh_token: refresh_token,
+          session: session_data(session_token),
+          is_admin: user.is_admin?,
+          is_superuser: user.is_superuser?,
+          user: user_data(user)
+        }
+      end
+    
+      def user_data(user)
+        UserSerializer.new(user).as_json.merge(
+          is_admin: user.is_admin?,
+          is_superuser: user.is_superuser?
+        )
+      end
+
+      def session_data(session_token)
+        {
           session_token_id: session_token.id,
           session_expires_at: session_token.expires_at.iso8601,
           is_admin: user.admin? || user.superadmin?,
@@ -126,6 +149,7 @@ module Api
             is_admin: user.admin? || user.superadmin?,
             is_superuser: user.superadmin?
           )
+          seconds_remaining: seconds_remaining_for(session_token)
         }
       end
 

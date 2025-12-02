@@ -10,6 +10,9 @@ module Api
       ALLOWED_STATUSES = %w[inactive scheduled active complete cancelled].freeze
 
       api :GET, '/auctions', 'List all auctions'
+      error code: 200, desc: 'Success'
+      error code: 401, desc: 'Unauthorized'
+      error code: 403, desc: 'Admin privileges required'
       description 'Returns a list of all auctions. This endpoint is public.'
       def index
         auctions = Auction.all
@@ -30,13 +33,17 @@ module Api
       api :POST, "/auctions", "Create a new auction (admin only)"
       param :auction, Hash, required: true do
         param :title, String, required: true
-        param :description, String
-        param :image_url, String
-        param :status, String
-        param :start_date, String, desc: "ISO8601 datetime"
-        param :end_time, String, desc: "ISO8601 datetime"
-        param :current_price, String, desc: "Price as string or numeric"
+        param :description, String, required: true
+        param :image_url, String, required: false, default_value: nil
+        param :status, String, required: false, default_value: nil
+        param :start_date, String, desc: "ISO8601 datetime", required: true
+        param :end_time, String, desc: "ISO8601 datetime", required: false, default_value: nil
+        param :current_price, String, desc: "Price as string or numeric", required: true
       end
+      error code: 200, desc: 'Success'
+      error code: 401, desc: 'Unauthorized'
+      error code: 403, desc: 'Admin privileges required'
+      error code: 422, desc: 'Unprocessable content - validation errors or invalid status'
       def create
         attrs = normalized_auction_params
         return render_invalid_status unless attrs
@@ -51,6 +58,12 @@ module Api
       end
 
       api :PUT, "/auctions/:id", "Update an auction (admin only)"
+      param :id, :number, desc: "Auction ID", required: true
+      error code: 204, desc: 'Deleted'
+      error code: 401, desc: 'Unauthorized'
+      error code: 403, desc: 'Admin privileges required'
+      error code: 404, desc: 'Not found'
+      error code: 422, desc: 'Unprocessable content - validation errors or invalid status'
       def update
         auction = Auction.find(params[:id])
         attrs = normalized_auction_params
@@ -67,6 +80,11 @@ module Api
       end
 
       api :DELETE, "/auctions/:id", "Delete an auction (admin only)"
+      param :id, :number, desc: "Auction ID", required: true
+      error code: 401, desc: 'Unauthorized'
+      error code: 403, desc: 'Admin privileges required'
+      error code: 404, desc: 'Not found'
+      error code: 422, desc: 'Unprocessable content - cannot delete auction with bids'
       def destroy
         auction = Auction.find(params[:id])
         if auction.bids.exists?

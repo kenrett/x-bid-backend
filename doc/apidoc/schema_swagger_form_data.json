@@ -1,0 +1,464 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "XBid API (params in:formData)",
+    "description": "\n<p>Another API description</p>\n",
+    "version": "1.0",
+    "x-copyright": null
+  },
+  "basePath": "/api/v1",
+  "consumes": [
+    "application/x-www-form-urlencoded",
+    "multipart/form-data"
+  ],
+  "paths": {
+    "/auctions": {
+      "get": {
+        "tags": [
+          "auctions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "get_auctions",
+        "summary": "List all auctions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": "Returns a list of all auctions. This endpoint is public."
+      },
+      "post": {
+        "tags": [
+          "auctions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_auctions",
+        "summary": "Create a new auction (admin only)",
+        "parameters": [
+          {
+            "name": "auction[title]",
+            "type": "string",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "name": "auction[description]",
+            "type": "string",
+            "in": "formData"
+          },
+          {
+            "name": "auction[image_url]",
+            "type": "string",
+            "in": "formData"
+          },
+          {
+            "name": "auction[status]",
+            "type": "string",
+            "in": "formData"
+          },
+          {
+            "name": "auction[start_date]",
+            "type": "string",
+            "in": "formData",
+            "description": "ISO8601 datetime"
+          },
+          {
+            "name": "auction[end_time]",
+            "type": "string",
+            "in": "formData",
+            "description": "ISO8601 datetime"
+          },
+          {
+            "name": "auction[current_price]",
+            "type": "string",
+            "in": "formData",
+            "description": "Price as string or numeric"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": ""
+      }
+    },
+    "/auctions/{id}": {
+      "get": {
+        "tags": [
+          "auctions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "get_auctions_id",
+        "summary": "Show a single auction",
+        "parameters": [
+          {
+            "name": "id",
+            "type": "number",
+            "in": "path",
+            "required": true,
+            "description": "ID of the auction"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "description": "Returns the details for a specific auction, including its bid history."
+      },
+      "put": {
+        "tags": [
+          "auctions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "put_auctions_id",
+        "summary": "Update an auction (admin only)",
+        "parameters": [
+          {
+            "name": "id",
+            "type": "number",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": ""
+      },
+      "delete": {
+        "tags": [
+          "auctions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "delete_auctions_id",
+        "summary": "Delete an auction (admin only)",
+        "parameters": [
+          {
+            "name": "id",
+            "type": "number",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": ""
+      }
+    },
+    "/auctions/{auction_id}/bid_history": {
+      "get": {
+        "tags": [
+          "bid_history"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "get_auctions_auction_id_bid_history",
+        "summary": "List the bid history for an auction",
+        "parameters": [
+          {
+            "name": "auction_id",
+            "type": "number",
+            "in": "path",
+            "required": true,
+            "description": "ID of the auction"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found - The auction with the specified ID was not found."
+          }
+        },
+        "description": ""
+      }
+    },
+    "/bid_packs": {
+      "get": {
+        "tags": [
+          "bid_packs"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "get_bid_packs",
+        "summary": "List all available bid packs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": "Returns a list of available bid packs."
+      }
+    },
+    "/bid_packs/{id}/purchase": {
+      "post": {
+        "tags": [
+          "bid_packs"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_bid_packs_id_purchase",
+        "summary": "Purchase a bid pack",
+        "parameters": [
+          {
+            "name": "id",
+            "type": "number",
+            "in": "path",
+            "required": true,
+            "description": "ID of the bid pack to purchase"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": "Purchases a bid pack and credits the user with the bids."
+      }
+    },
+    "/auctions/{auction_id}/bids": {
+      "post": {
+        "tags": [
+          "bids"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_auctions_auction_id_bids",
+        "summary": "Place a bid on an auction",
+        "parameters": [
+          {
+            "name": "auction_id",
+            "type": "number",
+            "in": "path",
+            "required": true,
+            "description": "ID of the auction to bid on"
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Unprocessable Entity (e.g., auction not active, insufficient credits)"
+          }
+        },
+        "description": "Places a bid on behalf of the authenticated user. Requires a valid JWT."
+      }
+    },
+    "/login": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_login",
+        "summary": "Authenticate a user and receive a JWT",
+        "parameters": [
+          {
+            "name": "session[email_address]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "User email"
+          },
+          {
+            "name": "session[password]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "User password"
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized - Invalid credentials"
+          }
+        },
+        "description": ""
+      }
+    },
+    "/session/refresh": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_session_refresh",
+        "summary": "Refresh a session using the issued refresh token",
+        "parameters": [
+          {
+            "name": "session[refresh_token]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "The refresh token returned at login"
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized - Refresh token invalid or expired"
+          }
+        },
+        "description": ""
+      }
+    },
+    "/logged_in": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "get_logged_in",
+        "summary": "Check if the current user token is valid",
+        "parameters": [],
+        "responses": {
+          "401": {
+            "description": "Unauthorized - Token is missing, invalid, or expired"
+          }
+        },
+        "description": "Requires a valid JWT in the Authorization header (Bearer <token>)."
+      }
+    },
+    "/session/remaining": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "get_session_remaining",
+        "summary": "Return the remaining session lifetime",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": "Requires Authorization header. Can be polled by the client to display an accurate countdown."
+      }
+    },
+    "/logout": {
+      "delete": {
+        "tags": [
+          "sessions"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "delete_logout",
+        "summary": "Log out a user",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        },
+        "description": "Revokes the active session token and notifies subscribers."
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_users",
+        "summary": "Register a new user",
+        "parameters": [
+          {
+            "name": "user[name]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "Full name of the user"
+          },
+          {
+            "name": "user[email_address]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "Email for login"
+          },
+          {
+            "name": "user[password]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "User password"
+          },
+          {
+            "name": "user[password_confirmation]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "Password confirmation"
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Unprocessable Entity - validation errors"
+          }
+        },
+        "description": ""
+      }
+    }
+  },
+  "definitions": {},
+  "schemes": [
+    "https"
+  ],
+  "tags": [
+    {
+      "name": "auctions",
+      "description": "Endpoints for viewing and managing auctions."
+    }
+  ],
+  "securityDefinitions": {},
+  "security": [],
+  "host": "localhost:3000"
+}
