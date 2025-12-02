@@ -25,7 +25,7 @@ module Api
         def create
           bid_pack = BidPack.new(bid_pack_params)
           if bid_pack.save
-            AuditLogger.log(action: "bid_pack.create", actor: @current_user, target: bid_pack, payload: bid_pack_params.to_h)
+            AuditLogger.log(action: "bid_pack.create", actor: @current_user, target: bid_pack, payload: bid_pack_params.to_h, request: request)
             render json: bid_pack, status: :created
           else
             render json: { error: bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
@@ -40,7 +40,7 @@ module Api
         # PATCH/PUT /admin/bid_packs/:id
         def update
           if @bid_pack.update(bid_pack_params)
-            AuditLogger.log(action: "bid_pack.update", actor: @current_user, target: @bid_pack, payload: bid_pack_params.to_h)
+            AuditLogger.log(action: "bid_pack.update", actor: @current_user, target: @bid_pack, payload: bid_pack_params.to_h, request: request)
             render json: @bid_pack
           else
             render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
@@ -53,7 +53,7 @@ module Api
           if @bid_pack.retired?
             render json: { error: "Bid pack already retired" }, status: :unprocessable_content
           elsif @bid_pack.update(status: :retired, active: false)
-            AuditLogger.log(action: "bid_pack.delete", actor: @current_user, target: @bid_pack, payload: { status: "retired" })
+            AuditLogger.log(action: "bid_pack.delete", actor: @current_user, target: @bid_pack, payload: { status: "retired" }, request: request)
             render json: @bid_pack
           else
             render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content

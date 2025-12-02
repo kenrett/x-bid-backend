@@ -10,11 +10,12 @@ module Api
             action: audit_params[:action],
             actor: @current_user,
             target: audit_target,
-            payload: audit_params[:payload]
+            payload: audit_params[:payload],
+            request: request
           )
 
           if log
-            render json: { status: "ok", audit_log_id: log.id }, status: :created
+            render json: { status: "ok" }, status: :created
           else
             render json: { error: "Unable to create audit log" }, status: :unprocessable_content
           end

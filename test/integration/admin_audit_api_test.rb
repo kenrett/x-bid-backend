@@ -29,9 +29,9 @@ class AdminAuditApiTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     body = JSON.parse(response.body)
-    assert body["audit_log_id"].present?
+    assert_equal "ok", body["status"]
 
-    log = AuditLog.find(body["audit_log_id"])
+    log = AuditLog.order(created_at: :desc).first
     assert_equal "custom.test", log.action
     assert_equal @admin.id, log.actor_id
     assert_equal "User", log.target_type

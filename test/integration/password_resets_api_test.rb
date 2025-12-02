@@ -43,8 +43,7 @@ class PasswordResetsApiTest < ActionDispatch::IntegrationTest
 
   test "rejects disabled user reset" do
     @user.update!(status: :disabled)
-    post "/api/v1/password/forgot", params: { password: { email_address: @user.email_address } }
-    token = JSON.parse(response.body)["debug_token"]
+    token = PasswordResetToken.generate_for(user: @user).last
 
     post "/api/v1/password/reset", params: { password: { token: token, password: "newpassword123", password_confirmation: "newpassword123" } }
 
