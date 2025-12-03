@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_03_000000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_03_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -67,6 +67,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_03_000000) do
     t.datetime "updated_at", null: false
     t.index ["auction_id"], name: "index_bids_on_auction_id"
     t.index ["user_id"], name: "index_bids_on_user_id"
+  end
+
+  create_table "maintenance_settings", force: :cascade do |t|
+    t.string "key", null: false
+    t.boolean "enabled", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_maintenance_settings_on_key", unique: true
   end
 
   create_table "password_reset_tokens", force: :cascade do |t|
