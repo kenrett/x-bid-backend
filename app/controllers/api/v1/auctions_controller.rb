@@ -16,7 +16,6 @@ module Api
       description 'Returns a list of all auctions. This endpoint is public.'
       def index
         auctions = Auction.all
-        auctions = Auction.with_attached_image # Or whatever scope is appropriate
         render json: auctions
       end
 
@@ -60,7 +59,7 @@ module Api
           AuditLogger.log(action: "auction.create", actor: @current_user, target: auction, payload: attrs, request: request)
           render json: auction, status: :created
         else
-          render json: { errors: auction.errors.full_messages }, status: :unprocessable_content
+          render json: { error: auction.errors.full_messages.to_sentence }, status: :unprocessable_content
         end
       end
 
@@ -80,7 +79,7 @@ module Api
           AuditLogger.log(action: "auction.update", actor: @current_user, target: auction, payload: attrs, request: request)
           render json: auction
         else
-          render json: { errors: auction.errors.full_messages }, status: :unprocessable_content
+          render json: { error: auction.errors.full_messages.to_sentence }, status: :unprocessable_content
         end
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
