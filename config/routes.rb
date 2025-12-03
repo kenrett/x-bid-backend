@@ -28,6 +28,11 @@ Rails.application.routes.draw do
       get '/logged_in', to: 'sessions#logged_in?'
       post '/password/forgot', to: 'password_resets#create'
       post '/password/reset', to: 'password_resets#update'
+      # Maintenance mode
+      namespace :admin do
+        get "/maintenance", to: "maintenance#show"
+        post "/maintenance", to: "maintenance#update"
+      end
       
       namespace :admin do
         resources :bid_packs, path: "bid-packs", only: [:index, :show, :new, :create, :edit, :update, :destroy]

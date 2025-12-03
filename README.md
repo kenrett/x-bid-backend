@@ -60,14 +60,15 @@ All endpoints are prefixed with `/api/v1`.
 *   `DELETE /logout`: Log out (for client-side session clearing).
 *   `GET /logged_in`: Check if the current user's JWT is valid.
 *   `POST /session/refresh`: Refresh the active session token.
+*   `POST /password/forgot` and `POST /password/reset`: Request and complete password resets. Forgot always returns 202 to avoid user enumeration; reset enforces valid token.
 
 ### Auctions
 
-*   `GET /auctions`: Get a list of all auctions.
+*   `GET /auctions`: Get a list of all auctions (no pagination today).
 *   `GET /auctions/:id`: Get details for a single auction.
 *   `POST /auctions`: Create a new auction (admin only).
 *   `PATCH /auctions/:id`: Update an auction (admin only).
-*   `DELETE /auctions/:id`: Delete an auction (admin only).
+*   `DELETE /auctions/:id`: Retire an auction (sets status to inactive; 422 if bids exist or already inactive).
 
 ### Bidding
 
@@ -77,17 +78,15 @@ All endpoints are prefixed with `/api/v1`.
 ### Bid Packs
 
 *   `GET /bid_packs`: Get a list of available bid packs for purchase.
-*   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE retires a bid pack; hard delete is blocked to preserve purchase history).
-*   `POST/PUT/DELETE /api/v1/auctions/:id` (admin only): Admin CRUD for auctions (DELETE retires the auction by setting status to inactive; hard delete is blocked to preserve bid history).
-*   `POST /api/v1/password/forgot` and `POST /api/v1/password/reset`: Request and complete password resets (emails reset link; always returns 202 on request to avoid user enumeration).
+*   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE retires a bid pack; hard delete is blocked to preserve purchase history). Reactivation allowed via update (`status: "active"` or `active: true`).
 
 ### Admin & Audit
 
-*   `GET /api/v1/admin/users`: List admin/superadmin users (superadmin only). Member actions to grant/revoke admin/superadmin and ban users:  
+*   `GET /api/v1/admin/users`: List admin/superadmin users (superadmin only). Member actions to grant/revoke admin/superadmin and ban users (superadmin only):  
     `POST /api/v1/admin/users/:id/grant_admin`, `.../revoke_admin`, `.../grant_superadmin`, `.../revoke_superadmin`, `.../ban`.
 *   `GET /api/v1/admin/payments`: List purchases with optional `search=userEmail` filter (admin/superadmin).
-*   `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }` (admin/superadmin).
-*   Audit logs are also written automatically for admin actions such as auction create/update/delete, bid pack create/update/deactivate, and admin role changes/bans.
+*   `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }` (admin/superadmin). Audit logs are also written automatically for admin actions such as auction create/update/delete, bid pack create/update/deactivate, and admin role changes/bans.
+*   `GET/POST /api/v1/admin/maintenance`: Superadmin-only maintenance mode status/toggle (`enabled` query/body param; returns maintenance JSON). When enabled, all non-admin traffic is blocked with 503 `{ error: "Maintenance in progress" }`; allowed during maintenance: `/up`, `/api/v1/login`, and any request with a valid admin/superadmin token.
 
 ---
 

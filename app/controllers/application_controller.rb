@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::API
   attr_reader :current_session_token
+  before_action :enforce_maintenance_mode
 
   def authenticate_request!
     header = request.headers["Authorization"]
@@ -48,6 +49,46 @@ class ApplicationController < ActionController::API
     return if @current_user&.superadmin?
 
     render json: { error: "Superadmin privileges required" }, status: :forbidden
+  end
+
+  def enforce_maintenance_mode
+    return unless maintenance_enabled?
+    return if path_allowed_during_maintenance?
+    return if maintenance_admin_override?
+
+    render json: { error: "Maintenance in progress" }, status: :service_unavailable
+  end
+
+  def maintenance_enabled?
+    cached = Rails.cache.read("maintenance_mode.enabled")
+    return cached unless cached.nil?
+
+    MaintenanceSetting.global.enabled
+  end
+
+  def maintenance_admin_override?
+    header = request.headers["Authorization"]
+    return false unless header
+
+    token = header.split(" ").last
+    decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
+    session_token = SessionToken.find_by(id: decoded["session_token_id"])
+    return false unless session_token&.active?
+
+    user = session_token.user
+    @current_session_token ||= session_token
+    @current_user ||= user
+    user.admin? || user.superadmin?
+  rescue StandardError
+    false
+  end
+
+  def path_allowed_during_maintenance?
+    return true if request.path == "/up"
+    return true if request.path == "/api/v1/login"
+    return true if request.path == "/api/v1/admin/maintenance"
+
+    false
   end
 
   def encode_jwt(payload, expires_at: nil)
