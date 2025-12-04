@@ -28,7 +28,7 @@ module Auctions
           @bid = @auction.bids.create!(user: @user, amount: new_price)
           Rails.logger.info "✅ Bid saved successfully: #{@bid.inspect}"
           @auction.update!(current_price: new_price, winning_user: @user)
-          extend_auction_if_needed!
+          Auctions::ExtendAuction.new(auction: @auction, window: EXTENSION_WINDOW).call
         end
         broadcast_bid if broadcast
         Result.new(success?: true, bid: @bid)
@@ -43,17 +43,6 @@ module Auctions
     end
 
     private
-
-    def extend_auction_if_needed!
-      return unless @auction.ends_within?(EXTENSION_WINDOW)
-
-      new_end_time = Time.current + EXTENSION_WINDOW
-      @auction.update!(end_time: new_end_time)
-
-      Rails.logger.info(
-        "Auction ##{@auction.id} end time reset to #{EXTENSION_WINDOW} from now due to last-second bid ##{@bid.id} by user ##{@user.id}"
-      )
-    end
 
     def broadcast_bid
       return unless @bid.present?
