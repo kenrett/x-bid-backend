@@ -1,6 +1,4 @@
 class Auctions::AdminUpsert
-  Result = Struct.new(:record, :error, keyword_init: true)
-
   def initialize(actor:, auction: nil, attrs:, request: nil)
     @actor = actor
     @auction = auction || Auction.new
@@ -11,9 +9,9 @@ class Auctions::AdminUpsert
   def call
     if @auction.update(@attrs)
       AuditLogger.log(action: action_name, actor: @actor, target: @auction, payload: @attrs, request: request_context)
-      Result.new(record: @auction)
+      ServiceResult.ok(record: @auction)
     else
-      Result.new(error: @auction.errors.full_messages.to_sentence)
+      ServiceResult.fail(@auction.errors.full_messages.to_sentence)
     end
   end
 

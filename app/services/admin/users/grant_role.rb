@@ -1,8 +1,6 @@
 module Admin
   module Users
     class GrantRole
-      Result = Struct.new(:user, :error, keyword_init: true)
-
       def initialize(actor:, user:, role:, request: nil)
         @actor = actor
         @user = user
@@ -11,14 +9,14 @@ module Admin
       end
 
       def call
-        return Result.new(error: "User is already a superadmin") if superadmin_conflict?
-        return Result.new(error: "User is already an admin") if admin_conflict?
+        return ServiceResult.fail("User is already a superadmin") if superadmin_conflict?
+        return ServiceResult.fail("User is already an admin") if admin_conflict?
 
         if @user.update(role: @role)
           AuditLogger.log(action: action_name, actor: @actor, target: @user, request: @request)
-          Result.new(user: @user)
+          ServiceResult.ok(user: @user)
         else
-          Result.new(error: @user.errors.full_messages.to_sentence)
+          ServiceResult.fail(@user.errors.full_messages.to_sentence)
         end
       end
 

@@ -17,9 +17,9 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
 
     assert_difference -> { Auction.count }, +1 do
       result = Auctions::AdminUpsert.new(actor: @admin, attrs: attrs).call
-      assert_nil result.error
-      assert result.record.persisted?
-      assert_equal "New Auction", result.record.title
+    assert_nil result.error
+    assert result.record.persisted?
+    assert_equal "New Auction", result.record.title
     end
   end
 
@@ -48,7 +48,7 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
 
     assert_difference -> { AuditLog.count }, +1 do
       result = Auctions::Retire.new(actor: @admin, auction: auction).call
-      assert_nil result.error
+    assert_nil result.error
     end
 
     assert_equal "inactive", auction.reload.status

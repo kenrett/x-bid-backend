@@ -1,6 +1,5 @@
 module Auctions
   class PlaceBid
-    Result = Struct.new(:success?, :bid, :error, keyword_init: true)
     BID_INCREMENT = 0.01.to_d
     EXTENSION_WINDOW = 10.seconds
     MAX_RETRIES = 3
@@ -14,15 +13,15 @@ module Auctions
     end
 
     def call(broadcast: true)
-      return Result.new(success?: false, error: "Auction is not active") unless @auction.active?
-      return Result.new(success?: false, error: "Insufficient bid credits") if @user.bid_credits <= 0
+      return ServiceResult.fail("Auction is not active") unless @auction.active?
+      return ServiceResult.fail("Insufficient bid credits") if @user.bid_credits <= 0
 
       begin
         ActiveRecord::Base.transaction do
           new_price = @auction.current_price + BID_INCREMENT
           @auction.lock!
 
-          return Result.new(success?: false, error: "Another bid was placed first.") if @auction.current_price >= new_price
+          return ServiceResult.fail("Another bid was placed first.") if @auction.current_price >= new_price
 
           Credits::Debit.for_bid!(user: @user, auction: @auction)
           @bid = @auction.bids.create!(user: @user, amount: new_price)
@@ -31,14 +30,14 @@ module Auctions
           Auctions::ExtendAuction.new(auction: @auction, window: EXTENSION_WINDOW).call
         end
         Auctions::Events.bid_placed(auction: @auction, bid: @bid) if broadcast
-        Result.new(success?: true, bid: @bid)
+        ServiceResult.ok(bid: @bid)
       rescue ActiveRecord::RecordInvalid => e
         log_error(e)
-        return Result.new(success?: false, error: "Another bid was placed first.") if e.record.errors.include?(:amount)
-        Result.new(success?: false, error: "Bid could not be placed: #{e.message}")
+        return ServiceResult.fail("Another bid was placed first.") if e.record.errors.include?(:amount)
+        ServiceResult.fail("Bid could not be placed: #{e.message}")
       rescue => e
         log_error(e)
-        Result.new(success?: false, error: "An unexpected error occurred.")
+        ServiceResult.fail("An unexpected error occurred.")
       end
     end
 

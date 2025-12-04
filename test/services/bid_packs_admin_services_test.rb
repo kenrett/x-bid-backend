@@ -10,8 +10,8 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
 
     assert_difference -> { BidPack.count }, +1 do
       result = BidPacks::AdminUpsert.new(actor: @admin, attrs: attrs).call
-      assert_nil result.error
-      assert_equal "Gold", result.record.name
+    assert_nil result.error
+    assert_equal "Gold", result.record.name
     end
   end
 
@@ -37,7 +37,7 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
 
     assert_difference -> { AuditLog.count }, +1 do
       result = BidPacks::Retire.new(actor: @admin, bid_pack: pack).call
-      assert_nil result.error
+    assert_nil result.error
     end
 
     pack.reload

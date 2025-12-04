@@ -1,8 +1,6 @@
 module Admin
   module Users
     class BanUser
-      Result = Struct.new(:user, :error, keyword_init: true)
-
       def initialize(actor:, user:, request: nil)
         @actor = actor
         @user = user
@@ -10,13 +8,13 @@ module Admin
       end
 
       def call
-        return Result.new(error: "User already disabled") if @user.disabled?
+        return ServiceResult.fail("User already disabled") if @user.disabled?
 
         @user.disable_and_revoke_sessions!
         AuditLogger.log(action: "user.ban", actor: @actor, target: @user, request: @request)
-        Result.new(user: @user)
+        ServiceResult.ok(user: @user)
       rescue ActiveRecord::ActiveRecordError => e
-        Result.new(error: "Unable to disable user: #{e.message}")
+        ServiceResult.fail("Unable to disable user: #{e.message}")
       end
     end
   end
