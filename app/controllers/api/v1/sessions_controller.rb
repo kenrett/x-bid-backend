@@ -114,6 +114,7 @@ module Api
           session: session_data(session_token),
           is_admin: user.admin? || user.superadmin?,
           is_superuser: user.superadmin?,
+          redirect_path: redirect_path_for(user),
           user: user_data(user)
         }
       end
@@ -124,6 +125,7 @@ module Api
           user: user_data(user),
           is_admin: user.admin? || user.superadmin?,
           is_superuser: user.superadmin?,
+          redirect_path: redirect_path_for(user),
           session_token_id: session_token.id,
           session_expires_at: session_token.expires_at.iso8601,
           seconds_remaining: seconds_remaining_for(session_token),
@@ -144,6 +146,11 @@ module Api
           session_expires_at: session_token.expires_at.iso8601,
           seconds_remaining: seconds_remaining_for(session_token)
         }
+      end
+
+      def redirect_path_for(user)
+        return "/admin/auctions" if user.superadmin?
+        nil
       end
 
       def seconds_remaining_for(session_token)
