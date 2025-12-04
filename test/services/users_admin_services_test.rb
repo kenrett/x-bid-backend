@@ -7,7 +7,7 @@ class UsersAdminServicesTest < ActiveSupport::TestCase
   end
 
   test "grants admin role" do
-    result = Users::AdminRoleChange.new(actor: @actor, user: @user, role: :admin).call
+    result = Admin::Users::GrantRole.new(actor: @actor, user: @user, role: :admin).call
 
     assert_nil result.error
     assert_equal "admin", result.user.role
@@ -16,7 +16,7 @@ class UsersAdminServicesTest < ActiveSupport::TestCase
   test "rejects granting admin when already superadmin" do
     @user.update!(role: :superadmin)
 
-    result = Users::AdminRoleChange.new(actor: @actor, user: @user, role: :admin).call
+    result = Admin::Users::GrantRole.new(actor: @actor, user: @user, role: :admin).call
 
     assert_equal "User is already a superadmin", result.error
   end
@@ -24,7 +24,7 @@ class UsersAdminServicesTest < ActiveSupport::TestCase
   test "revokes admin to user" do
     @user.update!(role: :admin)
 
-    result = Users::AdminRoleChange.new(actor: @actor, user: @user, role: :user).call
+    result = Admin::Users::GrantRole.new(actor: @actor, user: @user, role: :user).call
 
     assert_nil result.error
     assert_equal "user", result.user.role
@@ -33,7 +33,7 @@ class UsersAdminServicesTest < ActiveSupport::TestCase
   test "bans a user and revokes sessions" do
     token = SessionToken.create!(user: @user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
 
-    result = Users::Ban.new(actor: @actor, user: @user).call
+    result = Admin::Users::BanUser.new(actor: @actor, user: @user).call
 
     assert_nil result.error
     assert_equal "disabled", @user.reload.status
@@ -43,7 +43,7 @@ class UsersAdminServicesTest < ActiveSupport::TestCase
   test "ban errors if already disabled" do
     @user.update!(status: :disabled)
 
-    result = Users::Ban.new(actor: @actor, user: @user).call
+    result = Admin::Users::BanUser.new(actor: @actor, user: @user).call
 
     assert_equal "User already disabled", result.error
   end

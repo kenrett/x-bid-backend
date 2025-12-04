@@ -14,7 +14,7 @@ module Api
         end
 
         def grant_admin
-          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
           return render_error(result.error) if result.error
           render_admin_user(result.user)
         end
@@ -23,13 +23,13 @@ module Api
           return render_error("Cannot revoke admin from a superadmin", :forbidden) if @user.superadmin?
           return render_error("User is not an admin") unless @user.admin?
 
-          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :user, request: request).call
+          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :user, request: request).call
           return render_error(result.error) if result.error
           render_admin_user(result.user)
         end
 
         def grant_superadmin
-          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
+          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
           return render_error(result.error) if result.error
           render_admin_user(result.user)
         end
@@ -37,13 +37,13 @@ module Api
         def revoke_superadmin
           return render_error("User is not a superadmin") unless @user.superadmin?
 
-          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
           return render_error(result.error) if result.error
           render_admin_user(result.user)
         end
 
         def ban
-          result = Users::Ban.new(actor: @current_user, user: @user, request: request).call
+          result = Admin::Users::BanUser.new(actor: @current_user, user: @user, request: request).call
           return render_error(result.error) if result.error
 
           render_admin_user(result.user)
