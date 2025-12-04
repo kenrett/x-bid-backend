@@ -87,6 +87,7 @@ class ApplicationController < ActionController::API
     return true if request.path == "/up"
     return true if request.path == "/api/v1/login"
     return true if request.path == "/api/v1/admin/maintenance"
+    return true if request.path == "/api/v1/maintenance"
 
     false
   end

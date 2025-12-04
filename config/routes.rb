@@ -29,6 +29,7 @@ Rails.application.routes.draw do
       post '/password/forgot', to: 'password_resets#create'
       post '/password/reset', to: 'password_resets#update'
       # Maintenance mode
+      get "/maintenance", to: "maintenance#show"
       namespace :admin do
         get "/maintenance", to: "maintenance#show"
         post "/maintenance", to: "maintenance#update"
