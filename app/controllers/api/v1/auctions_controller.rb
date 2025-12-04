@@ -15,7 +15,7 @@ module Api
       error code: 403, desc: 'Admin privileges required'
       description 'Returns a list of all auctions. This endpoint is public.'
       def index
-        auctions = Auction.all
+        auctions = Auction.includes(:winning_user).load
         render json: auctions
       end
 
@@ -24,7 +24,7 @@ module Api
       param :id, :number, desc: 'ID of the auction', required: true
       error code: 404, desc: 'Not Found'
       def show
-        auction = Auction.includes(:bids).find(params[:id])
+        auction = Auction.includes(:bids, :winning_user).find(params[:id])
         render json: auction, include: :bids
       rescue ActiveRecord::RecordNotFound
         render json: { error: 'Auction not found' }, status: :not_found
