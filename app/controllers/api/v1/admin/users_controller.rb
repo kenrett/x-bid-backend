@@ -14,59 +14,39 @@ module Api
         end
 
         def grant_admin
-          return render_error("User is already a superadmin") if @user.superadmin?
-          return render_error("User is already an admin") if @user.admin?
-
-          if @user.update(role: :admin)
-            AuditLogger.log(action: "user.grant_admin", actor: @current_user, target: @user, request: request)
-            render_admin_user(@user)
-          else
-            render_validation_error(@user)
-          end
+          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          return render_error(result.error) if result.error
+          render_admin_user(result.user)
         end
 
         def revoke_admin
           return render_error("Cannot revoke admin from a superadmin", :forbidden) if @user.superadmin?
           return render_error("User is not an admin") unless @user.admin?
 
-          if @user.update(role: :user)
-            AuditLogger.log(action: "user.revoke_admin", actor: @current_user, target: @user, request: request)
-            render_admin_user(@user)
-          else
-            render_validation_error(@user)
-          end
+          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :user, request: request).call
+          return render_error(result.error) if result.error
+          render_admin_user(result.user)
         end
 
         def grant_superadmin
-          return render_error("User is already a superadmin") if @user.superadmin?
-
-          if @user.update(role: :superadmin)
-            AuditLogger.log(action: "user.grant_superadmin", actor: @current_user, target: @user, request: request)
-            render_admin_user(@user)
-          else
-            render_validation_error(@user)
-          end
+          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
+          return render_error(result.error) if result.error
+          render_admin_user(result.user)
         end
 
         def revoke_superadmin
           return render_error("User is not a superadmin") unless @user.superadmin?
 
-          if @user.update(role: :admin)
-            AuditLogger.log(action: "user.revoke_superadmin", actor: @current_user, target: @user, request: request)
-            render_admin_user(@user)
-          else
-            render_validation_error(@user)
-          end
+          result = Users::AdminRoleChange.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          return render_error(result.error) if result.error
+          render_admin_user(result.user)
         end
 
         def ban
-          return render_error("User already disabled") if @user.disabled?
+          result = Users::Ban.new(actor: @current_user, user: @user, request: request).call
+          return render_error(result.error) if result.error
 
-          @user.disable_and_revoke_sessions!
-          AuditLogger.log(action: "user.ban", actor: @current_user, target: @user, request: request)
-          render_admin_user(@user)
-        rescue ActiveRecord::ActiveRecordError => e
-          render_error("Unable to disable user: #{e.message}")
+          render_admin_user(result.user)
         end
 
         # PATCH/PUT /api/v1/admin/users/:id

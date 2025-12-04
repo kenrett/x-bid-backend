@@ -21,11 +21,11 @@ module Admin
 
     # PATCH/PUT /admin/bid-packs/:id
     def update
-      if @bid_pack.update(bid_pack_params)
-        AuditLogger.log(action: "bid_pack.update", actor: @current_user, target: @bid_pack, payload: bid_pack_params.to_h, request: request)
-        render json: @bid_pack
+      result = BidPacks::AdminUpsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
+      if result.error
+        render json: { errors: [result.error] }, status: :unprocessable_content
       else
-        render json: { errors: @bid_pack.errors.full_messages }, status: :unprocessable_content
+        render json: result.record
       end
     end
 

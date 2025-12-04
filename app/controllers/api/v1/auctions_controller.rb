@@ -54,13 +54,10 @@ module Api
         attrs = normalized_auction_params
         return render_invalid_status unless attrs
 
-        auction = Auction.new(attrs)
-        if auction.save
-          AuditLogger.log(action: "auction.create", actor: @current_user, target: auction, payload: attrs, request: request)
-          render json: auction, status: :created
-        else
-          render json: { error: auction.errors.full_messages.to_sentence }, status: :unprocessable_content
-        end
+        result = Auctions::AdminUpsert.new(actor: @current_user, attrs: attrs, request: request).call
+        return render json: { error: result.error }, status: :unprocessable_content if result.error
+
+        render json: result.record, status: :created
       end
 
       api :PUT, "/auctions/:id", "Update an auction (admin only)"
@@ -75,12 +72,10 @@ module Api
         attrs = normalized_auction_params
         return render_invalid_status unless attrs
 
-        if auction.update(attrs)
-          AuditLogger.log(action: "auction.update", actor: @current_user, target: auction, payload: attrs, request: request)
-          render json: auction
-        else
-          render json: { error: auction.errors.full_messages.to_sentence }, status: :unprocessable_content
-        end
+        result = Auctions::AdminUpsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
+        return render json: { error: result.error }, status: :unprocessable_content if result.error
+
+        render json: result.record
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
       end
@@ -93,20 +88,10 @@ module Api
       error code: 422, desc: 'Unprocessable content - cannot delete auction with bids'
       def destroy
         auction = Auction.find(params[:id])
-        if auction.inactive?
-          return render json: { error: "Auction already inactive" }, status: :unprocessable_content
-        end
+        result = Auctions::Retire.new(actor: @current_user, auction: auction, request: request).call
+        return render json: { error: result.error }, status: :unprocessable_content if result.error
 
-        if auction.bids.exists?
-          return render json: { error: "Cannot retire an auction that has bids." }, status: :unprocessable_content
-        end
-
-        if auction.update(status: :inactive)
-          AuditLogger.log(action: "auction.delete", actor: @current_user, target: auction, payload: { status: "inactive" }, request: request)
-          head :no_content
-        else
-          render json: { error: auction.errors.full_messages.to_sentence }, status: :unprocessable_content
-        end
+        head :no_content
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
       end

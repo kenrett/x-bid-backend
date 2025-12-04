@@ -23,13 +23,10 @@ module Api
 
         # POST /admin/bid_packs
         def create
-          bid_pack = BidPack.new(bid_pack_params)
-          if bid_pack.save
-            AuditLogger.log(action: "bid_pack.create", actor: @current_user, target: bid_pack, payload: bid_pack_params.to_h, request: request)
-            render json: bid_pack, status: :created
-          else
-            render json: { error: bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
-          end
+          result = BidPacks::AdminUpsert.new(actor: @current_user, attrs: bid_pack_params, request: request).call
+          return render json: { error: result.error }, status: :unprocessable_content if result.error
+
+          render json: result.record, status: :created
         end
 
         # GET /admin/bid_packs/:id/edit
@@ -39,25 +36,19 @@ module Api
 
         # PATCH/PUT /admin/bid_packs/:id
         def update
-          if @bid_pack.update(bid_pack_params)
-            AuditLogger.log(action: "bid_pack.update", actor: @current_user, target: @bid_pack, payload: bid_pack_params.to_h, request: request)
-            render json: @bid_pack
-          else
-            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
-          end
+          result = BidPacks::AdminUpsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
+          return render json: { error: result.error }, status: :unprocessable_content if result.error
+
+          render json: result.record
         end
 
         # DELETE /admin/bid_packs/:id
         # Retires a bid pack to prevent purchase while keeping history.
         def destroy
-          if @bid_pack.retired?
-            render json: { error: "Bid pack already retired" }, status: :unprocessable_content
-          elsif @bid_pack.update(status: :retired, active: false)
-            AuditLogger.log(action: "bid_pack.delete", actor: @current_user, target: @bid_pack, payload: { status: "retired" }, request: request)
-            render json: @bid_pack
-          else
-            render json: { error: @bid_pack.errors.full_messages.to_sentence }, status: :unprocessable_content
-          end
+          result = BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
+          return render json: { error: result.error }, status: :unprocessable_content if result.error
+
+          render json: result.record
         end
 
         private
