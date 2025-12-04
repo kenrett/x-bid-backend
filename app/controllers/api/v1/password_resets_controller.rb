@@ -14,15 +14,8 @@ module Api
       error code: 202, desc: "Accepted (always, to prevent account enumeration)"
       def create
         user = User.find_by(email_address: forgot_params[:email_address])
-
-        if user&.active?
-          token, raw_token = PasswordResetToken.generate_for(user: user)
-          deliver_email(user, raw_token)
-          debug_token = Rails.env.production? ? nil : raw_token
-          return render json: response_payload(debug_token), status: :accepted
-        end
-
-        render json: response_payload(nil), status: :accepted
+        result = Auth::PasswordReset.new(user: user, reset_params: {}, environment: Rails.env).request_reset
+        render json: response_payload(result.debug_token), status: :accepted
       end
 
       api :POST, "/password/reset", "Reset password using the reset token"
@@ -35,19 +28,14 @@ module Api
       error code: 403, desc: "User account disabled"
       error code: 422, desc: "Validation errors on password update"
       def update
-        token = PasswordResetToken.find_valid_by_raw_token(reset_params[:token])
-        return render json: { error: "Invalid or expired token" }, status: :unauthorized unless token
+        user = nil
+        result = Auth::PasswordReset.new(user: user, reset_params: reset_params, environment: Rails.env).reset_password
 
-        user = token.user
-        return render json: { error: "User account disabled" }, status: :forbidden if user.disabled?
+        return render json: { error: result.error }, status: :unauthorized if result.error == "Invalid or expired token"
+        return render json: { error: result.error }, status: :forbidden if result.error == "User account disabled"
+        return render json: { error: result.error }, status: :unprocessable_content if result.error
 
-        if user.update(password: reset_params[:password], password_confirmation: reset_params[:password_confirmation])
-          token.mark_used!
-          revoke_active_sessions(user)
-          render json: { message: "Password updated" }, status: :ok
-        else
-          render json: { error: user.errors.full_messages.to_sentence }, status: :unprocessable_content
-        end
+        render json: { message: result.message }, status: :ok
       end
 
       private
@@ -64,23 +52,10 @@ module Api
         render json: { error: exception.message }, status: :bad_request
       end
 
-      def deliver_email(user, raw_token)
-        PasswordMailer.reset_instructions(user, raw_token).deliver_later
-      rescue StandardError => e
-        Rails.logger.warn("Failed to enqueue password reset email: #{e.message}")
-      end
-
       def response_payload(debug_token)
         payload = { status: "ok" }
         payload[:debug_token] = debug_token if debug_token.present?
         payload
-      end
-
-      def revoke_active_sessions(user)
-        user.session_tokens.active.find_each do |session_token|
-          session_token.revoke!
-          SessionEventBroadcaster.session_invalidated(session_token, reason: "password_reset")
-        end
       end
     end
   end
