@@ -30,7 +30,7 @@ module Auctions
           @auction.update!(current_price: new_price, winning_user: @user)
           Auctions::ExtendAuction.new(auction: @auction, window: EXTENSION_WINDOW).call
         end
-        broadcast_bid if broadcast
+        Auctions::Events.bid_placed(auction: @auction, bid: @bid) if broadcast
         Result.new(success?: true, bid: @bid)
       rescue ActiveRecord::RecordInvalid => e
         log_error(e)
@@ -45,19 +45,9 @@ module Auctions
     private
 
     def broadcast_bid
+      # kept for backward compatibility if called directly
       return unless @bid.present?
-
-      Rails.logger.info "📡 Broadcasting bid to Auction ##{@auction.id}"
-
-      AuctionChannel.broadcast_to(
-        @auction,
-        {
-          current_price: @auction.current_price,
-          winning_user_name: @auction.winning_user&.name,
-          end_time: @auction.end_time,
-          bid: BidSerializer.new(@bid).as_json
-        }
-      )
+      Auctions::Events.bid_placed(auction: @auction, bid: @bid)
     end
 
     def log_error(exception)
