@@ -16,7 +16,7 @@ module Api
       description 'Returns a list of all auctions. This endpoint is public.'
       def index
         auctions = Auction.includes(:winning_user).load
-        render json: auctions
+        render json: auctions, each_serializer: Api::V1::AuctionSerializer
       end
 
       api :GET, '/auctions/:id', 'Show a single auction'
@@ -25,7 +25,7 @@ module Api
       error code: 404, desc: 'Not Found'
       def show
         auction = Auction.includes(:bids, :winning_user).find(params[:id])
-        render json: auction, include: :bids
+        render json: auction, include: :bids, serializer: Api::V1::AuctionSerializer
       rescue ActiveRecord::RecordNotFound
         render json: { error: 'Auction not found' }, status: :not_found
       end
@@ -57,7 +57,7 @@ module Api
         result = Auctions::AdminUpsert.new(actor: @current_user, attrs: attrs, request: request).call
         return render json: { error: result.error }, status: :unprocessable_content if result.error
 
-        render json: result.record, status: :created
+        render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json, status: :created
       end
 
       api :PUT, "/auctions/:id", "Update an auction (admin only)"
@@ -75,7 +75,7 @@ module Api
         result = Auctions::AdminUpsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
         return render json: { error: result.error }, status: :unprocessable_content if result.error
 
-        render json: result.record
+        render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Auction not found" }, status: :not_found
       end
@@ -127,10 +127,10 @@ module Api
         Auctions::Status.from_api(raw_status)
       end
 
-      def render_invalid_status
-        render json: { error: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}" }, status: :unprocessable_content
-        nil
-      end
+    def render_invalid_status
+      render json: { error: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}" }, status: :unprocessable_content
+      nil
     end
   end
+end
 end
