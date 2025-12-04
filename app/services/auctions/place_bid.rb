@@ -24,7 +24,7 @@ module Auctions
 
           return Result.new(success?: false, error: "Another bid was placed first.") if @auction.current_price >= new_price
 
-          @user.decrement!(:bid_credits)
+          Credits::Debit.for_bid!(user: @user, auction: @auction)
           @bid = @auction.bids.create!(user: @user, amount: new_price)
           Rails.logger.info "✅ Bid saved successfully: #{@bid.inspect}"
           @auction.update!(current_price: new_price, winning_user: @user)

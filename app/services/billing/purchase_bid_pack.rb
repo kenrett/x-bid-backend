@@ -9,7 +9,7 @@ module Billing
 
     def call
       ActiveRecord::Base.transaction do
-        @user.increment!(:bid_credits, @bid_pack.bids)
+        Credits::Credit.for_refund!(user: @user, reason: "bid_pack_purchase", amount: @bid_pack.bids)
         Result.new(success?: true, message: "Bid pack purchased successfully!", error: nil)
       end
     rescue ActiveRecord::RecordInvalid => e

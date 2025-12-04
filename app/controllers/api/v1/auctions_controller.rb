@@ -7,7 +7,7 @@ module Api
         description 'Endpoints for viewing and managing auctions.'
       end
 
-      ALLOWED_STATUSES = %w[inactive scheduled active complete cancelled].freeze
+      ALLOWED_STATUSES = Auctions::Status.allowed_keys
 
       api :GET, '/auctions', 'List all auctions'
       error code: 200, desc: 'Success'
@@ -124,17 +124,7 @@ module Api
       end
 
       def normalize_status(raw_status)
-        return if raw_status.blank?
-
-        status_key = raw_status.to_s.downcase
-        mapping = {
-          "inactive" => "inactive",
-          "scheduled" => "pending",
-          "active" => "active",
-          "complete" => "ended",
-          "cancelled" => "cancelled"
-        }
-        mapping[status_key]
+        Auctions::Status.from_api(raw_status)
       end
 
       def render_invalid_status

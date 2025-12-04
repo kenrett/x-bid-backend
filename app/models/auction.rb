@@ -4,14 +4,6 @@ class Auction < ApplicationRecord
   
   enum :status, { pending: 0, active: 1, ended: 2, cancelled: 3, inactive: 4 }
 
-  STATUS_API_MAP = {
-    "inactive" => "inactive",
-    "scheduled" => "pending",
-    "active" => "active",
-    "complete" => "ended",
-    "cancelled" => "cancelled"
-  }.freeze
-
   validates :title, :description, :start_date, presence: true
   validates :current_price, numericality: { greater_than_or_equal_to: 0 }
 
@@ -19,13 +11,12 @@ class Auction < ApplicationRecord
 
   # Accept external status values and map them to internal enum keys.
   def status=(value)
-    mapped = self.class.normalize_status(value) || value
+    mapped = Auctions::Status.from_api(value) || value
     super(mapped)
   end
 
   def self.normalize_status(value)
-    return if value.blank?
-    STATUS_API_MAP[value.to_s.downcase]
+    Auctions::Status.from_api(value)
   end
 
   # An auction is considered closed if it's not active or its end time has passed.
@@ -34,10 +25,7 @@ class Auction < ApplicationRecord
   end
 
   def external_status
-    {
-      "pending" => "scheduled",
-      "ended" => "complete"
-    }.fetch(status, status)
+    Auctions::Status.to_api(status)
   end
 
   def as_json(options = {})
