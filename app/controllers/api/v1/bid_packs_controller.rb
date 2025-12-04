@@ -23,7 +23,7 @@ module Api
       error code: 422, desc: 'Unprocessable content - purchase failed'
       def purchase
         bid_pack = BidPack.active.find(params[:id])
-        result = PurchaseBidPack.new(user: @current_user, bid_pack: bid_pack).call
+        result = Billing::PurchaseBidPack.new(user: @current_user, bid_pack: bid_pack).call
 
         if result.success?
           render json: { message: result.message }, status: :ok

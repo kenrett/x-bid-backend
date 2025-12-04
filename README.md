@@ -95,7 +95,7 @@ All endpoints are prefixed with `/api/v1`.
 
 ### Service Objects
 
-Complex business logic is encapsulated in service objects to keep controllers lean and logic reusable. A prime example is the `PlaceBid` service (`app/services/place_bid.rb`), which handles the entire process of placing a bid. This includes:
+Complex business logic is encapsulated in service objects to keep controllers lean and logic reusable. A prime example is the `Auctions::PlaceBid` service (`app/services/auctions/place_bid.rb`), which handles the entire process of placing a bid. This includes:
 *   Validating auction status and user credits.
 *   Using a database transaction with row-level locking to prevent race conditions.
 *   Decrementing user credits.
@@ -105,7 +105,7 @@ Complex business logic is encapsulated in service objects to keep controllers le
 
 ### Real-time Updates
 
-When a bid is successfully placed, the `PlaceBid` service broadcasts an update via **Action Cable** on the `AuctionChannel`. This pushes real-time information (new price, winning user, end time) to all subscribed clients, eliminating the need for frontend polling and creating a dynamic user experience.
+When a bid is successfully placed, the `Auctions::PlaceBid` service broadcasts an update via **Action Cable** on the `AuctionChannel`. This pushes real-time information (new price, winning user, end time) to all subscribed clients, eliminating the need for frontend polling and creating a dynamic user experience.
 
 ---
 

@@ -14,7 +14,7 @@ module Api
       error code: 422, desc: 'Unprocessable Entity (e.g., auction not active, insufficient credits)'
       def create
         auction = Auction.find(params[:auction_id])
-        result = PlaceBid.new(user: @current_user, auction: auction).call
+        result = Auctions::PlaceBid.new(user: @current_user, auction: auction).call
 
         if result.success?
           # After a successful bid, include the user's new credit balance in the response

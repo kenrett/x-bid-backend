@@ -17,9 +17,9 @@ class PlaceBidTest < ActiveSupport::TestCase
 
   test "should place a bid successfully" do
     original_price = @auction.current_price
-    expected_price = original_price + PlaceBid::BID_INCREMENT
+    expected_price = original_price + Auctions::PlaceBid::BID_INCREMENT
 
-    result = PlaceBid.new(user: @user1, auction: @auction).call
+    result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     assert result.success?, "Bid should succeed"
     assert_not_nil result.bid
@@ -34,7 +34,7 @@ class PlaceBidTest < ActiveSupport::TestCase
   test "should fail if auction is not active" do
     @auction.update!(status: :ended)
 
-    result = PlaceBid.new(user: @user1, auction: @auction).call
+    result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     refute result.success?
     assert_equal "Auction is not active", result.error
@@ -43,7 +43,7 @@ class PlaceBidTest < ActiveSupport::TestCase
   test "should fail if user has insufficient bid credits" do
     @user1.update!(bid_credits: 0)
 
-    result = PlaceBid.new(user: @user1, auction: @auction).call
+    result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     refute result.success?
     assert_equal "Insufficient bid credits", result.error
@@ -60,7 +60,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     # to raise the desired exception.
     @auction.define_singleton_method(:update!) { |_| raise exception }
 
-    result = PlaceBid.new(user: @user1, auction: @auction).call
+    result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
     refute result.success?
     assert_equal "Bid could not be placed: #{error_message}", result.error
   end
@@ -69,16 +69,16 @@ class PlaceBidTest < ActiveSupport::TestCase
     # Set end time to be in the near future to trigger the extension logic.
     @auction.update!(end_time: 5.seconds.from_now) 
 
-    PlaceBid.new(user: @user1, auction: @auction).call
+    Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     extended_end_time = @auction.reload.end_time
-    expected_end_time = Time.current + PlaceBid::EXTENSION_WINDOW
+    expected_end_time = Time.current + Auctions::PlaceBid::EXTENSION_WINDOW
     assert_in_delta expected_end_time, extended_end_time, 1.second, "Auction end time should be reset to 10 seconds from now"
   end
 
   test "should handle concurrent bids safely" do
-    service1 = PlaceBid.new(user: @user1, auction: @auction)
-    service2 = PlaceBid.new(user: @user2, auction: @auction)
+    service1 = Auctions::PlaceBid.new(user: @user1, auction: @auction)
+    service2 = Auctions::PlaceBid.new(user: @user2, auction: @auction)
 
     # Use a queue to synchronize the threads.
     # This makes them wait until we're ready to release them simultaneously.
