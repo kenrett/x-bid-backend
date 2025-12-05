@@ -38,6 +38,8 @@ Follow these steps to get the application running locally.
     ```
     The API will be available at `http://localhost:3000`.
 
+**Shortcut:** `bin/setup` will run `bundle install`, then `db:create db:migrate db:seed` for you.
+
 ---
 
 ## API Documentation
