@@ -4,18 +4,18 @@ module Api
   module V1
     class SessionsController < ApplicationController
       resource_description do
-        short 'User sessions and authentication'
+        short "User sessions and authentication"
       end
 
-      before_action :authenticate_request!, only: [:logged_in?, :destroy, :remaining]
+      before_action :authenticate_request!, only: [ :logged_in?, :destroy, :remaining ]
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
-      api :POST, '/login', 'Authenticate a user and receive a JWT'
-      param :session, Hash, desc: 'Session credentials', required: true do
-        param :email_address, String, desc: 'User email', required: true
-        param :password, String, desc: 'User password', required: true
+      api :POST, "/login", "Authenticate a user and receive a JWT"
+      param :session, Hash, desc: "Session credentials", required: true do
+        param :email_address, String, desc: "User email", required: true
+        param :password, String, desc: "User password", required: true
       end
-      error code: 401, desc: 'Unauthorized - Invalid credentials'
+      error code: 401, desc: "Unauthorized - Invalid credentials"
 
       # POST /api/v1/login
       def create
@@ -53,9 +53,9 @@ module Api
         render json: build_session_response(user: session_token.user, session_token: new_session_token, refresh_token: refresh_token)
       end
 
-      api :GET, '/logged_in', 'Check if the current user token is valid'
-      description 'Requires a valid JWT in the Authorization header (Bearer <token>).'
-      error code: 401, desc: 'Unauthorized - Token is missing, invalid, or expired'
+      api :GET, "/logged_in", "Check if the current user token is valid"
+      description "Requires a valid JWT in the Authorization header (Bearer <token>)."
+      error code: 401, desc: "Unauthorized - Token is missing, invalid, or expired"
       # GET /api/v1/logged_in
       def logged_in?
         if @current_user
@@ -77,9 +77,9 @@ module Api
         }
       end
 
-      api :DELETE, '/logout', 'Log out a user'
-      description 'Revokes the active session token and notifies subscribers.'
-      error code: 401, desc: 'Unauthorized - missing or invalid token'
+      api :DELETE, "/logout", "Log out a user"
+      description "Revokes the active session token and notifies subscribers."
+      error code: 401, desc: "Unauthorized - missing or invalid token"
       # DELETE /api/v1/logout
       def destroy
         if @current_session_token
@@ -87,9 +87,9 @@ module Api
           SessionEventBroadcaster.session_invalidated(@current_session_token, reason: "logout")
         end
 
-        render json: { status: 'Logged out successfully' }, status: :ok
+        render json: { status: "Logged out successfully" }, status: :ok
       end
-    
+
       private
 
       def login_params
@@ -132,7 +132,7 @@ module Api
           session: session_data(session_token)
         }
       end
-    
+
       def user_data(user)
         UserSerializer.new(user).as_json.merge(
           is_admin: user.admin? || user.superadmin?,
@@ -154,7 +154,7 @@ module Api
       end
 
       def seconds_remaining_for(session_token)
-        [(session_token.expires_at - Time.current).to_i, 0].max
+        [ (session_token.expires_at - Time.current).to_i, 0 ].max
       end
 
       def handle_parameter_missing(exception)

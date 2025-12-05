@@ -1,7 +1,7 @@
 module Admin
   class BidPacksController < ApplicationController
     before_action :authenticate_request!, :authorize_admin!
-    before_action :set_bid_pack, only: [:edit, :update]
+    before_action :set_bid_pack, only: [ :edit, :update ]
 
     # GET /admin/bid-packs
     def index
@@ -23,7 +23,7 @@ module Admin
     def update
       result = BidPacks::AdminUpsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
       if result.error
-        render json: { errors: [result.error] }, status: :unprocessable_content
+        render json: { errors: [ result.error ] }, status: :unprocessable_content
       else
         render json: result.record
       end

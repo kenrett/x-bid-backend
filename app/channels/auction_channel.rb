@@ -8,7 +8,7 @@ class AuctionChannel < ApplicationCable::Channel
       reject
       return
     end
-    
+
     # 2. Next, try to find the auction using the ID
     @auction = Auction.find_by(id: auction_id)
 

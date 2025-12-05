@@ -17,7 +17,7 @@ class SessionToken < ApplicationRecord
     raw_token = SecureRandom.hex(32)
     expires_at = Time.current + ttl
     session_token = user.session_tokens.create!(token_digest: digest(raw_token), expires_at: expires_at)
-    [session_token, raw_token]
+    [ session_token, raw_token ]
   end
 
   def self.find_active_by_raw_token(raw_token)

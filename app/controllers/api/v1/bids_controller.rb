@@ -4,14 +4,14 @@ module Api
       before_action :authenticate_request!
 
       resource_description do
-        short 'Bidding on auctions'
+        short "Bidding on auctions"
       end
 
-      api :POST, '/auctions/:auction_id/bids', 'Place a bid on an auction'
-      description 'Places a bid on behalf of the authenticated user. Requires a valid JWT.'
-      param :auction_id, :number, desc: 'ID of the auction to bid on', required: true
-      error code: 401, desc: 'Unauthorized'
-      error code: 422, desc: 'Unprocessable Entity (e.g., auction not active, insufficient credits)'
+      api :POST, "/auctions/:auction_id/bids", "Place a bid on an auction"
+      description "Places a bid on behalf of the authenticated user. Requires a valid JWT."
+      param :auction_id, :number, desc: "ID of the auction to bid on", required: true
+      error code: 401, desc: "Unauthorized"
+      error code: 422, desc: "Unprocessable Entity (e.g., auction not active, insufficient credits)"
       def create
         auction = Auction.find(params[:auction_id])
         result = Auctions::PlaceBid.new(user: @current_user, auction: auction).call

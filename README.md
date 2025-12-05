@@ -46,6 +46,13 @@ The API will be available at `http://localhost:3000`.
 bin/test
 ```
 
+### Linting & Security
+
+```bash
+bin/lint  # runs rubocop and brakeman
+```
+Run lint/security checks before merging.
+
 ## Configuration
 
 The app relies on the following environment/config values:

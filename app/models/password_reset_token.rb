@@ -17,7 +17,7 @@ class PasswordResetToken < ApplicationRecord
     raw_token = SecureRandom.hex(32)
     expires_at = Time.current + ttl
     token = user.password_reset_tokens.create!(token_digest: digest(raw_token), expires_at: expires_at)
-    [token, raw_token]
+    [ token, raw_token ]
   end
 
   def self.find_valid_by_raw_token(raw_token)

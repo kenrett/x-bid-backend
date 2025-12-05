@@ -26,7 +26,7 @@ module Api
       def maintenance_payload
         Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).payload
       end
+      end
     end
   end
-end
 end

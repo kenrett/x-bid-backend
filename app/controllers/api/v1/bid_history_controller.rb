@@ -4,12 +4,12 @@ module Api
       before_action :set_auction
 
       resource_description do
-        short 'Auction Bid History'
+        short "Auction Bid History"
       end
 
-      api :GET, '/auctions/:auction_id/bid_history', 'List the bid history for an auction'
-      param :auction_id, :number, desc: 'ID of the auction', required: true
-      error code: 404, desc: 'Not Found - The auction with the specified ID was not found.'
+      api :GET, "/auctions/:auction_id/bid_history", "List the bid history for an auction"
+      param :auction_id, :number, desc: "ID of the auction", required: true
+      error code: 404, desc: "Not Found - The auction with the specified ID was not found."
 
       # GET /api/v1/auctions/:auction_id/bid_history
       def index
@@ -29,7 +29,7 @@ module Api
       def set_auction
         @auction = Auction.find(params[:auction_id])
       rescue ActiveRecord::RecordNotFound
-        render json: { error: 'Auction not found' }, status: :not_found
+        render json: { error: "Auction not found" }, status: :not_found
       end
     end
   end

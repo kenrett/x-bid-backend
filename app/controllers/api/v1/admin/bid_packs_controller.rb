@@ -3,7 +3,7 @@ module Api
     module Admin
       class BidPacksController < ApplicationController
         before_action :authenticate_request!, :authorize_admin!
-        before_action :set_bid_pack, only: [:show, :edit, :update, :destroy]
+        before_action :set_bid_pack, only: [ :show, :edit, :update, :destroy ]
 
         # GET /admin/bid_packs
         def index

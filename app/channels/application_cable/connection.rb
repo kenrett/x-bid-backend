@@ -25,7 +25,7 @@ module ApplicationCable
         reject_unauthorized_connection
       end
 
-      [session_token.user, session_token.id]
+      [ session_token.user, session_token.id ]
     rescue JWT::DecodeError, ActiveRecord::RecordNotFound
       reject_unauthorized_connection
     end

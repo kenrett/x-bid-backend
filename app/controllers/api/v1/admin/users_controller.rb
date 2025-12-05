@@ -3,13 +3,13 @@ module Api
     module Admin
       class UsersController < ApplicationController
         before_action :authenticate_request!, :authorize_superadmin!
-        before_action :set_user, except: [:index]
-        before_action :ensure_not_last_superadmin_on_role_change, only: [:update]
-        before_action :ensure_not_last_superadmin!, only: [:revoke_superadmin, :ban]
+        before_action :set_user, except: [ :index ]
+        before_action :ensure_not_last_superadmin_on_role_change, only: [ :update ]
+        before_action :ensure_not_last_superadmin!, only: [ :revoke_superadmin, :ban ]
 
         # GET /api/v1/admin/users
         def index
-          admins = User.where(role: [:admin, :superadmin])
+          admins = User.where(role: [ :admin, :superadmin ])
           render json: admins, each_serializer: AdminUserSerializer, adapter: :attributes
         end
 
@@ -84,7 +84,15 @@ module Api
         end
 
         def user_params
-          params.require(:user).permit(:role, :name, :email_address)
+          permitted = params.require(:user).permit(:name, :email_address)
+
+          # Handle role explicitly to avoid broad mass assignment.
+          if params[:user].present? && params[:user].key?(:role)
+            role_value = params[:user][:role].to_s
+            permitted[:role] = role_value if User.roles.key?(role_value)
+          end
+
+          permitted
         end
 
         def render_admin_user(user)

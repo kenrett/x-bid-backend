@@ -67,7 +67,7 @@ class PlaceBidTest < ActiveSupport::TestCase
 
   test "should extend auction if bid arrives in last 10 seconds" do
     # Set end time to be in the near future to trigger the extension logic.
-    @auction.update!(end_time: 5.seconds.from_now) 
+    @auction.update!(end_time: 5.seconds.from_now)
 
     Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
