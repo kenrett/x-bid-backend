@@ -20,10 +20,11 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal @auction.id, body["id"]
-    assert_equal @auction.title, body["title"]
-    assert_equal @auction.description, body["description"]
-    assert_equal @auction.current_price.to_s, body["current_price"].to_s
+    auction_json = body["auction"] || body
+    assert_equal @auction.id, auction_json["id"]
+    assert_equal @auction.title, auction_json["title"]
+    assert_equal @auction.description, auction_json["description"]
+    assert_equal @auction.current_price.to_s, auction_json["current_price"].to_s
   end
 
   test "GET /api/v1/auctions/:auction_id/bid_history returns bids" do
@@ -31,8 +32,9 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_kind_of Array, body
-    first = body.first
+    bids = body["bids"]
+    assert_kind_of Array, bids
+    first = bids.first
     assert_equal @bid.id, first["id"]
     assert_equal @bidder.name, first["username"]
     assert_equal @bid.amount.to_s, first["amount"].to_s
