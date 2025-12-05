@@ -7,6 +7,8 @@ class Auctions::AdminUpsert
   end
 
   def call
+    return ServiceResult.fail("Invalid status. Allowed: #{Auctions::Status.allowed_keys.join(', ')}") unless valid_status?
+
     if @auction.update(@attrs)
       AuditLogger.log(action: action_name, actor: @actor, target: @auction, payload: @attrs, request: request_context)
       ServiceResult.ok(record: @auction)
@@ -23,6 +25,17 @@ class Auctions::AdminUpsert
 
   def request_context
     @request
+  end
+
+  def valid_status?
+    return true unless @attrs&.key?("status") || @attrs&.key?(:status)
+
+    key = @attrs.key?("status") ? "status" : :status
+    value = @attrs[key]
+    return true if Auctions::Status.from_api(value).present?
+    return true if Auction.statuses.key?(value.to_s)
+
+    false
   end
 
   def normalize_status(attrs)
