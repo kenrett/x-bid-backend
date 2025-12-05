@@ -46,6 +46,17 @@ The API will be available at `http://localhost:3000`.
 bin/test
 ```
 
+## Configuration
+
+The app relies on the following environment/config values:
+
+* `SECRET_KEY_BASE`: JWT signing secret (required in production).
+* `DATABASE_URL` or local PostgreSQL credentials in `config/database.yml`.
+* `FRONTEND_URL`: used for password reset links and Stripe return URLs (default: `http://localhost:5173`).
+* `SESSION_TOKEN_TTL`: optional; session token TTL override (defaults to 30 minutes if unset).
+* Stripe keys: `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` (required for checkout flows).
+* Mailer SMTP settings (for production email delivery) if not using letter_opener in development.
+
 ---
 
 ## API Documentation
