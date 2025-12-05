@@ -99,7 +99,7 @@ All endpoints are prefixed with `/api/v1`.
 ### Bidding
 
 *   `POST /auctions/:auction_id/bids`: Places a bid on an auction. Requires authentication.
-*   `GET /auctions/:auction_id/bid_history`: Retrieves the list of bids for a specific auction.
+*   `GET /auctions/:auction_id/bid_history`: Retrieves the list of bids for a specific auction (newest-first by `created_at`).
 
 ### Bid Packs
 

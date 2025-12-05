@@ -8,11 +8,11 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
       description: "Desc",
       start_date: Time.current,
       end_time: 1.day.from_now,
-      current_price: 1.0,
+      current_price: 0.0,
       status: :active
     )
     @bidder = User.create!(name: "Bidder", email_address: "bidder@example.com", password: "password", bid_credits: 0)
-    @bid = Bid.create!(user: @bidder, auction: @auction, amount: 2.0)
+    @bid = Bid.create!(user: @bidder, auction: @auction, amount: 1.0, created_at: 30.minutes.ago)
   end
 
   test "GET /api/v1/auctions/:id returns auction payload" do
@@ -28,6 +28,9 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/auctions/:auction_id/bid_history returns bids" do
+    older_bid = Bid.create!(user: @bidder, auction: @auction, amount: 2.5, created_at: 10.minutes.ago)
+    newer_bid = Bid.create!(user: @bidder, auction: @auction, amount: 3.0, created_at: 1.minute.ago)
+
     get "/api/v1/auctions/#{@auction.id}/bid_history"
 
     assert_response :success
@@ -35,8 +38,8 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
     bids = body["bids"]
     assert_kind_of Array, bids
     first = bids.first
-    assert_equal @bid.id, first["id"]
+    assert_equal newer_bid.id, first["id"]
     assert_equal @bidder.name, first["username"]
-    assert_equal @bid.amount.to_s, first["amount"].to_s
+    assert_equal newer_bid.amount.to_s, first["amount"].to_s
   end
 end
