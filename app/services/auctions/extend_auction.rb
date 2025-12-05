@@ -10,9 +10,7 @@ module Auctions
 
       new_end_time = reference_time + @window
       @auction.update!(end_time: new_end_time)
-      Rails.logger.info(
-        "Auction ##{@auction.id} end time reset to #{@window.inspect} from now due to last-second bid on auction ##{@auction.id}"
-      )
+      AppLogger.log(event: "auction.extended", auction_id: @auction.id, window_seconds: @window, new_end_time: new_end_time)
       true
     end
   end

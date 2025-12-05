@@ -15,7 +15,7 @@ module Credits
       private
 
       def log_credit(user:, reason:, amount:)
-        Rails.logger.info("Credits::Credit refund | user_id=#{user.id} reason=#{reason} amount=#{amount} balance=#{user.bid_credits}")
+        AppLogger.log(event: "credits.credit", user_id: user.id, reason: reason, amount: amount, balance: user.bid_credits)
       end
     end
   end

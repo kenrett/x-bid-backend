@@ -25,7 +25,7 @@ module Auctions
 
           Credits::Debit.for_bid!(user: @user, auction: @auction)
           @bid = @auction.bids.create!(user: @user, amount: new_price)
-          Rails.logger.info "✅ Bid saved successfully: #{@bid.inspect}"
+          AppLogger.log(event: "bid.saved", auction_id: @auction.id, bid_id: @bid.id, user_id: @user.id, amount: new_price)
           @auction.update!(current_price: new_price, winning_user: @user)
           Auctions::ExtendAuction.new(auction: @auction, window: EXTENSION_WINDOW).call
         end
@@ -50,9 +50,11 @@ module Auctions
     end
 
     def log_error(exception)
-      Rails.logger.error(
-        "PlaceBid Error | User: #{@user.id}, Auction: #{@auction.id}\n" \
-        "Error: #{exception.message}\n#{exception.backtrace.join("\n")}"
+      AppLogger.error(
+        event: "bid.error",
+        error: exception,
+        user_id: @user.id,
+        auction_id: @auction.id
       )
     end
   end

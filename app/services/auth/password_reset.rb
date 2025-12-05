@@ -12,11 +12,12 @@ module Auth
 
       token, raw_token = PasswordResetToken.generate_for(user: @user)
       deliver_email(raw_token)
+      AppLogger.log(event: "auth.password_reset.requested", user_id: @user.id)
 
       debug_token = @environment.production? ? nil : raw_token
       ServiceResult.ok(message: "ok", debug_token: debug_token)
     rescue StandardError => e
-      Rails.logger.warn("Failed to process password reset request: #{e.message}")
+      AppLogger.error(event: "auth.password_reset.request_failed", error: e, user_id: @user&.id)
       ServiceResult.ok(message: "ok")
     end
 
@@ -41,7 +42,7 @@ module Auth
     def deliver_email(raw_token)
       PasswordMailer.reset_instructions(@user, raw_token).deliver_later
     rescue StandardError => e
-      Rails.logger.warn("Failed to enqueue password reset email: #{e.message}")
+      AppLogger.error(event: "auth.password_reset.mail_failure", error: e, user_id: @user.id)
     end
 
     def revoke_active_sessions(user)

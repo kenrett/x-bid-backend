@@ -19,7 +19,7 @@ module Credits
       private
 
       def log_debit(user:, auction:)
-        Rails.logger.info("Credits::Debit bid | user_id=#{user.id} auction_id=#{auction.id} remaining=#{user.bid_credits}")
+        AppLogger.log(event: "credits.debit", user_id: user.id, auction_id: auction.id, remaining: user.bid_credits)
       end
     end
 
