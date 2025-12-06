@@ -1,8 +1,14 @@
 pre-commit:
   parallel: true
   commands:
-    lint:
-      run: bin/lint
+    rubocop:
+      run: bundle exec rubocop
       stage_fixed: true
+    test:
+      run: bin/test
+
+pre-push:
+  parallel: false
+  commands:
     test:
       run: bin/test

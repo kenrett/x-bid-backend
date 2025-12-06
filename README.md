@@ -59,6 +59,8 @@ Run lint/security checks before merging.
 * Run tests: `bin/test`
 * Lint & security: `bin/lint` (rubocop + brakeman)
 * Git hooks: `lefthook install` to enable pre-commit hooks (runs `bin/lint` and `bin/test`)
+  * Pre-commit runs `bundle exec rubocop` for fast feedback.
+  * Pre-push runs `bin/test` and `bin/lint` (rubocop + brakeman).
 
 ## Configuration
 
