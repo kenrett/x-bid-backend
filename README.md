@@ -53,6 +53,12 @@ bin/lint  # runs rubocop and brakeman
 ```
 Run lint/security checks before merging.
 
+## For Contributors / Local Development
+
+* Setup: `bin/setup` (installs gems, creates/migrates/seeds DB)
+* Run tests: `bin/test`
+* Lint & security: `bin/lint` (rubocop + brakeman)
+
 ## Configuration
 
 The app relies on the following environment/config values:
