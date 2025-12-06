@@ -73,6 +73,6 @@ class AuctionTest < ActiveSupport::TestCase
     older = Bid.create!(auction: @auction, user: user, amount: 1.0, created_at: 10.minutes.ago)
     newer = Bid.create!(auction: @auction, user: user, amount: 2.0, created_at: 1.minute.ago)
 
-    assert_equal [newer.id, older.id], @auction.bids.pluck(:id)
+    assert_equal [ newer.id, older.id ], @auction.bids.pluck(:id)
   end
 end

@@ -58,6 +58,7 @@ Run lint/security checks before merging.
 * Setup: `bin/setup` (installs gems, creates/migrates/seeds DB)
 * Run tests: `bin/test`
 * Lint & security: `bin/lint` (rubocop + brakeman)
+* Git hooks: `lefthook install` to enable pre-commit hooks (runs `bin/lint` and `bin/test`)
 
 ## Configuration
 

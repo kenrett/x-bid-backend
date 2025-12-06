@@ -58,4 +58,5 @@ end
 group :development do
   gem "faker"
   gem "letter_opener"
+  gem "lefthook", require: false
 end

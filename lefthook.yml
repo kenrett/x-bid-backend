@@ -1,0 +1,8 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: bin/lint
+      stage_fixed: true
+    test:
+      run: bin/test
