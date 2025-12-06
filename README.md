@@ -78,6 +78,11 @@ The documentation provides a complete list of endpoints, parameters, and example
 
 All endpoints are prefixed with `/api/v1`.
 
+### Response Envelopes
+
+* `GET /auctions` returns an envelope: `{ auctions: [ ... ] }` (newest-first bid ordering is applied via association defaults).
+* Other single-resource endpoints return the resource JSON directly (e.g., `{ id: ..., title: ... }`).
+
 ### Authentication
 
 *   `POST /users`: Register a new user.
