@@ -12,7 +12,7 @@ module Api
       # POST /api/v1/admin/maintenance?enabled=true
       # Also accepts JSON body { enabled: true }
       def update
-        return render json: { error: "enabled param is required" }, status: :bad_request if params[:enabled].nil?
+        return render_error(code: :bad_request, message: "enabled param is required", status: :bad_request) if params[:enabled].nil?
 
         enabled = Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).update(enabled: params[:enabled])
 

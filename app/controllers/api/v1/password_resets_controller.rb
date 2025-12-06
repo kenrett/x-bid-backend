@@ -31,9 +31,9 @@ module Api
         user = nil
         result = Auth::PasswordReset.new(user: user, reset_params: reset_params, environment: Rails.env).reset_password
 
-        return render json: { error: result.error }, status: :unauthorized if result.error == "Invalid or expired token"
-        return render json: { error: result.error }, status: :forbidden if result.error == "User account disabled"
-        return render json: { error: result.error }, status: :unprocessable_content if result.error
+        return render_error(code: :invalid_token, message: result.error, status: :unauthorized) if result.error == "Invalid or expired token"
+        return render_error(code: :account_disabled, message: result.error, status: :forbidden) if result.error == "User account disabled"
+        return render_error(code: :invalid_password, message: result.error, status: :unprocessable_entity) if result.error
 
         render json: { message: result.message }, status: :ok
       end
@@ -49,7 +49,7 @@ module Api
       end
 
       def handle_parameter_missing(exception)
-        render json: { error: exception.message }, status: :bad_request
+        render_error(code: :bad_request, message: exception.message, status: :bad_request)
       end
 
       def response_payload(debug_token)

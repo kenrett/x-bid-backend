@@ -24,7 +24,7 @@ module Api
             success: true, bid: BidSerializer.new(result.bid).as_json, bidCredits: @current_user.bid_credits
           }, status: :ok
         else
-          render json: { success: false, error: error_message_for(result), code: result.code }, status: :unprocessable_content
+          render_error(code: error_code_for(result), message: error_message_for(result), status: :unprocessable_content)
         end
       end
 
@@ -39,6 +39,10 @@ module Api
         else
           result.error || "Bid could not be placed."
         end
+      end
+
+      def error_code_for(result)
+        result.code || :bid_error
       end
     end
   end

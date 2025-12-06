@@ -36,7 +36,7 @@ class AdminBidPacksApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "Bid pack already retired", body["error"]
+    assert_equal "Bid pack already retired", body["message"]
   end
 
   test "show returns bid pack data with pricePerBid" do

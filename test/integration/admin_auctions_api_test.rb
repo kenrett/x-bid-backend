@@ -58,7 +58,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_includes body["error"], "Cannot retire an auction that has bids"
+    assert_includes body["message"], "Cannot retire an auction that has bids"
   end
 
   test "retires auction without bids and returns no content" do
@@ -91,7 +91,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "Auction already inactive", body["error"]
+    assert_equal "Auction already inactive", body["message"]
   end
 
   test "invalid status returns 422" do
@@ -108,7 +108,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_includes body["error"], "Invalid status"
+    assert_includes body["message"], "Invalid status"
   end
 
   test "blocks hard delete through the model" do

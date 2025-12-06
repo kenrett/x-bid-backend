@@ -38,7 +38,7 @@ class PasswordResetsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
     body = JSON.parse(response.body)
-    assert_equal "Invalid or expired token", body["error"]
+    assert_equal "Invalid or expired token", body["message"]
   end
 
   test "rejects disabled user reset" do
@@ -49,6 +49,6 @@ class PasswordResetsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = JSON.parse(response.body)
-    assert_equal "User account disabled", body["error"]
+    assert_equal "User account disabled", body["message"]
   end
 end

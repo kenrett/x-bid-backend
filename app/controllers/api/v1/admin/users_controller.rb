@@ -15,36 +15,36 @@ module Api
 
         def grant_admin
           result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
-          return render_error(result.error) if result.error
+          return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
         def revoke_admin
-          return render_error("Cannot revoke admin from a superadmin", :forbidden) if @user.superadmin?
-          return render_error("User is not an admin") unless @user.admin?
+          return render_error(code: :forbidden, message: "Cannot revoke admin from a superadmin", status: :forbidden) if @user.superadmin?
+          return render_error(code: :invalid_user, message: "User is not an admin", status: :unprocessable_entity) unless @user.admin?
 
           result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :user, request: request).call
-          return render_error(result.error) if result.error
+          return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
         def grant_superadmin
           result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
-          return render_error(result.error) if result.error
+          return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
         def revoke_superadmin
-          return render_error("User is not a superadmin") unless @user.superadmin?
+          return render_error(code: :invalid_user, message: "User is not a superadmin", status: :unprocessable_entity) unless @user.superadmin?
 
           result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
-          return render_error(result.error) if result.error
+          return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
         def ban
           result = Admin::Users::BanUser.new(actor: @current_user, user: @user, request: request).call
-          return render_error(result.error) if result.error
+          return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
 
           render_admin_user(result.user)
         end
@@ -64,7 +64,7 @@ module Api
         def set_user
           @user = User.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render_error("User not found", :not_found)
+          render_error(code: :not_found, message: "User not found", status: :not_found)
         end
 
         def ensure_not_last_superadmin_on_role_change
@@ -73,14 +73,14 @@ module Api
           return if requested_role.blank? || requested_role == "superadmin"
 
           remaining = User.superadmin.where.not(id: @user.id).exists?
-          render_error("Cannot remove the last superadmin", :forbidden) unless remaining
+          render_error(code: :forbidden, message: "Cannot remove the last superadmin", status: :forbidden) unless remaining
         end
 
         def ensure_not_last_superadmin!
           return unless @user&.superadmin?
 
           remaining = User.superadmin.where.not(id: @user.id).exists?
-          render_error("Cannot remove the last superadmin", :forbidden) unless remaining
+          render_error(code: :forbidden, message: "Cannot remove the last superadmin", status: :forbidden) unless remaining
         end
 
         def user_params
@@ -99,12 +99,8 @@ module Api
           render json: user, serializer: AdminUserSerializer
         end
 
-        def render_error(message, status = :unprocessable_content)
-          render json: { error: message }, status: status
-        end
-
         def render_validation_error(user)
-          render_error(user.errors.full_messages.to_sentence)
+          render_error(code: :invalid_user, message: user.errors.full_messages.to_sentence, status: :unprocessable_entity)
         end
       end
     end

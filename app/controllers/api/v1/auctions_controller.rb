@@ -27,7 +27,7 @@ module Api
         auction = Auction.includes(:bids, :winning_user).find(params[:id])
         render json: auction, include: :bids, serializer: Api::V1::AuctionSerializer
       rescue ActiveRecord::RecordNotFound
-        render json: { error: "Auction not found" }, status: :not_found
+        render_error(code: :not_found, message: "Auction not found", status: :not_found)
       end
 
       api :POST, "/auctions", "Create a new auction (admin only)"
@@ -55,7 +55,7 @@ module Api
         return render_invalid_status unless attrs
 
         result = ::Admin::Auctions::Upsert.new(actor: @current_user, attrs: attrs, request: request).call
-        return render json: { error: result.error }, status: :unprocessable_content if result.error
+        return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json, status: :created
       end
@@ -73,11 +73,11 @@ module Api
         return render_invalid_status unless attrs
 
         result = ::Admin::Auctions::Upsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
-        return render json: { error: result.error }, status: :unprocessable_content if result.error
+        return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
       rescue ActiveRecord::RecordNotFound
-        render json: { error: "Auction not found" }, status: :not_found
+        render_error(code: :not_found, message: "Auction not found", status: :not_found)
       end
 
       api :DELETE, "/auctions/:id", "Delete an auction (admin only)"
@@ -89,11 +89,11 @@ module Api
       def destroy
         auction = Auction.find(params[:id])
         result = ::Admin::Auctions::Retire.new(actor: @current_user, auction: auction, request: request).call
-        return render json: { error: result.error }, status: :unprocessable_content if result.error
+        return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
 
         head :no_content
       rescue ActiveRecord::RecordNotFound
-        render json: { error: "Auction not found" }, status: :not_found
+        render_error(code: :not_found, message: "Auction not found", status: :not_found)
       end
 
       private
@@ -128,7 +128,7 @@ module Api
       end
 
     def render_invalid_status
-      render json: { error: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}" }, status: :unprocessable_content
+      render_error(code: :invalid_status, message: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}", status: :unprocessable_entity)
       nil
     end
     end

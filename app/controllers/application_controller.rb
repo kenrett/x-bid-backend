@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::API
+  include ErrorRenderer
   attr_reader :current_session_token
   before_action :enforce_maintenance_mode
 

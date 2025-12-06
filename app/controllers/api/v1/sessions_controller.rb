@@ -21,14 +21,14 @@ module Api
       def create
         user = User.find_by(email_address: login_params[:email_address])
         if user&.disabled?
-          return render json: { error: "User account disabled" }, status: :forbidden
+          return render_error(code: :account_disabled, message: "User account disabled", status: :forbidden)
         end
 
         if user&.authenticate(login_params[:password])
           session_token, refresh_token = SessionToken.generate_for(user:)
           render json: build_session_response(user:, session_token:, refresh_token:)
         else
-          render json: { error: "Invalid credentials" }, status: :unauthorized
+          render_error(code: :invalid_credentials, message: "Invalid credentials", status: :unauthorized)
         end
       end
 
@@ -39,11 +39,11 @@ module Api
       error code: 401, desc: "Unauthorized - Refresh token invalid or expired"
       def refresh
         session_token = SessionToken.find_active_by_raw_token(refresh_params[:refresh_token])
-        return render json: { error: "Invalid or expired session" }, status: :unauthorized unless session_token
+        return render_error(code: :invalid_session, message: "Invalid or expired session", status: :unauthorized) unless session_token
         if session_token.user.disabled?
           session_token.revoke!
           SessionEventBroadcaster.session_invalidated(session_token, reason: "user_disabled")
-          return render json: { error: "User account disabled" }, status: :forbidden
+          return render_error(code: :account_disabled, message: "User account disabled", status: :forbidden)
         end
 
         session_token.revoke!
@@ -158,7 +158,7 @@ module Api
       end
 
       def handle_parameter_missing(exception)
-        render json: { error: exception.message }, status: :bad_request
+        render_error(code: :bad_request, message: exception.message, status: :bad_request)
       end
     end
   end

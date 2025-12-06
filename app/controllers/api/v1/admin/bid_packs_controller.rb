@@ -24,7 +24,7 @@ module Api
         # POST /admin/bid_packs
         def create
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, attrs: bid_pack_params, request: request).call
-          return render json: { error: result.error }, status: :unprocessable_content if result.error
+          return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
 
           render json: result.record, status: :created
         end
@@ -37,7 +37,7 @@ module Api
         # PATCH/PUT /admin/bid_packs/:id
         def update
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
-          return render json: { error: result.error }, status: :unprocessable_content if result.error
+          return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
 
           render json: result.record
         end
@@ -46,7 +46,7 @@ module Api
         # Retires a bid pack to prevent purchase while keeping history.
         def destroy
           result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
-          return render json: { error: result.error }, status: :unprocessable_content if result.error
+          return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
 
           render json: result.record
         end
@@ -56,7 +56,7 @@ module Api
         def set_bid_pack
           @bid_pack = BidPack.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Bid pack not found" }, status: :not_found
+          render_error(code: :not_found, message: "Bid pack not found", status: :not_found)
         end
 
         def bid_pack_params

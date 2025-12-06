@@ -28,10 +28,10 @@ module Api
         if result.success?
           render json: { message: result.message }, status: :ok
         else
-          render json: { error: result.error }, status: :unprocessable_content
+          render_error(code: :bid_pack_purchase_failed, message: result.error, status: :unprocessable_entity)
         end
       rescue ActiveRecord::RecordNotFound
-        render json: { error: "Bid pack not found" }, status: :not_found
+        render_error(code: :not_found, message: "Bid pack not found", status: :not_found)
       end
     end
   end
