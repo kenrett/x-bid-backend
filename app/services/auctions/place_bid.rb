@@ -13,15 +13,15 @@ module Auctions
     end
 
     def call(broadcast: true)
-      return ServiceResult.fail("Auction is not active") unless @auction.active?
-      return ServiceResult.fail("Insufficient bid credits") if @user.bid_credits <= 0
+      return ServiceResult.fail("Auction is not active", code: :auction_not_active) unless @auction.active?
+      return ServiceResult.fail("Insufficient bid credits", code: :insufficient_credits) if @user.bid_credits <= 0
 
       begin
         ActiveRecord::Base.transaction do
           new_price = @auction.current_price + BID_INCREMENT
           @auction.lock!
 
-          return ServiceResult.fail("Another bid was placed first.") if @auction.current_price >= new_price
+          return ServiceResult.fail("Another bid was placed first.", code: :bid_race_lost) if @auction.current_price >= new_price
 
           Credits::Debit.for_bid!(user: @user, auction: @auction)
           @bid = @auction.bids.create!(user: @user, amount: new_price)
@@ -33,11 +33,11 @@ module Auctions
         ServiceResult.ok(bid: @bid)
       rescue ActiveRecord::RecordInvalid => e
         log_error(e)
-        return ServiceResult.fail("Another bid was placed first.") if e.record.errors.include?(:amount)
-        ServiceResult.fail("Bid could not be placed: #{e.message}")
+        return ServiceResult.fail("Another bid was placed first.", code: :bid_race_lost) if e.record.errors.include?(:amount)
+        ServiceResult.fail("Bid could not be placed: #{e.message}", code: :bid_invalid)
       rescue => e
         log_error(e)
-        ServiceResult.fail("An unexpected error occurred.")
+        ServiceResult.fail("An unexpected error occurred.", code: :unexpected_error)
       end
     end
 

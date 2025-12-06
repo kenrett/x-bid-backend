@@ -24,7 +24,20 @@ module Api
             success: true, bid: BidSerializer.new(result.bid).as_json, bidCredits: @current_user.bid_credits
           }, status: :ok
         else
-          render json: { success: false, error: result.error }, status: :unprocessable_content
+          render json: { success: false, error: error_message_for(result), code: result.code }, status: :unprocessable_content
+        end
+      end
+
+      private
+
+      def error_message_for(result)
+        case result.code
+        when :auction_not_active then "Auction is not active"
+        when :insufficient_credits then "Insufficient bid credits"
+        when :bid_race_lost then "Another bid was placed first."
+        when :bid_invalid then "Bid could not be placed."
+        else
+          result.error || "Bid could not be placed."
         end
       end
     end

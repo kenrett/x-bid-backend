@@ -1,9 +1,10 @@
 class ServiceResult
-  attr_reader :error, :payload
+  attr_reader :error, :payload, :code
 
-  def initialize(success:, error: nil, payload: {})
+  def initialize(success:, error: nil, code: nil, payload: {})
     @success = success
     @error = error
+    @code = code
     @payload = payload || {}
   end
 
@@ -11,8 +12,8 @@ class ServiceResult
     new(success: true, payload: payload)
   end
 
-  def self.fail(error)
-    new(success: false, error: error, payload: {})
+  def self.fail(error, code: nil)
+    new(success: false, error: error, code: code, payload: {})
   end
 
   def success?

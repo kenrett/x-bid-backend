@@ -22,6 +22,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     assert result.success?, "Bid should succeed"
+    assert_nil result.code
     assert_not_nil result.bid
     assert_equal expected_price, result.bid.amount
     assert_equal @user1.id, result.bid.user_id
@@ -37,6 +38,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     refute result.success?
+    assert_equal :auction_not_active, result.code
     assert_equal "Auction is not active", result.error
   end
 
@@ -46,6 +48,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     refute result.success?
+    assert_equal :insufficient_credits, result.code
     assert_equal "Insufficient bid credits", result.error
   end
 
@@ -62,6 +65,7 @@ class PlaceBidTest < ActiveSupport::TestCase
 
     result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
     refute result.success?
+    assert_equal :bid_invalid, result.code
     assert_equal "Bid could not be placed: #{error_message}", result.error
   end
 
@@ -108,6 +112,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     loser  = failure.first
 
     assert_equal winner.bid.amount, @auction.reload.current_price
+    assert_equal :bid_race_lost, loser.code
     assert_match /Another bid was placed first/, loser.error
   end
 end
