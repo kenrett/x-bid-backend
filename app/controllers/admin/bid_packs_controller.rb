@@ -21,7 +21,7 @@ module Admin
 
     # PATCH/PUT /admin/bid-packs/:id
     def update
-      result = BidPacks::AdminUpsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
+      result = ::Admin::BidPacks::Upsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
       if result.error
         render json: { errors: [ result.error ] }, status: :unprocessable_content
       else

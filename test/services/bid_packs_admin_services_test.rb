@@ -9,7 +9,7 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
     attrs = { name: "Gold", description: "Desc", bids: 100, price: 10.0, active: true }
 
     assert_difference -> { BidPack.count }, +1 do
-      result = BidPacks::AdminUpsert.new(actor: @admin, attrs: attrs).call
+    result = Admin::BidPacks::Upsert.new(actor: @admin, attrs: attrs).call
     assert_nil result.error
     assert_equal "Gold", result.record.name
     end
@@ -18,7 +18,7 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
   test "admin upsert updates a bid pack" do
     pack = BidPack.create!(name: "Silver", description: "Desc", bids: 50, price: 5.0, active: true)
 
-    result = BidPacks::AdminUpsert.new(actor: @admin, bid_pack: pack, attrs: { price: 6.0 }).call
+    result = Admin::BidPacks::Upsert.new(actor: @admin, bid_pack: pack, attrs: { price: 6.0 }).call
 
     assert_nil result.error
     assert_equal 6.0, pack.reload.price
@@ -27,7 +27,7 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
   test "retire errors when already retired" do
     pack = BidPack.create!(name: "Bronze", description: "Desc", bids: 10, price: 1.0, active: false, status: :retired)
 
-    result = BidPacks::Retire.new(actor: @admin, bid_pack: pack).call
+    result = Admin::BidPacks::Retire.new(actor: @admin, bid_pack: pack).call
 
     assert_equal "Bid pack already retired", result.error
   end
@@ -36,7 +36,7 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
     pack = BidPack.create!(name: "Platinum", description: "Desc", bids: 200, price: 20.0, active: true)
 
     assert_difference -> { AuditLog.count }, +1 do
-      result = BidPacks::Retire.new(actor: @admin, bid_pack: pack).call
+    result = Admin::BidPacks::Retire.new(actor: @admin, bid_pack: pack).call
     assert_nil result.error
     end
 

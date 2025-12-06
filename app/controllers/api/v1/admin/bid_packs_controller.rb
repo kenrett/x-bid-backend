@@ -23,7 +23,7 @@ module Api
 
         # POST /admin/bid_packs
         def create
-          result = BidPacks::AdminUpsert.new(actor: @current_user, attrs: bid_pack_params, request: request).call
+          result = ::Admin::BidPacks::Upsert.new(actor: @current_user, attrs: bid_pack_params, request: request).call
           return render json: { error: result.error }, status: :unprocessable_content if result.error
 
           render json: result.record, status: :created
@@ -36,7 +36,7 @@ module Api
 
         # PATCH/PUT /admin/bid_packs/:id
         def update
-          result = BidPacks::AdminUpsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
+          result = ::Admin::BidPacks::Upsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
           return render json: { error: result.error }, status: :unprocessable_content if result.error
 
           render json: result.record
@@ -45,7 +45,7 @@ module Api
         # DELETE /admin/bid_packs/:id
         # Retires a bid pack to prevent purchase while keeping history.
         def destroy
-          result = BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
+          result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
           return render json: { error: result.error }, status: :unprocessable_content if result.error
 
           render json: result.record

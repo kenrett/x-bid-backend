@@ -54,7 +54,7 @@ module Api
         attrs = normalized_auction_params
         return render_invalid_status unless attrs
 
-        result = Auctions::AdminUpsert.new(actor: @current_user, attrs: attrs, request: request).call
+        result = ::Admin::Auctions::Upsert.new(actor: @current_user, attrs: attrs, request: request).call
         return render json: { error: result.error }, status: :unprocessable_content if result.error
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json, status: :created
@@ -72,7 +72,7 @@ module Api
         attrs = normalized_auction_params
         return render_invalid_status unless attrs
 
-        result = Auctions::AdminUpsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
+        result = ::Admin::Auctions::Upsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
         return render json: { error: result.error }, status: :unprocessable_content if result.error
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
@@ -88,7 +88,7 @@ module Api
       error code: 422, desc: "Unprocessable content - cannot delete auction with bids"
       def destroy
         auction = Auction.find(params[:id])
-        result = Auctions::Retire.new(actor: @current_user, auction: auction, request: request).call
+        result = ::Admin::Auctions::Retire.new(actor: @current_user, auction: auction, request: request).call
         return render json: { error: result.error }, status: :unprocessable_content if result.error
 
         head :no_content

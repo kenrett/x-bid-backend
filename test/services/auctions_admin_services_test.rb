@@ -16,7 +16,7 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     }
 
     assert_difference -> { Auction.count }, +1 do
-      result = Auctions::AdminUpsert.new(actor: @admin, attrs: attrs).call
+    result = Admin::Auctions::Upsert.new(actor: @admin, attrs: attrs).call
     assert_nil result.error
     assert result.record.persisted?
     assert_equal "New Auction", result.record.title
@@ -27,7 +27,7 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     auction = Auction.create!(title: "Old", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
     attrs = { status: :active }
 
-    result = Auctions::AdminUpsert.new(actor: @admin, auction: auction, attrs: attrs).call
+    result = Admin::Auctions::Upsert.new(actor: @admin, auction: auction, attrs: attrs).call
 
     assert_nil result.error
     assert_equal "active", auction.reload.status
@@ -38,7 +38,7 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     bidder = User.create!(name: "Bidder", email_address: "bidder@example.com", password: "password", bid_credits: 0)
     Bid.create!(user: bidder, auction: auction, amount: 2.0)
 
-    result = Auctions::Retire.new(actor: @admin, auction: auction).call
+    result = Admin::Auctions::Retire.new(actor: @admin, auction: auction).call
 
     assert_equal "Cannot retire an auction that has bids.", result.error
   end
@@ -47,7 +47,7 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     auction = Auction.create!(title: "Retire Me", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
 
     assert_difference -> { AuditLog.count }, +1 do
-      result = Auctions::Retire.new(actor: @admin, auction: auction).call
+    result = Admin::Auctions::Retire.new(actor: @admin, auction: auction).call
     assert_nil result.error
     end
 
