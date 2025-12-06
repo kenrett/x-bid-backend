@@ -115,4 +115,68 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal :bid_race_lost, loser.code
     assert_match /Another bid was placed first/, loser.error
   end
+
+  test "only one user wins when bidding concurrently" do
+    @auction.update!(current_price: 0.0)
+    @user1.update!(bid_credits: 5)
+    @user2.update!(bid_credits: 5)
+
+    service1 = Auctions::PlaceBid.new(user: @user1, auction: @auction)
+    service2 = Auctions::PlaceBid.new(user: @user2, auction: @auction)
+
+    queue = Queue.new
+    results = []
+    threads = [
+      Thread.new { ActiveRecord::Base.connection_pool.with_connection { queue.pop; results << service1.call } },
+      Thread.new { ActiveRecord::Base.connection_pool.with_connection { queue.pop; results << service2.call } }
+    ]
+
+    sleep 0.1
+    queue.close
+    threads.each(&:join)
+
+    winners = results.select(&:success?)
+    losers = results.reject(&:success?)
+
+    assert_equal 1, winners.size
+    assert_equal 1, losers.size
+    assert_equal :bid_race_lost, losers.first.code
+    assert_equal winners.first.bid.amount, @auction.reload.current_price
+    assert_equal winners.first.bid.user_id, @auction.reload.winning_user_id
+  end
+
+  test "credits and current_price stay consistent under concurrent bids" do
+    @auction.update!(current_price: 0.0)
+    @user1.update!(bid_credits: 5)
+    @user2.update!(bid_credits: 5)
+
+    service1 = Auctions::PlaceBid.new(user: @user1, auction: @auction)
+    service2 = Auctions::PlaceBid.new(user: @user2, auction: @auction)
+
+    queue = Queue.new
+    results = []
+    threads = [
+      Thread.new { ActiveRecord::Base.connection_pool.with_connection { queue.pop; results << service1.call } },
+      Thread.new { ActiveRecord::Base.connection_pool.with_connection { queue.pop; results << service2.call } }
+    ]
+
+    sleep 0.1
+    queue.close
+    threads.each(&:join)
+
+    @auction.reload
+    @user1.reload
+    @user2.reload
+
+    bids = @auction.bids.order(:created_at)
+    assert_equal 1, bids.count, "Only one bid should persist"
+    assert_equal bids.last.amount, @auction.current_price
+    assert_equal 9, @user1.bid_credits + @user2.bid_credits, "Exactly one credit should be consumed"
+
+    winners = results.select(&:success?)
+    losers = results.reject(&:success?)
+    assert_equal 1, winners.size
+    assert_equal 1, losers.size
+    assert_equal :bid_race_lost, losers.first.code
+  end
 end
