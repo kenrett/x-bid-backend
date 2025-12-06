@@ -9,7 +9,8 @@ class AppLogger
       log(
         event: event,
         level: :error,
-        error: error.message,
+        error_class: error.class.name,
+        error_message: error.message,
         backtrace: error.backtrace&.first(5),
         **context
       )
