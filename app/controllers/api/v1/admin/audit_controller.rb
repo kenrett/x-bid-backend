@@ -6,6 +6,12 @@ module Api
 
         # POST /api/v1/admin/audit
         # @summary Create an audit log entry
+        # Records an audit log for administrative actions.
+        # @request_body Audit payload (application/json) [!AuditLogCreate]
+        # @response Audit logged (201) [Hash{ status: String }]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
+        # @response Validation error (422) [Error]
         def create
           log = AuditLogger.log(
             action: audit_params[:action],

@@ -5,6 +5,10 @@ module Api
 
       # GET /api/v1/auctions/:auction_id/bid_history
       # @summary List bids for a given auction (newest first)
+      # Returns the current bid list for an auction along with the winning user, if present.
+      # @parameter auction_id(path) [Integer] ID of the auction
+      # @response Bid history (200) [BidHistoryResponse]
+      # @response Not found (404) [Error]
       # @no_auth
       def index
         bids = @auction.bids.order(created_at: :desc).includes(:user)

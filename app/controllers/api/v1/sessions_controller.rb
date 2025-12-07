@@ -8,6 +8,12 @@ module Api
 
       # POST /api/v1/login
       # @summary Log in and create a session
+      # Authenticates a user and returns session tokens plus user context.
+      # @request_body Login payload (application/json) [!LoginRequest]
+      # @response Session created (200) [UserSession]
+      # @response Unauthorized (401) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Bad request (400) [Error]
       # @no_auth
       def create
         user = User.find_by(email_address: login_params[:email_address])
@@ -24,6 +30,12 @@ module Api
       end
 
       # @summary Refresh the current session using a refresh token
+      # Exchanges a valid refresh token for a new session token pair.
+      # @request_body Refresh payload (application/json) [!RefreshRequest]
+      # @response Session refreshed (200) [UserSession]
+      # @response Unauthorized (401) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Bad request (400) [Error]
       # @no_auth
       def refresh
         session_token = SessionToken.find_active_by_raw_token(refresh_params[:refresh_token])
@@ -43,6 +55,9 @@ module Api
 
       # GET /api/v1/logged_in
       # @summary Check whether the provided token is valid
+      # Returns session and user context if the token is valid.
+      # @response Session valid (200) [UserSession]
+      # @response Unauthorized (401) [Error]
       def logged_in?
         if @current_user
           render json: build_logged_in_response(@current_user, @current_session_token)
@@ -52,6 +67,9 @@ module Api
       end
 
       # @summary Return remaining time for the current session token
+      # Provides session token metadata for the authenticated user.
+      # @response Session timing (200) [Hash{ session_expires_at: String, session_token_id: Integer, seconds_remaining: Integer }]
+      # @response Unauthorized (401) [Error]
       def remaining
         expires_at = @current_session_token.expires_at
         render json: {
@@ -63,6 +81,9 @@ module Api
 
       # DELETE /api/v1/logout
       # @summary Log out and revoke the current session token
+      # Revokes the active session token and returns a confirmation message.
+      # @response Logged out (200) [Hash{ status: String }]
+      # @response Unauthorized (401) [Error]
       def destroy
         if @current_session_token
           @current_session_token.revoke!

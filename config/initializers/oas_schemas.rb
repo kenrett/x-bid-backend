@@ -1,0 +1,360 @@
+module OasSchemas
+  STATUSES = %w[inactive scheduled active complete cancelled].freeze
+  BID_PACK_STATUSES = %w[active retired].freeze
+
+  SCHEMAS = {
+    "Auction" => {
+      type: "object",
+      description: "Full auction details including pricing and winner information.",
+      properties: {
+        id: { type: "integer" },
+        title: { type: "string" },
+        description: { type: "string" },
+        status: { type: "string", enum: STATUSES },
+        start_date: { type: "string", format: "date-time" },
+        end_time: { type: "string", format: "date-time" },
+        current_price: { type: "number", format: "float" },
+        image_url: { type: "string", nullable: true },
+        highest_bidder_id: { type: "integer", nullable: true },
+        winning_user_id: { type: "integer", nullable: true },
+        winning_user_name: { type: "string", nullable: true },
+        bids: {
+          type: "array",
+          nullable: true,
+          items: { "$ref" => "#/components/schemas/Bid" }
+        }
+      },
+      required: %w[id title description status start_date end_time current_price]
+    },
+    "AuctionSummary" => {
+      type: "object",
+      description: "Slimmer auction representation for list views to reduce payload size.",
+      properties: {
+        id: { type: "integer" },
+        title: { type: "string" },
+        status: { type: "string", enum: STATUSES },
+        end_time: { type: "string", format: "date-time" },
+        current_price: { type: "number", format: "float" },
+        image_url: { type: "string", nullable: true },
+        winning_user_id: { type: "integer", nullable: true },
+        winning_user_name: { type: "string", nullable: true }
+      },
+      required: %w[id title status end_time current_price]
+    },
+    "Bid" => {
+      type: "object",
+      description: "A single bid placed against an auction.",
+      properties: {
+        id: { type: "integer" },
+        auction_id: { type: "integer", nullable: true },
+        user_id: { type: "integer" },
+        username: { type: "string" },
+        amount: { type: "number", format: "float" },
+        created_at: { type: "string", format: "date-time" }
+      },
+      required: %w[id user_id username amount created_at]
+    },
+    "BidHistoryItem" => {
+      type: "object",
+      description: "Bid history entry with bidder display name.",
+      properties: {
+        id: { type: "integer" },
+        user_id: { type: "integer" },
+        username: { type: "string" },
+        amount: { type: "number", format: "float" },
+        created_at: { type: "string", format: "date-time" }
+      },
+      required: %w[id user_id username amount created_at]
+    },
+    "BidHistoryResponse" => {
+      type: "object",
+      description: "Envelope returned from bid history endpoints.",
+      properties: {
+        auction: {
+          type: "object",
+          properties: {
+            winning_user_id: { type: "integer", nullable: true },
+            winning_user_name: { type: "string", nullable: true }
+          }
+        },
+        bids: {
+          type: "array",
+          items: { "$ref" => "#/components/schemas/BidHistoryItem" }
+        }
+      },
+      required: %w[auction bids]
+    },
+    "BidPack" => {
+      type: "object",
+      description: "Information about a purchasable bid pack.",
+      properties: {
+        id: { type: "integer" },
+        name: { type: "string" },
+        bids: { type: "integer", description: "Number of bids included." },
+        price: { type: "number", format: "float" },
+        pricePerBid: { type: "string" },
+        highlight: { type: "boolean", nullable: true },
+        description: { type: "string", nullable: true },
+        status: { type: "string", enum: BID_PACK_STATUSES },
+        active: { type: "boolean" }
+      },
+      required: %w[id name bids price status active]
+    },
+    "UserSession" => {
+      type: "object",
+      description: "Session details and tokens returned after login/refresh.",
+      properties: {
+        token: { type: "string", description: "JWT used for authenticated requests." },
+        refresh_token: { type: "string" },
+        session: {
+          type: "object",
+          properties: {
+            session_token_id: { type: "integer" },
+            session_expires_at: { type: "string", format: "date-time" },
+            seconds_remaining: { type: "integer" }
+          },
+          required: %w[session_token_id session_expires_at seconds_remaining]
+        },
+        is_admin: { type: "boolean" },
+        is_superuser: { type: "boolean" },
+        redirect_path: { type: "string", nullable: true },
+        user: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            name: { type: "string" },
+            role: { type: "string" },
+            emailAddress: { type: "string", format: "email" },
+            bidCredits: { type: "integer" },
+            is_admin: { type: "boolean" },
+            is_superuser: { type: "boolean" }
+          },
+          required: %w[id name role emailAddress bidCredits]
+        }
+      },
+      required: %w[token refresh_token session user]
+    },
+    "CheckoutSession" => {
+      type: "object",
+      description: "Stripe checkout session details used to complete purchases.",
+      properties: {
+        clientSecret: { type: "string", description: "Client secret used to render the Stripe checkout flow." },
+        payment_status: { type: "string", nullable: true },
+        status: { type: "string", nullable: true },
+        message: { type: "string", nullable: true },
+        updated_bid_credits: { type: "integer", nullable: true }
+      },
+      required: %w[clientSecret]
+    },
+    "Error" => {
+      type: "object",
+      description: "Standard error envelope returned by all error responses. error_code maps to ServiceResult#code or controller error codes.",
+      properties: {
+        error_code: {
+          type: "string",
+          description: "Symbol/string code derived from ServiceResult#code so clients can branch on error type.",
+          enum: [
+            "forbidden",
+            "not_found",
+            "bad_request",
+            "invalid_status",
+            "invalid_state",
+            "invalid_auction",
+            "invalid_bid_pack",
+            "invalid_payment",
+            "invalid_amount",
+            "amount_exceeds_charge",
+            "gateway_error",
+            "database_error",
+            "unexpected_error",
+            "validation_error",
+            "auction_not_active",
+            "insufficient_credits",
+            "bid_race_lost",
+            "bid_invalid",
+            "bid_pack_purchase_failed",
+            "invalid_credentials",
+            "invalid_session",
+            "account_disabled",
+            "invalid_token",
+            "invalid_password",
+            "invalid_user",
+            "invalid_delta",
+            "already_disabled",
+            "already_refunded",
+            "retired",
+            "missing_payment_intent"
+          ]
+        },
+        message: { type: "string" },
+        details: {
+          oneOf: [
+            { type: "object", additionalProperties: true },
+            { type: "array", items: {} }
+          ],
+          nullable: true
+        }
+      },
+      required: %w[error_code message]
+    },
+    # Request payloads
+    "LoginRequest" => {
+      type: "object",
+      properties: {
+        session: {
+          type: "object",
+          properties: {
+            email_address: { type: "string", format: "email" },
+            password: { type: "string" }
+          },
+          required: %w[email_address password]
+        }
+      },
+      required: %w[session]
+    },
+    "RefreshRequest" => {
+      type: "object",
+      properties: {
+        session: {
+          type: "object",
+          properties: {
+            refresh_token: { type: "string" }
+          },
+          required: %w[refresh_token]
+        }
+      },
+      required: %w[session]
+    },
+    "AuctionUpsert" => {
+      type: "object",
+      description: "Attributes accepted when creating or updating an auction via admin endpoints.",
+      properties: {
+        auction: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            image_url: { type: "string", nullable: true },
+            status: { type: "string", enum: STATUSES, nullable: true },
+            start_date: { type: "string", format: "date-time", nullable: true },
+            end_time: { type: "string", format: "date-time", nullable: true },
+            current_price: { type: "number", format: "float", nullable: true }
+          },
+          required: %w[title description]
+        }
+      },
+      required: %w[auction]
+    },
+    "BidPackUpsert" => {
+      type: "object",
+      description: "Attributes accepted when creating or updating bid packs via admin endpoints.",
+      properties: {
+        bid_pack: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            price: { type: "number", format: "float" },
+            bids: { type: "integer" },
+            highlight: { type: "boolean", nullable: true },
+            description: { type: "string", nullable: true },
+            status: { type: "string", enum: BID_PACK_STATUSES, nullable: true },
+            active: { type: "boolean", nullable: true }
+          },
+          required: %w[name price bids]
+        }
+      },
+      required: %w[bid_pack]
+    },
+    "AuditLogCreate" => {
+      type: "object",
+      properties: {
+        audit: {
+          type: "object",
+          properties: {
+            action: { type: "string" },
+            target_type: { type: "string", nullable: true },
+            target_id: { type: "integer", nullable: true },
+            payload: { type: "object", additionalProperties: true }
+          },
+          required: %w[action]
+        }
+      },
+      required: %w[audit]
+    },
+    "PaymentRefundRequest" => {
+      type: "object",
+      properties: {
+        amount_cents: { type: "integer", minimum: 0 },
+        reason: { type: "string", nullable: true }
+      },
+      required: %w[amount_cents]
+    },
+    "AdminUserUpdate" => {
+      type: "object",
+      properties: {
+        user: {
+          type: "object",
+          properties: {
+            name: { type: "string", nullable: true },
+            email_address: { type: "string", format: "email", nullable: true },
+            role: { type: "string", nullable: true }
+          }
+        }
+      },
+      required: %w[user]
+    },
+    "MaintenanceToggle" => {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean" }
+      },
+      required: %w[enabled]
+    },
+    "BidPlacementResponse" => {
+      type: "object",
+      description: "Response envelope returned after placing a bid.",
+      properties: {
+        success: { type: "boolean" },
+        bid: { "$ref" => "#/components/schemas/Bid" },
+        bidCredits: { type: "integer" }
+      },
+      required: %w[success bid bidCredits]
+    }
+  }.freeze
+
+  def self.inject_into(spec_hash)
+    spec_hash[:components] ||= {}
+    spec_hash[:components][:schemas] ||= {}
+    spec_hash[:components][:schemas].merge!(SCHEMAS)
+    spec_hash
+  end
+
+  def self.register_type_parsers!
+    existing_parsers = OasCore::JsonSchemaGenerator.instance_variable_get(:@custom_type_parsers) || {}
+    OasCore::JsonSchemaGenerator.instance_variable_set(:@custom_type_parsers, {})
+
+    OasCore::JsonSchemaGenerator.register_type_parser(
+      ->(type) { SCHEMAS.key?(type) },
+      ->(type, _required) { { "$ref" => "#/components/schemas/#{type}" } }
+    )
+
+    existing_parsers.each do |matcher, parser|
+      OasCore::JsonSchemaGenerator.register_type_parser(matcher, parser)
+    end
+  end
+end
+
+# Ensure canonical schemas are registered and injected into the generated specification.
+OasSchemas.register_type_parsers!
+
+module OasRails
+  class << self
+    unless method_defined?(:build_without_canonical_schemas)
+      alias_method :build_without_canonical_schemas, :build
+
+      def build(...)
+        OasSchemas.inject_into(build_without_canonical_schemas(...))
+      end
+    end
+  end
+end

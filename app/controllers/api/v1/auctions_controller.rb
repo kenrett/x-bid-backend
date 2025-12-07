@@ -6,6 +6,10 @@ module Api
       ALLOWED_STATUSES = Auctions::Status.allowed_keys
 
       # @summary List all auctions
+      # Returns public auction summaries filtered by status.
+      # @parameter status(query) [String] Filter by status (allowed: inactive, scheduled, active, complete, cancelled)
+      # @response Auctions (200) [Array<AuctionSummary>]
+      # @response Validation error (422) [Error]
       # @no_auth
       def index
         result = ::Auctions::Queries::PublicIndex.call(params: public_index_params)
@@ -13,6 +17,10 @@ module Api
       end
 
       # @summary Retrieve a single auction with bids
+      # Fetches the auction and embeds the current bid list.
+      # @parameter id(path) [Integer] ID of the auction
+      # @response Auction found (200) [Auction]
+      # @response Not found (404) [Error]
       # @no_auth
       def show
         result = ::Auctions::Queries::PublicShow.call(params: { id: params[:id] })
@@ -22,6 +30,12 @@ module Api
       end
 
       # @summary Create a new auction (admin only)
+      # Create and schedule or activate an auction. Status values are normalized to the allowed list.
+      # @request_body Auction payload (application/json) [!AuctionUpsert]
+      # @response Auction created (201) [Auction]
+      # @response Unauthorized (401) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Validation error (422) [Error]
       def create
         attrs = normalized_auction_params
         return render_invalid_status unless attrs
@@ -33,6 +47,14 @@ module Api
       end
 
       # @summary Update an existing auction (admin only)
+      # Update auction details or transition status for an existing auction.
+      # @parameter id(path) [Integer] ID of the auction
+      # @request_body Auction payload (application/json) [!AuctionUpsert]
+      # @response Auction updated (200) [Auction]
+      # @response Unauthorized (401) [Error]
+      # @response Not found (404) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Validation error (422) [Error]
       def update
         auction = Auction.find(params[:id])
         attrs = normalized_auction_params
@@ -47,6 +69,13 @@ module Api
       end
 
       # @summary Retire an auction (admin only)
+      # Retire an auction to prevent further bids while keeping history intact.
+      # @parameter id(path) [Integer] ID of the auction
+      # @response Auction retired (204) [Hash{}]
+      # @response Unauthorized (401) [Error]
+      # @response Not found (404) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Validation error (422) [Error]
       def destroy
         auction = Auction.find(params[:id])
         result = ::Admin::Auctions::Retire.new(actor: @current_user, auction: auction, request: request).call
@@ -58,6 +87,13 @@ module Api
       end
 
       # @summary Extend an auction's end time (admin only)
+      # Extends an active auction within the configured extension window.
+      # @parameter id(path) [Integer] ID of the auction
+      # @response Auction extended (200) [Auction]
+      # @response Unauthorized (401) [Error]
+      # @response Not found (404) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Validation error (422) [Error]
       def extend_time
         auction = Auction.find(params[:id])
         result = ::Admin::Auctions::Extend

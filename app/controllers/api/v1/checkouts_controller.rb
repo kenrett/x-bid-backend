@@ -1,7 +1,13 @@
-class Api::V1::CheckoutsController < ApplicationController
+  class Api::V1::CheckoutsController < ApplicationController
   before_action :authenticate_request!
 
   # @summary Start a Stripe Checkout session for a bid pack
+  # Initializes a Stripe checkout session for the given bid pack and returns the client secret.
+  # @parameter bid_pack_id(query) [Integer] ID of the bid pack to purchase
+  # @response Checkout session created (200) [CheckoutSession]
+  # @response Unauthorized (401) [Error]
+  # @response Not found (404) [Error]
+  # @response Validation error (422) [Error]
   def create
     bid_pack = BidPack.active.find(params[:bid_pack_id])
     # debugger
@@ -42,6 +48,11 @@ class Api::V1::CheckoutsController < ApplicationController
   end
 
   # @summary Check the Stripe checkout session status
+  # Fetches the status of a Stripe checkout session using its ID.
+  # @parameter session_id(query) [String] ID of the Stripe checkout session
+  # @response Checkout status (200) [CheckoutSession]
+  # @response Unauthorized (401) [Error]
+  # @response Not found (404) [Error]
   def status
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
 
@@ -51,6 +62,13 @@ class Api::V1::CheckoutsController < ApplicationController
   end
 
   # @summary Handle successful checkout callbacks and credit the user
+  # Idempotently processes a paid checkout session and credits the user with purchased bids.
+  # @parameter session_id(query) [String] ID of the Stripe checkout session
+  # @response Purchase applied (200) [CheckoutSession]
+  # @response Already processed (208) [CheckoutSession]
+  # @response Unauthorized (401) [Error]
+  # @response Not found (404) [Error]
+  # @response Validation error (422) [Error]
   def success
     # If this purchase has already been processed, do nothing more.
     if Purchase.exists?(stripe_checkout_session_id: params[:session_id])
@@ -91,4 +109,4 @@ class Api::V1::CheckoutsController < ApplicationController
     # This handles a race condition where two requests try to process the same session simultaneously.
     render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
   end
-end
+  end

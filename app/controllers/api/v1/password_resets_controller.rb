@@ -4,6 +4,8 @@ module Api
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
       # @summary Request a password reset email
+      # @response Accepted (202) [Hash{ status: String }]
+      # @response Bad request (400) [Error]
       # @no_auth
       def create
         user = User.find_by(email_address: forgot_params[:email_address])
@@ -12,6 +14,11 @@ module Api
       end
 
       # @summary Reset a password using a token
+      # @response Password reset (200) [Hash{ message: String }]
+      # @response Unauthorized (401) [Error]
+      # @response Forbidden (403) [Error]
+      # @response Validation error (422) [Error]
+      # @response Bad request (400) [Error]
       # @no_auth
       def update
         user = nil

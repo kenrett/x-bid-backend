@@ -4,6 +4,12 @@ module Api
       before_action :authenticate_request!
 
       # @summary Place a bid on an auction
+      # Places a bid for the current user on the specified auction.
+      # @parameter auction_id(path) [Integer] ID of the auction
+      # @response Bid placed (200) [BidPlacementResponse]
+      # @response Unauthorized (401) [Error]
+      # @response Not found (404) [Error]
+      # @response Validation error (422) [Error]
       def create
         auction = Auction.find(params[:auction_id])
         result = Auctions::PlaceBid.new(user: @current_user, auction: auction).call

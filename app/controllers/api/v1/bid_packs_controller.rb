@@ -4,6 +4,8 @@ module Api
       before_action :authenticate_request!, only: [ :purchase ]
 
       # @summary List available bid packs
+      # Publicly lists active bid packs available for purchase.
+      # @response Bid packs (200) [Array<BidPack>]
       # @no_auth
       def index
         bid_packs = BidPack.active
@@ -11,6 +13,12 @@ module Api
       end
 
       # @summary Purchase a bid pack for the current user
+      # Creates a purchase for the given bid pack and credits the user after payment processing.
+      # @parameter id(path) [Integer] ID of the bid pack
+      # @response Purchase started (200) [Hash{ message: String }]
+      # @response Unauthorized (401) [Error]
+      # @response Not found (404) [Error]
+      # @response Validation error (422) [Error]
       def purchase
         bid_pack = BidPack.active.find(params[:id])
         result = Billing::PurchaseBidPack.new(user: @current_user, bid_pack: bid_pack).call

@@ -2,6 +2,46 @@
 
 This is the Ruby on Rails API backend for the **X-Bid** auction platform. It handles user authentication, auction management, bid packs, and real-time bidding logic.
 
+## Backend Architecture Overview
+
+### Commands (What They Are)
+- One file = one action (e.g., `Auctions::PlaceBid`, `Admin::Auctions::Retire`).
+- They validate inputs, apply business rules, update data, and return a `ServiceResult`.
+- Commands keep controllers thin and replace scattered business logic.
+
+### How Commands Orchestrate Work
+Commands read like a short script that calls small helpers:
+
+```ruby
+def call
+  validate_auction!
+  ensure_user_has_credits!
+  with_lock_and_retries do
+    persist_bid!
+    extend_auction_if_needed!
+  end
+  publish_bid_placed_event
+  ServiceResult.ok(data: { bid:, auction: })
+end
+```
+
+Each helper has a single job, so the flow stays readable and easy to test.
+
+### Domain Events (What They Are)
+- Domain events announce that something important happened (e.g., `Auctions::Events::BidPlaced`).
+- Commands emit events; listeners (ActionCable, analytics, etc.) react without the command knowing the details.
+- Commands perform the action; events publish that it happened—clean separation for future extensions.
+
+### Why We Use This Pattern
+- Easier to read and understand; the call method is a high-level script.
+- Predictable structure across the codebase; junior-friendly.
+- Safer boundaries between admin/public flows.
+- More testable: commands and events are tested separately.
+- No hidden controller logic; new teammates can onboard faster.
+
+### One-Line Summary
+We use command-based application services to perform domain actions, and domain events to announce when something important happens. This keeps the system clean, predictable, and easy for anyone to work on.
+
 ## Prerequisites
 
 *   **Ruby:** See the `.ruby-version` file.

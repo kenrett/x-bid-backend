@@ -7,6 +7,10 @@ module Api
 
         # GET /admin/bid_packs
         # @summary List all bid packs (admin)
+        # Lists all bid packs including retired ones for administrative management.
+        # @response Bid packs (200) [Array<BidPack>]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
         def index
           bid_packs = BidPack.all
           render json: bid_packs
@@ -14,17 +18,31 @@ module Api
 
         # GET /admin/bid_packs/:id
         # @summary Show a bid pack (admin)
+        # @parameter id(path) [Integer] ID of the bid pack
+        # @response Bid pack (200) [BidPack]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
+        # @response Not found (404) [Error]
         def show
           render json: @bid_pack
         end
 
         # GET /admin/bid_packs/new
         # @summary Return a template bid pack for creation
+        # @response Template (200) [BidPack]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
         def new
           render json: BidPack.new
         end
 
         # POST /admin/bid_packs
+        # Create a bid pack with the provided attributes.
+        # @request_body Bid pack payload (application/json) [!BidPackUpsert]
+        # @response Bid pack created (201) [BidPack]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
+        # @response Validation error (422) [Error]
         def create
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, attrs: bid_pack_params, request: request).call
           render_result(result, success_status: :created)
@@ -32,12 +50,25 @@ module Api
 
         # GET /admin/bid_packs/:id/edit
         # @summary Fetch a bid pack for editing
+        # @parameter id(path) [Integer] ID of the bid pack
+        # @response Bid pack (200) [BidPack]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
+        # @response Not found (404) [Error]
         def edit
           render json: @bid_pack
         end
 
         # PATCH/PUT /admin/bid_packs/:id
         # @summary Update a bid pack (admin)
+        # Updates bid pack fields or status.
+        # @parameter id(path) [Integer] ID of the bid pack
+        # @request_body Bid pack payload (application/json) [!BidPackUpsert]
+        # @response Bid pack updated (200) [BidPack]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
+        # @response Not found (404) [Error]
+        # @response Validation error (422) [Error]
         def update
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
           render_result(result)
@@ -46,6 +77,13 @@ module Api
         # DELETE /admin/bid_packs/:id
         # Retires a bid pack to prevent purchase while keeping history.
         # @summary Retire (deactivate) a bid pack (admin)
+        # Retires an existing bid pack while preserving purchase history.
+        # @parameter id(path) [Integer] ID of the bid pack
+        # @response Bid pack retired (200) [BidPack]
+        # @response Unauthorized (401) [Error]
+        # @response Forbidden (403) [Error]
+        # @response Not found (404) [Error]
+        # @response Validation error (422) [Error]
         def destroy
           result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
           render_result(result)
