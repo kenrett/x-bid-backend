@@ -53,6 +53,17 @@ bin/lint  # runs rubocop and brakeman
 ```
 Run lint/security checks before merging.
 
+## Architecture checks
+
+Ensure public services do not reference admin namespaces:
+
+```bash
+bundle exec rails test test/services/architecture_test.rb
+```
+
+If a public service (for example `app/services/auctions/place_bid.rb`) referenced
+`Admin::Auctions::Upsert`, the test would fail and list the offending file path.
+
 ## For Contributors / Local Development
 
 * Setup: `bin/setup` (installs gems, creates/migrates/seeds DB)
