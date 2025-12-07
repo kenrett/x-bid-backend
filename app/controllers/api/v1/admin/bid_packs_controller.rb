@@ -27,9 +27,7 @@ module Api
         # POST /admin/bid_packs
         def create
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, attrs: bid_pack_params, request: request).call
-          return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
-
-          render json: result.record, status: :created
+          render_result(result, success_status: :created)
         end
 
         # GET /admin/bid_packs/:id/edit
@@ -42,9 +40,7 @@ module Api
         # @summary Update a bid pack (admin)
         def update
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
-          return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
-
-          render json: result.record
+          render_result(result)
         end
 
         # DELETE /admin/bid_packs/:id
@@ -52,9 +48,7 @@ module Api
         # @summary Retire (deactivate) a bid pack (admin)
         def destroy
           result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
-          return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
-
-          render json: result.record
+          render_result(result)
         end
 
         private
@@ -74,6 +68,22 @@ module Api
           end
 
           permitted
+        end
+
+        def render_result(result, success_status: :ok)
+          if result.ok?
+            return render json: result.record, status: success_status
+          end
+
+          render_error(code: result.code || :invalid_bid_pack, message: result.error, status: map_status(result.code))
+        end
+
+        def map_status(code)
+          case code
+          when :forbidden then :forbidden
+          when :invalid_state, :invalid_bid_pack, :invalid_status then :unprocessable_content
+          else :unprocessable_content
+          end
         end
       end
     end

@@ -5,6 +5,10 @@ class BidPack < ApplicationRecord
 
   scope :active, -> { where(status: statuses[:active]) }
 
+  validates :name, presence: true
+  validates :price, presence: true, numericality: { greater_than: 0 }
+  validates :bids, presence: true, numericality: { greater_than: 0, only_integer: true }
+
   before_destroy :prevent_destroy
   before_save :sync_active_flag
 

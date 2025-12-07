@@ -1,0 +1,1 @@
+All admin-only bid pack mutations must go through the services in this directory (`Admin::BidPacks::*`). Controllers and background jobs should not call `BidPack` mutation methods directly; route through these commands to ensure admin authorization, audit logging, and consistent `ServiceResult` handling.

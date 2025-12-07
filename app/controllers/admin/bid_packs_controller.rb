@@ -60,7 +60,7 @@ module Admin
     def map_status(code)
       case code
       when :forbidden then :forbidden
-      when :invalid_state, :invalid_bid_pack then :unprocessable_content
+      when :invalid_state, :invalid_bid_pack, :invalid_status then :unprocessable_content
       else :unprocessable_content
       end
     end
