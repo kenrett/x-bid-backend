@@ -65,6 +65,43 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal "Insufficient bid credits", result.error
   end
 
+  test "does not publish event on failure" do
+    @user1.update!(bid_credits: 0)
+    called = false
+
+    Auctions::Events::BidPlaced.stub(:call, ->(**_) { called = true }) do
+      result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
+      refute result.success?
+    end
+
+    refute called, "Event should not be published when placing bid fails"
+  end
+
+  test "does not bypass domain event layer" do
+    AuctionChannel.stub(:broadcast_to, ->(*_) { raise "should not broadcast directly" }) do
+      Auctions::Events::BidPlaced.stub(:call, ->(auction:, bid:) { [ auction, bid ] }) do
+        result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
+        assert result.success?
+      end
+    end
+  end
+
+  test "retries when lock contention occurs" do
+    attempts = 0
+    original_lock = @auction.method(:lock!)
+    @auction.define_singleton_method(:lock!) do
+      attempts += 1
+      raise ActiveRecord::Deadlocked if attempts == 1
+      original_lock.call
+    end
+
+    Auctions::Events::BidPlaced.stub(:call, ->(**_) { true }) do
+      result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
+      assert result.success?, "Should succeed after retrying a deadlock"
+      assert_equal 2, attempts, "Should attempt lock twice"
+    end
+  end
+
   test "should fail and return a specific error if a non-amount validation fails" do
     # We can simulate a different validation failure by stubbing the auction update.
     # Here, we pretend updating the winning_user fails for some reason.

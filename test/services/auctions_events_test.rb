@@ -10,9 +10,12 @@ class AuctionsEventsTest < ActiveSupport::TestCase
 
   test "broadcasts bid placed event with payload" do
     broadcast_args = nil
+    logged = nil
 
     AuctionChannel.stub(:broadcast_to, ->(*args) { broadcast_args = args }) do
-      Auctions::Events::BidPlaced.call(auction: @auction, bid: @bid)
+      AppLogger.stub(:log, ->(**context) { logged = context }) do
+        Auctions::Events::BidPlaced.call(auction: @auction, bid: @bid)
+      end
     end
 
     assert_equal @auction, broadcast_args.first
@@ -22,5 +25,10 @@ class AuctionsEventsTest < ActiveSupport::TestCase
     assert_equal({ id: @user.id, name: @user.name }, payload[:winning_user])
     assert_equal @auction.end_time, payload[:end_time]
     assert_equal BidSerializer.new(@bid).as_json, payload[:bid]
+
+    assert_equal "auction.bid_placed", logged[:event]
+    assert_equal @auction.id, logged[:auction_id]
+    assert_equal @bid.id, logged[:bid_id]
+    assert_equal @user.id, logged[:user_id]
   end
 end
