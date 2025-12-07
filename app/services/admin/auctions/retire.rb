@@ -1,14 +1,13 @@
 module Admin
   module Auctions
-    class Retire
+    class Retire < Admin::BaseCommand
       def initialize(actor:, auction:, request: nil)
-        @actor = actor
-        @auction = auction
-        @request = request
+        super
       end
 
-      def call
-        return unauthorized unless admin_actor?
+      private
+
+      def perform
         return ServiceResult.fail("Auction already inactive") if @auction.inactive?
         return ServiceResult.fail("Cannot retire an auction that has bids.") if @auction.bids.exists?
 
@@ -18,16 +17,6 @@ module Admin
         else
           ServiceResult.fail(@auction.errors.full_messages.to_sentence)
         end
-      end
-
-      private
-
-      def admin_actor?
-        @actor&.admin? || @actor&.superadmin?
-      end
-
-      def unauthorized
-        ServiceResult.fail("Admin privileges required", code: :forbidden)
       end
     end
   end

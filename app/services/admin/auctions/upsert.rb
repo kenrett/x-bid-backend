@@ -1,15 +1,13 @@
 module Admin
   module Auctions
-    class Upsert
+    class Upsert < Admin::BaseCommand
       def initialize(actor:, auction: nil, attrs:, request: nil)
-        @actor = actor
-        @auction = auction || ::Auction.new
-        @attrs = normalize_status(attrs)
-        @request = request
+        auction ||= ::Auction.new
+        normalized_attrs = normalize_status(attrs)
+        super(actor: actor, auction: auction, attrs: normalized_attrs, request: request)
       end
 
-      def call
-        return unauthorized unless admin_actor?
+      def perform
         return ServiceResult.fail("Invalid status. Allowed: #{::Auctions::Status.allowed_keys.join(', ')}") unless valid_status?
 
         if @auction.update(@attrs)
@@ -19,8 +17,6 @@ module Admin
           ServiceResult.fail(@auction.errors.full_messages.to_sentence)
         end
       end
-
-      private
 
       def action_name
         @auction.persisted? ? "auction.update" : "auction.create"
@@ -45,14 +41,6 @@ module Admin
         key = hash.key?("status") ? "status" : :status
         mapped = ::Auctions::Status.from_api(hash[key])
         mapped ? hash.merge(key => mapped) : hash
-      end
-
-      def admin_actor?
-        @actor&.admin? || @actor&.superadmin?
-      end
-
-      def unauthorized
-        ServiceResult.fail("Admin privileges required", code: :forbidden)
       end
     end
   end
