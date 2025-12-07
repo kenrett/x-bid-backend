@@ -8,7 +8,7 @@ module Admin
       end
 
       def perform
-        return ServiceResult.fail("Invalid status. Allowed: #{::Auctions::Status.allowed_keys.join(', ')}") unless valid_status?
+        return ServiceResult.fail("Invalid status. Allowed: #{::Auctions::Status.allowed_keys.join(', ')}", code: :invalid_status) unless valid_status?
 
         ActiveRecord::Base.transaction do
           apply_details!
@@ -16,7 +16,7 @@ module Admin
         end
 
         AuditLogger.log(action: action_name, actor: @actor, target: @auction, payload: @attrs, request: @request)
-        ServiceResult.ok(record: @auction)
+        ServiceResult.ok(code: action_result_code, message: "Auction #{action_result_code == :created ? 'created' : 'updated'}", record: @auction, data: { auction: @auction })
       rescue ::Auction::InvalidState => e
         ServiceResult.fail(e.message, code: :invalid_state, record: @auction)
       rescue ActiveRecord::RecordInvalid => e
@@ -53,6 +53,10 @@ module Admin
         return if detail_attrs.empty?
 
         @auction.update_details!(detail_attrs)
+      end
+
+      def action_result_code
+        @auction.previous_changes["id"] ? :created : :ok
       end
 
       def apply_status_transition!

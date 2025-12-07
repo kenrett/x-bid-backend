@@ -27,7 +27,7 @@ module Api
         return render_invalid_status unless attrs
 
         result = ::Admin::Auctions::Upsert.new(actor: @current_user, attrs: attrs, request: request).call
-        return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
+        return render_service_error(result) unless result.ok?
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json, status: :created
       end
@@ -39,7 +39,7 @@ module Api
         return render_invalid_status unless attrs
 
         result = ::Admin::Auctions::Upsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
-        return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
+        return render_service_error(result) unless result.ok?
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
       rescue ActiveRecord::RecordNotFound
@@ -50,7 +50,7 @@ module Api
       def destroy
         auction = Auction.find(params[:id])
         result = ::Admin::Auctions::Retire.new(actor: @current_user, auction: auction, request: request).call
-        return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
+        return render_service_error(result) unless result.ok?
 
         head :no_content
       rescue ActiveRecord::RecordNotFound
@@ -64,14 +64,7 @@ module Api
           .new(actor: @current_user, auction: auction, window: 30.seconds, request: request)
           .call
 
-        unless result.ok?
-          status = case result.code
-          when :forbidden then :forbidden
-          when :invalid_state, :invalid_auction then :unprocessable_entity
-          else :unprocessable_entity
-          end
-          return render_error(code: result.code, message: result.error, status: status)
-        end
+        return render_service_error(result) unless result.ok?
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
       rescue ActiveRecord::RecordNotFound
@@ -112,6 +105,17 @@ module Api
       def render_invalid_status
         render_error(code: :invalid_status, message: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}", status: :unprocessable_entity)
         nil
+      end
+
+      def render_service_error(result)
+        status = case result.code
+        when :forbidden then :forbidden
+        when :not_found then :not_found
+        when :invalid_state, :invalid_status, :invalid_auction then :unprocessable_content
+        else :unprocessable_content
+        end
+
+        render_error(code: result.code, message: result.message, status: status)
       end
     end
   end

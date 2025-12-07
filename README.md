@@ -70,6 +70,13 @@ Run privileged-attribute guardrails to ensure non-admin actors cannot change adm
 bundle exec rails test test/integration/auctions_privileged_attributes_test.rb
 ```
 
+### Service results
+
+All services should return a `ServiceResult` with `ok?`, `code`, `message`, and optional
+`data` (and `record` for convenience). Prefer `ServiceResult.ok(code: :ok, message: "done", data: {...})`
+and `ServiceResult.fail("reason", code: :some_error)`. Controllers should render
+errors as `{ error: { code, message } }` using `result.code`/`result.message`.
+
 ## For Contributors / Local Development
 
 * Setup: `bin/setup` (installs gems, creates/migrates/seeds DB)

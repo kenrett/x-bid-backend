@@ -22,7 +22,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
     assert result.success?, "Bid should succeed"
-    assert_nil result.code
+    assert_equal :ok, result.code
     assert_not_nil result.bid
     assert_equal expected_price, result.bid.amount
     assert_equal @user1.id, result.bid.user_id

@@ -30,7 +30,7 @@ module Auctions
           Auctions::ExtendAuction.new(auction: @auction, window: EXTENSION_WINDOW).call
         end
         Auctions::Events.bid_placed(auction: @auction, bid: @bid) if broadcast
-        ServiceResult.ok(bid: @bid)
+        ServiceResult.ok(code: :ok, message: "Bid placed", data: { bid: @bid, auction: @auction })
       rescue ActiveRecord::RecordInvalid => e
         log_error(e)
         return ServiceResult.fail("Another bid was placed first.", code: :bid_race_lost) if e.record.errors.include?(:amount)
