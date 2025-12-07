@@ -33,9 +33,8 @@ class AuctionsQueriesTest < ActiveSupport::TestCase
   end
 
   test "public show fetches auction with bids and winning user" do
-    result = Auctions::Queries::PublicShow.new(id: @auction.id).call
+    result = Auctions::Queries::PublicShow.call(params: { id: @auction.id })
 
-    assert result.success?
     record = result.record
     assert_equal @auction.id, record.id
     assert_equal @bid.id, record.bids.first.id
@@ -44,10 +43,8 @@ class AuctionsQueriesTest < ActiveSupport::TestCase
   end
 
   test "public show returns not found result when missing" do
-    result = Auctions::Queries::PublicShow.new(id: -1).call
-
-    refute result.success?
-    assert_equal "Auction not found", result.error
-    assert_equal :not_found, result.code
+    assert_raises(ActiveRecord::RecordNotFound) do
+      Auctions::Queries::PublicShow.call(params: { id: -1 })
+    end
   end
 end

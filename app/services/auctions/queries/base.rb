@@ -1,7 +1,7 @@
 module Auctions
   module Queries
     class Base
-      attr_reader :params, :records
+      attr_reader :params, :record, :records
 
       def self.call(params: {})
         new(params: params).call
@@ -9,6 +9,7 @@ module Auctions
 
       def initialize(params: {})
         @params = (params || {}).dup.freeze
+        @record = nil
         @records = nil
       end
 

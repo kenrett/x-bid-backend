@@ -15,10 +15,10 @@ module Api
       # @summary Retrieve a single auction with bids
       # @no_auth
       def show
-        result = ::Auctions::Queries::PublicShow.new(id: params[:id]).call
-        return render_error(code: :not_found, message: "Auction not found", status: :not_found) unless result.success?
-
+        result = ::Auctions::Queries::PublicShow.call(params: { id: params[:id] })
         render json: result.record, include: :bids, serializer: Api::V1::AuctionSerializer
+      rescue ActiveRecord::RecordNotFound
+        render_error(code: :not_found, message: "Auction not found", status: :not_found)
       end
 
       # @summary Create a new auction (admin only)

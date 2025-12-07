@@ -1,21 +1,21 @@
 module Auctions
   module Queries
-    class PublicShow
-      def initialize(id:, relation: Auction.all)
-        @id = id
+    class PublicShow < Base
+      attr_reader :record
+
+      def initialize(params: {}, relation: Auction.all)
+        super(params: params)
         @relation = relation
       end
 
       def call
-        auction = scoped_relation.includes(:bids, :winning_user).find_by(id: id)
-        return ServiceResult.fail("Auction not found", code: :not_found) unless auction
-
-        ServiceResult.ok(record: auction)
+        @record = scoped_relation.includes(:bids, :winning_user).find_by!(id: params[:id])
+        self
       end
 
       private
 
-      attr_reader :id, :relation
+      attr_reader :relation
 
       def scoped_relation
         relation.select(

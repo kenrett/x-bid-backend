@@ -169,7 +169,7 @@ Complex business logic is encapsulated in service objects to keep controllers le
 
 ### Query Objects (Read Models)
 
-Read concerns live in dedicated query objects instead of controllers. For example, `Auctions::Queries::PublicIndex` and `Auctions::Queries::PublicShow` (`app/queries/auctions/queries/`) own the projections and eager-loading used by public auction endpoints. This keeps controllers focused on HTTP concerns and gives a single place to adjust filters, projections, or preload strategy for reads.
+Read concerns live in dedicated query objects instead of controllers. For example, `Auctions::Queries::PublicIndex` and `Auctions::Queries::PublicShow` (`app/services/auctions/queries/`) own the projections and eager-loading used by public auction endpoints. This keeps controllers focused on HTTP concerns and gives a single place to adjust filters, projections, or preload strategy for reads.
 
 ### Real-time Updates
 
