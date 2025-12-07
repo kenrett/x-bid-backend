@@ -1,36 +1,38 @@
 class ServiceResult
-  attr_reader :error, :payload, :code
+  attr_reader :code, :error, :record
 
-  def initialize(success:, error: nil, code: nil, payload: {})
-    @success = success
-    @error = error
+  def initialize(success:, error: nil, code: nil, record: nil, metadata: {})
+    @success = !!success
+    @error = error&.to_s
     @code = code
-    @payload = payload || {}
+    @record = record
+    @metadata = metadata || {}
   end
 
-  def self.ok(payload = {})
-    new(success: true, payload: payload)
+  def self.ok(record: nil, code: nil, **metadata)
+    new(success: true, record: record, code: code, metadata: metadata)
   end
 
-  def self.fail(error, code: nil)
-    new(success: false, error: error, code: code, payload: {})
+  def self.fail(error, code: :error, record: nil, **metadata)
+    new(success: false, error: error, code: code, record: record, metadata: metadata)
   end
 
-  def success?
-    @success
-  end
+  def ok? = @success
+  alias_method :success?, :ok?
 
   def [](key)
-    payload[key]
+    return record if key == :record
+
+    @metadata[key]
   end
 
   def method_missing(method_name, *args, &block)
-    return payload[method_name] if payload.key?(method_name)
+    return @metadata[method_name] if @metadata.key?(method_name)
 
     super
   end
 
   def respond_to_missing?(method_name, include_private = false)
-    payload.key?(method_name) || super
+    @metadata.key?(method_name) || super
   end
 end
