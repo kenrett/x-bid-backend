@@ -95,7 +95,7 @@ module Auctions
     end
 
     def publish_bid_placed_event
-      Auctions::Events.bid_placed(auction: @auction, bid: @bid) if @bid.present?
+      Auctions::Events::BidPlaced.call(auction: @auction, bid: @bid) if @bid.present?
     end
 
     def handle_record_invalid(exception)
@@ -108,7 +108,7 @@ module Auctions
     def broadcast_bid
       # kept for backward compatibility if called directly
       return unless @bid.present?
-      Auctions::Events.bid_placed(auction: @auction, bid: @bid)
+      Auctions::Events::BidPlaced.call(auction: @auction, bid: @bid)
     end
 
     def log_retry(error, attempt)

@@ -32,6 +32,19 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal @user1.name, @auction.reload.winning_user.name
   end
 
+  test "publishes bid placed domain event" do
+    event_args = nil
+    Auctions::Events::BidPlaced.stub(:call, ->(auction:, bid:) { event_args = [ auction, bid ] }) do
+      result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call
+      assert result.success?, "Bid should succeed"
+    end
+
+    assert_equal @auction, event_args.first
+    assert_instance_of Bid, event_args.last
+    assert_equal @auction.id, event_args.last.auction_id
+    assert_equal @user1.id, event_args.last.user_id
+  end
+
   test "should fail if auction is not active" do
     @auction.update!(status: :ended)
 
