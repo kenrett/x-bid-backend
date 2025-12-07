@@ -8,6 +8,7 @@ module Admin
       end
 
       def call
+        return unauthorized unless admin_actor?
         return ServiceResult.fail("Auction already inactive") if @auction.inactive?
         return ServiceResult.fail("Cannot retire an auction that has bids.") if @auction.bids.exists?
 
@@ -17,6 +18,16 @@ module Admin
         else
           ServiceResult.fail(@auction.errors.full_messages.to_sentence)
         end
+      end
+
+      private
+
+      def admin_actor?
+        @actor&.admin? || @actor&.superadmin?
+      end
+
+      def unauthorized
+        ServiceResult.fail("Admin privileges required", code: :forbidden)
       end
     end
   end

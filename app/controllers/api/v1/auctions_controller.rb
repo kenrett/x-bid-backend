@@ -8,17 +8,17 @@ module Api
       # @summary List all auctions
       # @no_auth
       def index
-        auctions = Auction.includes(:winning_user).load
-        render json: auctions, each_serializer: Api::V1::AuctionSerializer
+        result = ::Auctions::Queries::PublicIndex.new.call
+        render json: result.records, each_serializer: Api::V1::AuctionSerializer
       end
 
       # @summary Retrieve a single auction with bids
       # @no_auth
       def show
-        auction = Auction.includes(:bids, :winning_user).find(params[:id])
-        render json: auction, include: :bids, serializer: Api::V1::AuctionSerializer
-      rescue ActiveRecord::RecordNotFound
-        render_error(code: :not_found, message: "Auction not found", status: :not_found)
+        result = ::Auctions::Queries::PublicShow.new(id: params[:id]).call
+        return render_error(code: :not_found, message: "Auction not found", status: :not_found) unless result.success?
+
+        render json: result.record, include: :bids, serializer: Api::V1::AuctionSerializer
       end
 
       # @summary Create a new auction (admin only)
@@ -88,10 +88,10 @@ module Api
         Auctions::Status.from_api(raw_status)
       end
 
-    def render_invalid_status
-      render_error(code: :invalid_status, message: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}", status: :unprocessable_entity)
-      nil
-    end
+      def render_invalid_status
+        render_error(code: :invalid_status, message: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}", status: :unprocessable_entity)
+        nil
+      end
     end
   end
 end

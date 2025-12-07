@@ -53,4 +53,35 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
 
     assert_equal "inactive", auction.reload.status
   end
+
+  test "upsert rejects non-admin actor" do
+    user = User.create!(name: "User", email_address: "user@example.com", password: "password", role: :user, bid_credits: 0)
+    attrs = {
+      title: "Unauthorized Auction",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :active
+    }
+
+    assert_no_difference -> { Auction.count } do
+      result = Admin::Auctions::Upsert.new(actor: user, attrs: attrs).call
+      refute result.success?
+      assert_equal "Admin privileges required", result.error
+      assert_equal :forbidden, result.code
+    end
+  end
+
+  test "retire rejects non-admin actor" do
+    auction = Auction.create!(title: "Retire Me", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
+    user = User.create!(name: "User", email_address: "user2@example.com", password: "password", role: :user, bid_credits: 0)
+
+    result = Admin::Auctions::Retire.new(actor: user, auction: auction).call
+
+    refute result.success?
+    assert_equal "Admin privileges required", result.error
+    assert_equal :forbidden, result.code
+    assert_equal "active", auction.reload.status
+  end
 end

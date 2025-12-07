@@ -9,6 +9,7 @@ module Admin
       end
 
       def call
+        return unauthorized unless admin_actor?
         return ServiceResult.fail("Invalid status. Allowed: #{::Auctions::Status.allowed_keys.join(', ')}") unless valid_status?
 
         if @auction.update(@attrs)
@@ -44,6 +45,14 @@ module Admin
         key = hash.key?("status") ? "status" : :status
         mapped = ::Auctions::Status.from_api(hash[key])
         mapped ? hash.merge(key => mapped) : hash
+      end
+
+      def admin_actor?
+        @actor&.admin? || @actor&.superadmin?
+      end
+
+      def unauthorized
+        ServiceResult.fail("Admin privileges required", code: :forbidden)
       end
     end
   end
