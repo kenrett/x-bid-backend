@@ -1,0 +1,1 @@
+All admin-initiated user credit adjustments and disable operations must go through the services in this directory (`Admin::Users::*`) that inherit from `Admin::BaseCommand`. Controllers and jobs should not mutate user credits or status directly; route through these commands for authorization, audit logging, and consistent `ServiceResult` handling.

@@ -16,7 +16,7 @@ module Api
 
         # @summary Grant admin role to a user
         def grant_admin
-          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          result = ::Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
@@ -26,14 +26,14 @@ module Api
           return render_error(code: :forbidden, message: "Cannot revoke admin from a superadmin", status: :forbidden) if @user.superadmin?
           return render_error(code: :invalid_user, message: "User is not an admin", status: :unprocessable_entity) unless @user.admin?
 
-          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :user, request: request).call
+          result = ::Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :user, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
         # @summary Grant superadmin role to a user
         def grant_superadmin
-          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
+          result = ::Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
@@ -42,17 +42,17 @@ module Api
         def revoke_superadmin
           return render_error(code: :invalid_user, message: "User is not a superadmin", status: :unprocessable_entity) unless @user.superadmin?
 
-          result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          result = ::Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
         # @summary Ban a user account
         def ban
-          result = Admin::Users::BanUser.new(actor: @current_user, user: @user, request: request).call
-          return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
+          result = ::Admin::Users::Disable.new(actor: @current_user, user: @user, request: request).call
+          return render_error(code: result.code || :invalid_user, message: result.error, status: map_status(result.code)) unless result.ok?
 
-          render_admin_user(result.user)
+          render_admin_user(result.record)
         end
 
         # PATCH/PUT /api/v1/admin/users/:id
@@ -108,6 +108,14 @@ module Api
 
         def render_validation_error(user)
           render_error(code: :invalid_user, message: user.errors.full_messages.to_sentence, status: :unprocessable_entity)
+        end
+
+        def map_status(code)
+          case code
+          when :forbidden then :forbidden
+          when :invalid_delta, :invalid_user, :insufficient_credits then :unprocessable_content
+          else :unprocessable_entity
+          end
         end
       end
     end
