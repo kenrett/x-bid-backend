@@ -54,6 +54,85 @@ class AuctionTest < ActiveSupport::TestCase
     refute @auction.ends_within?(10.seconds)
   end
 
+  test "update_details! restricts to permitted fields and validates times" do
+    @auction.end_time = 1.hour.from_now
+    @auction.save!
+
+    assert_raises(ArgumentError) { @auction.update_details!({ foo: "bar" }) }
+
+    assert_raises(Auction::InvalidState) do
+      @auction.update_details!(start_date: 2.hours.from_now, end_time: 1.hour.from_now)
+    end
+
+    @auction.update_details!(title: "Updated", start_date: Time.current, end_time: 2.hours.from_now)
+    assert_equal "Updated", @auction.reload.title
+  end
+
+  test "schedule! sets pending with validated times" do
+    auction = Auction.create!(title: "Sched", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
+
+    assert_raises(Auction::InvalidState) do
+      auction.schedule!(starts_at: 1.day.from_now, ends_at: 1.hour.from_now)
+    end
+
+    auction.schedule!(starts_at: Time.current, ends_at: 1.day.from_now)
+    assert_equal "pending", auction.reload.status
+  end
+
+  test "start! only allowed from pending" do
+    auction = Auction.create!(title: "Startable", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
+    auction.start!
+    assert_equal "active", auction.reload.status
+
+    assert_raises(Auction::InvalidState) { auction.start! }
+  end
+
+  test "extend_end_time! requires active and window" do
+    auction = Auction.create!(title: "Extendable", description: "Desc", start_date: Time.current, end_time: 5.seconds.from_now, current_price: 1.0, status: :active)
+    reference_time = Time.current
+
+    auction.extend_end_time!(by: 10.seconds, reference_time: reference_time)
+    assert_in_delta reference_time + 10.seconds, auction.reload.end_time, 1
+
+    auction.update!(status: :ended)
+    assert_raises(Auction::InvalidState) { auction.extend_end_time!(by: 10.seconds) }
+  end
+
+  test "close! only from active" do
+    auction = Auction.create!(title: "Closable", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
+    auction.close!
+    assert_equal "ended", auction.reload.status
+
+    assert_raises(Auction::InvalidState) { auction.close! }
+  end
+
+  test "cancel! only from pending or active" do
+    pending = Auction.create!(title: "Pending", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
+    active = Auction.create!(title: "Active", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
+
+    pending.cancel!
+    active.cancel!
+
+    assert_equal "cancelled", pending.reload.status
+    assert_equal "cancelled", active.reload.status
+
+    assert_raises(Auction::InvalidState) { pending.cancel! }
+  end
+
+  test "retire! requires no bids and not already inactive" do
+    auction = Auction.create!(title: "Retirable", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
+    auction.retire!
+    assert_equal "inactive", auction.reload.status
+
+    assert_raises(Auction::InvalidState) { auction.retire! }
+
+    bidder = User.create!(name: "Bidder", email_address: "bidder_retire@example.com", password: "password", bid_credits: 1)
+    bid_auction = Auction.create!(title: "Bidded", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
+    Bid.create!(auction: bid_auction, user: bidder, amount: 2.0)
+
+    assert_raises(Auction::InvalidState) { bid_auction.retire! }
+  end
+
   test "#as_json exposes mapped status and bidder info" do
     @auction.status = :pending
     @auction.winning_user = User.new(name: "Winner")

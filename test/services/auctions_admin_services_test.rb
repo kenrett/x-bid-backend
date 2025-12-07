@@ -84,4 +84,21 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     assert_equal :forbidden, result.code
     assert_equal "active", auction.reload.status
   end
+
+  test "upsert returns invalid_state for invalid scheduling" do
+    attrs = {
+      title: "Bad Auction",
+      description: "Desc",
+      start_date: 2.days.from_now,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :pending
+    }
+
+    result = Admin::Auctions::Upsert.new(actor: @admin, attrs: attrs).call
+
+    refute result.ok?
+    assert_equal :invalid_state, result.code
+    assert_match "end_time must be after start_date", result.error
+  end
 end

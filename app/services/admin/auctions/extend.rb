@@ -10,16 +10,14 @@ module Admin
 
       def call(reference_time: Time.current)
         return unauthorized unless admin_actor?
-        return ServiceResult.fail("Auction not within extend window", code: :invalid_state) unless @auction.ends_within?(@window)
 
-        new_end_time = reference_time + @window
-
-        if @auction.update(end_time: new_end_time)
-          AuditLogger.log(action: "auction.extend", actor: @actor, target: @auction, payload: { end_time: new_end_time }, request: @request)
-          ServiceResult.ok(record: @auction, code: :ok)
-        else
-          ServiceResult.fail(@auction.errors.full_messages.to_sentence, code: :invalid_auction, record: @auction)
-        end
+        @auction.extend_end_time!(by: @window, reference_time: reference_time)
+        AuditLogger.log(action: "auction.extend", actor: @actor, target: @auction, payload: { end_time: @auction.end_time }, request: @request)
+        ServiceResult.ok(record: @auction, code: :ok)
+      rescue ::Auction::InvalidState => e
+        ServiceResult.fail(e.message, code: :invalid_state, record: @auction)
+      rescue ActiveRecord::RecordInvalid => e
+        ServiceResult.fail(@auction.errors.full_messages.to_sentence, code: :invalid_auction, record: @auction)
       end
 
       private

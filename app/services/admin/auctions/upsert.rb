@@ -10,12 +10,17 @@ module Admin
       def perform
         return ServiceResult.fail("Invalid status. Allowed: #{::Auctions::Status.allowed_keys.join(', ')}") unless valid_status?
 
-        if @auction.update(@attrs)
-          AuditLogger.log(action: action_name, actor: @actor, target: @auction, payload: @attrs, request: @request)
-          ServiceResult.ok(record: @auction)
-        else
-          ServiceResult.fail(@auction.errors.full_messages.to_sentence)
+        ActiveRecord::Base.transaction do
+          apply_details!
+          apply_status_transition!
         end
+
+        AuditLogger.log(action: action_name, actor: @actor, target: @auction, payload: @attrs, request: @request)
+        ServiceResult.ok(record: @auction)
+      rescue ::Auction::InvalidState => e
+        ServiceResult.fail(e.message, code: :invalid_state, record: @auction)
+      rescue ActiveRecord::RecordInvalid => e
+        ServiceResult.fail(@auction.errors.full_messages.to_sentence, code: :invalid_auction, record: @auction)
       end
 
       def action_name
@@ -41,6 +46,33 @@ module Admin
         key = hash.key?("status") ? "status" : :status
         mapped = ::Auctions::Status.from_api(hash[key])
         mapped ? hash.merge(key => mapped) : hash
+      end
+
+      def apply_details!
+        detail_attrs = @attrs.except(:status, "status").compact
+        return if detail_attrs.empty?
+
+        @auction.update_details!(detail_attrs)
+      end
+
+      def apply_status_transition!
+        desired_status = @attrs[:status] || @attrs["status"]
+        return unless desired_status
+
+        case desired_status.to_s
+        when "pending"
+          @auction.schedule!(starts_at: @auction.start_date, ends_at: @auction.end_time)
+        when "active"
+          @auction.start!
+        when "ended"
+          @auction.close!
+        when "cancelled"
+          @auction.cancel!
+        when "inactive"
+          @auction.retire!
+        else
+          raise ::Auction::InvalidState, "Unsupported status: #{desired_status}"
+        end
       end
     end
   end

@@ -41,17 +41,13 @@ class AdminAuctionsExtendTest < ActiveSupport::TestCase
 
   test "returns invalid_auction when update fails" do
     auction = Auction.create!(title: "Failing Update", description: "Desc", start_date: Time.current, end_time: 5.seconds.from_now, current_price: 1.0, status: :active)
-    errors = Struct.new(:full_messages).new([ "cannot extend" ])
 
-    auction.stub(:update, false) do
-      auction.stub(:errors, errors) do
-        result = Admin::Auctions::Extend.new(actor: @admin, auction: auction, window: 10.seconds).call
+    auction.stub(:extend_end_time!, ->(**) { raise ActiveRecord::RecordInvalid.new(auction) }) do
+      result = Admin::Auctions::Extend.new(actor: @admin, auction: auction, window: 10.seconds).call
 
-        refute result.ok?
-        assert_equal :invalid_auction, result.code
-        assert_equal "cannot extend", result.error
-        assert_equal auction, result.record
-      end
+      refute result.ok?
+      assert_equal :invalid_auction, result.code
+      assert_equal auction, result.record
     end
   end
 end
