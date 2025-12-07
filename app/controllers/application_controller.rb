@@ -43,7 +43,7 @@ class ApplicationController < ActionController::API
   def authorize_admin!
     return if @current_user&.admin? || @current_user&.superadmin?
 
-    render json: { error: "Admin privileges required" }, status: :forbidden
+    render_error(code: :forbidden, message: "Admin privileges required", status: :forbidden)
   end
 
   def authorize_superadmin!

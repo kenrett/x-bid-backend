@@ -13,6 +13,10 @@ Rails.application.routes.draw do
       resources :auctions do
         resources :bids, only: [ :create ]
         resources :bid_history, only: [ :index ]
+
+        member do
+          post :extend_time
+        end
       end
 
       # Routes for user registration

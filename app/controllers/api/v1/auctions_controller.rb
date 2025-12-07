@@ -1,7 +1,7 @@
 module Api
   module V1
     class AuctionsController < ApplicationController
-      before_action :authenticate_request!, :authorize_admin!, only: [ :create, :update, :destroy ]
+      before_action :authenticate_request!, :authorize_admin!, only: [ :create, :update, :destroy, :extend_time ]
 
       ALLOWED_STATUSES = Auctions::Status.allowed_keys
 
@@ -53,6 +53,27 @@ module Api
         return render_error(code: :invalid_auction, message: result.error, status: :unprocessable_entity) if result.error
 
         head :no_content
+      rescue ActiveRecord::RecordNotFound
+        render_error(code: :not_found, message: "Auction not found", status: :not_found)
+      end
+
+      # @summary Extend an auction's end time (admin only)
+      def extend_time
+        auction = Auction.find(params[:id])
+        result = ::Admin::Auctions::Extend
+          .new(actor: @current_user, auction: auction, window: 30.seconds, request: request)
+          .call
+
+        unless result.ok?
+          status = case result.code
+          when :forbidden then :forbidden
+          when :invalid_state, :invalid_auction then :unprocessable_entity
+          else :unprocessable_entity
+          end
+          return render_error(code: result.code, message: result.error, status: status)
+        end
+
+        render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
       rescue ActiveRecord::RecordNotFound
         render_error(code: :not_found, message: "Auction not found", status: :not_found)
       end

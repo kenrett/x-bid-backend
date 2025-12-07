@@ -70,7 +70,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = JSON.parse(response.body)
-    assert_equal "Admin privileges required", body["error"]
+    assert_equal "forbidden", body["error_code"]
+    assert_equal "Admin privileges required", body["message"]
   end
 
   private
