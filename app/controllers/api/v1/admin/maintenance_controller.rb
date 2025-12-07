@@ -5,27 +5,29 @@ module Api
         before_action :authenticate_request!, :authorize_superadmin!
 
         # GET /api/v1/admin/maintenance
+        # @summary Show current maintenance mode state
         def show
           render json: maintenance_payload
         end
 
-      # POST /api/v1/admin/maintenance?enabled=true
-      # Also accepts JSON body { enabled: true }
-      def update
-        return render_error(code: :bad_request, message: "enabled param is required", status: :bad_request) if params[:enabled].nil?
+        # POST /api/v1/admin/maintenance?enabled=true
+        # Also accepts JSON body { enabled: true }
+        # @summary Toggle maintenance mode on or off
+        def update
+          return render_error(code: :bad_request, message: "enabled param is required", status: :bad_request) if params[:enabled].nil?
 
-        enabled = Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).update(enabled: params[:enabled])
+          enabled = Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).update(enabled: params[:enabled])
 
-        AuditLogger.log(action: "maintenance.update", actor: @current_user, payload: { enabled: enabled }, request: request)
+          AuditLogger.log(action: "maintenance.update", actor: @current_user, payload: { enabled: enabled }, request: request)
 
-        render json: maintenance_payload
-      end
+          render json: maintenance_payload
+        end
 
-      private
+        private
 
-      def maintenance_payload
-        Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).payload
-      end
+        def maintenance_payload
+          Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).payload
+        end
       end
     end
   end

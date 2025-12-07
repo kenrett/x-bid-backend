@@ -6,17 +6,20 @@ module Api
         before_action :set_bid_pack, only: [ :show, :edit, :update, :destroy ]
 
         # GET /admin/bid_packs
+        # @summary List all bid packs (admin)
         def index
           bid_packs = BidPack.all
           render json: bid_packs
         end
 
         # GET /admin/bid_packs/:id
+        # @summary Show a bid pack (admin)
         def show
           render json: @bid_pack
         end
 
         # GET /admin/bid_packs/new
+        # @summary Return a template bid pack for creation
         def new
           render json: BidPack.new
         end
@@ -30,11 +33,13 @@ module Api
         end
 
         # GET /admin/bid_packs/:id/edit
+        # @summary Fetch a bid pack for editing
         def edit
           render json: @bid_pack
         end
 
         # PATCH/PUT /admin/bid_packs/:id
+        # @summary Update a bid pack (admin)
         def update
           result = ::Admin::BidPacks::Upsert.new(actor: @current_user, bid_pack: @bid_pack, attrs: bid_pack_params, request: request).call
           return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error
@@ -44,6 +49,7 @@ module Api
 
         # DELETE /admin/bid_packs/:id
         # Retires a bid pack to prevent purchase while keeping history.
+        # @summary Retire (deactivate) a bid pack (admin)
         def destroy
           result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
           return render_error(code: :invalid_bid_pack, message: result.error, status: :unprocessable_entity) if result.error

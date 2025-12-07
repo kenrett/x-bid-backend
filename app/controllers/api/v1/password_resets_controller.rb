@@ -1,32 +1,18 @@
 module Api
   module V1
     class PasswordResetsController < ApplicationController
-      resource_description do
-        short "Password reset"
-      end
-
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
-      api :POST, "/password/forgot", "Request a password reset email"
-      param :password, Hash, required: true do
-        param :email_address, String, desc: "Email for the account", required: true
-      end
-      error code: 202, desc: "Accepted (always, to prevent account enumeration)"
+      # @summary Request a password reset email
+      # @no_auth
       def create
         user = User.find_by(email_address: forgot_params[:email_address])
         result = Auth::PasswordReset.new(user: user, reset_params: {}, environment: Rails.env).request_reset
         render json: response_payload(result.debug_token), status: :accepted
       end
 
-      api :POST, "/password/reset", "Reset password using the reset token"
-      param :password, Hash, required: true do
-        param :token, String, desc: "Reset token from email", required: true
-        param :password, String, desc: "New password", required: true
-        param :password_confirmation, String, desc: "New password confirmation", required: true
-      end
-      error code: 401, desc: "Invalid or expired token"
-      error code: 403, desc: "User account disabled"
-      error code: 422, desc: "Validation errors on password update"
+      # @summary Reset a password using a token
+      # @no_auth
       def update
         user = nil
         result = Auth::PasswordReset.new(user: user, reset_params: reset_params, environment: Rails.env).reset_password

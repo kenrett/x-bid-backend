@@ -77,7 +77,7 @@ The app relies on the following environment/config values:
 
 ## API Documentation
 
-This project uses `apipie-rails` to generate interactive API documentation. Once the server is running, you can access the documentation in your browser at:
+Interactive API docs are served by `oas_rails`. Once the server is running, you can access the documentation in your browser at:
 
 *   **http://localhost:3000/api-docs**
 

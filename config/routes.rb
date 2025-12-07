@@ -1,8 +1,6 @@
 Rails.application.routes.draw do
   root "api/v1/auctions#index"
 
-  apipie
-
   namespace :api do
     namespace :v1 do
       resources :checkouts, only: [ :create ]
@@ -51,6 +49,14 @@ Rails.application.routes.draw do
       end
     end
   end
+
+  # Interactive docs + raw OpenAPI spec
+  mount OasRails::Engine => "/api-docs"
+  get "/docs", to: redirect("/api-docs")
+  get "/docs.json", to: redirect("/api-docs.json")
+
+  # Quiet missing favicon to avoid log noise
+  get "/favicon.ico", to: proc { [ 204, { "Content-Type" => "image/x-icon" }, [] ] }
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.

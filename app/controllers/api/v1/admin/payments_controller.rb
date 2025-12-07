@@ -5,6 +5,7 @@ module Api
         before_action :authenticate_request!, :authorize_admin!
 
         # GET /api/v1/admin/payments
+        # @summary List payments with optional email search
         def index
           payments = Purchase.includes(:user, :bid_pack).order(created_at: :desc)
           payments = payments.joins(:user).where("LOWER(users.email_address) LIKE ?", "%#{params[:search].downcase}%") if params[:search].present?

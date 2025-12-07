@@ -3,21 +3,12 @@ require "jwt"
 module Api
   module V1
     class SessionsController < ApplicationController
-      resource_description do
-        short "User sessions and authentication"
-      end
-
       before_action :authenticate_request!, only: [ :logged_in?, :destroy, :remaining ]
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
-      api :POST, "/login", "Authenticate a user and receive a JWT"
-      param :session, Hash, desc: "Session credentials", required: true do
-        param :email_address, String, desc: "User email", required: true
-        param :password, String, desc: "User password", required: true
-      end
-      error code: 401, desc: "Unauthorized - Invalid credentials"
-
       # POST /api/v1/login
+      # @summary Log in and create a session
+      # @no_auth
       def create
         user = User.find_by(email_address: login_params[:email_address])
         if user&.disabled?
@@ -32,11 +23,8 @@ module Api
         end
       end
 
-      api :POST, "/session/refresh", "Refresh a session using the issued refresh token"
-      param :session, Hash, required: true do
-        param :refresh_token, String, desc: "The refresh token returned at login", required: true
-      end
-      error code: 401, desc: "Unauthorized - Refresh token invalid or expired"
+      # @summary Refresh the current session using a refresh token
+      # @no_auth
       def refresh
         session_token = SessionToken.find_active_by_raw_token(refresh_params[:refresh_token])
         return render_error(code: :invalid_session, message: "Invalid or expired session", status: :unauthorized) unless session_token
@@ -53,10 +41,8 @@ module Api
         render json: build_session_response(user: session_token.user, session_token: new_session_token, refresh_token: refresh_token)
       end
 
-      api :GET, "/logged_in", "Check if the current user token is valid"
-      description "Requires a valid JWT in the Authorization header (Bearer <token>)."
-      error code: 401, desc: "Unauthorized - Token is missing, invalid, or expired"
       # GET /api/v1/logged_in
+      # @summary Check whether the provided token is valid
       def logged_in?
         if @current_user
           render json: build_logged_in_response(@current_user, @current_session_token)
@@ -65,9 +51,7 @@ module Api
         end
       end
 
-      api :GET, "/session/remaining", "Return the remaining session lifetime"
-      description "Requires Authorization header. Can be polled by the client to display an accurate countdown."
-      error code: 401, desc: "Unauthorized - missing or invalid token"
+      # @summary Return remaining time for the current session token
       def remaining
         expires_at = @current_session_token.expires_at
         render json: {
@@ -77,10 +61,8 @@ module Api
         }
       end
 
-      api :DELETE, "/logout", "Log out a user"
-      description "Revokes the active session token and notifies subscribers."
-      error code: 401, desc: "Unauthorized - missing or invalid token"
       # DELETE /api/v1/logout
+      # @summary Log out and revoke the current session token
       def destroy
         if @current_session_token
           @current_session_token.revoke!

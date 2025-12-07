@@ -5,6 +5,7 @@ module Api
         before_action :authenticate_request!, :authorize_admin!
 
         # POST /api/v1/admin/audit
+        # @summary Create an audit log entry
         def create
           log = AuditLogger.log(
             action: audit_params[:action],

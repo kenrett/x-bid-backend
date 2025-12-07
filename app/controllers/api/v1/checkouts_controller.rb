@@ -1,6 +1,7 @@
 class Api::V1::CheckoutsController < ApplicationController
   before_action :authenticate_request!
 
+  # @summary Start a Stripe Checkout session for a bid pack
   def create
     bid_pack = BidPack.active.find(params[:bid_pack_id])
     # debugger
@@ -40,6 +41,7 @@ class Api::V1::CheckoutsController < ApplicationController
     end
   end
 
+  # @summary Check the Stripe checkout session status
   def status
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
 
@@ -48,6 +50,7 @@ class Api::V1::CheckoutsController < ApplicationController
     render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
   end
 
+  # @summary Handle successful checkout callbacks and credit the user
   def success
     # If this purchase has already been processed, do nothing more.
     if Purchase.exists?(stripe_checkout_session_id: params[:session_id])

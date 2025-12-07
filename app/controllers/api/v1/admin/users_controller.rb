@@ -8,17 +8,20 @@ module Api
         before_action :ensure_not_last_superadmin!, only: [ :revoke_superadmin, :ban ]
 
         # GET /api/v1/admin/users
+        # @summary List admin and superadmin users
         def index
           admins = User.where(role: [ :admin, :superadmin ])
           render json: admins, each_serializer: AdminUserSerializer, adapter: :attributes
         end
 
+        # @summary Grant admin role to a user
         def grant_admin
           result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
+        # @summary Revoke admin role from a user
         def revoke_admin
           return render_error(code: :forbidden, message: "Cannot revoke admin from a superadmin", status: :forbidden) if @user.superadmin?
           return render_error(code: :invalid_user, message: "User is not an admin", status: :unprocessable_entity) unless @user.admin?
@@ -28,12 +31,14 @@ module Api
           render_admin_user(result.user)
         end
 
+        # @summary Grant superadmin role to a user
         def grant_superadmin
           result = Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :superadmin, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end
 
+        # @summary Revoke superadmin role from a user
         def revoke_superadmin
           return render_error(code: :invalid_user, message: "User is not a superadmin", status: :unprocessable_entity) unless @user.superadmin?
 
@@ -42,6 +47,7 @@ module Api
           render_admin_user(result.user)
         end
 
+        # @summary Ban a user account
         def ban
           result = Admin::Users::BanUser.new(actor: @current_user, user: @user, request: request).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
@@ -50,6 +56,7 @@ module Api
         end
 
         # PATCH/PUT /api/v1/admin/users/:id
+        # @summary Update an admin/superadmin user record
         def update
         if @user.update(user_params)
           AuditLogger.log(action: "user.update", actor: @current_user, target: @user, payload: user_params.to_h, request: request)
