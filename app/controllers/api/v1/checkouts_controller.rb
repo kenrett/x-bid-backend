@@ -68,7 +68,10 @@ class Api::V1::CheckoutsController < ApplicationController
         Purchase.create!(
           user: @current_user,
           bid_pack: bid_pack,
+          amount_cents: (bid_pack.price * 100).to_i,
+          currency: "usd",
           stripe_checkout_session_id: session.id,
+          stripe_payment_intent_id: session.payment_intent,
           status: "completed"
         )
 

@@ -49,7 +49,11 @@ Rails.application.routes.draw do
             post :ban
           end
         end
-        resources :payments, only: [ :index ]
+        resources :payments, only: [ :index ] do
+          member do
+            post :refund
+          end
+        end
         post "/audit", to: "audit#create"
       end
     end

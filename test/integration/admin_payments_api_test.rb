@@ -74,6 +74,37 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     assert_equal "Admin privileges required", body["message"]
   end
 
+  test "routes refund through Admin::Payments::IssueRefund" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+
+    fake_service = Class.new do
+      def initialize(payment)
+        @payment = payment
+      end
+
+      def call
+        @payment.update!(status: "refunded", refunded_cents: 500)
+        ServiceResult.ok(code: :refunded, data: { refund_id: "re_fake" })
+      end
+    end
+
+    captured_kwargs = nil
+    Admin::Payments::IssueRefund.stub(:new, ->(**kwargs) { captured_kwargs = kwargs; fake_service.new(kwargs[:payment]) }) do
+      post "/api/v1/admin/payments/#{purchase.id}/refund", params: { amount_cents: 500, reason: "mistake" }, headers: auth_headers(@admin, @admin_session)
+    end
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "refunded", body["status"]
+    assert_in_delta 9.99, body["amount"].to_f, 0.001
+    assert_equal 500, body["refunded_cents"]
+    assert_equal "re_fake", body["refund_id"]
+    assert_equal @admin, captured_kwargs[:actor]
+    assert_equal purchase, captured_kwargs[:payment]
+    assert_equal "mistake", captured_kwargs[:reason]
+  end
+
   private
 
   def create_user(email:, role: :user)
@@ -90,7 +121,10 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     Purchase.create!(
       user: user,
       bid_pack: @bid_pack,
+      amount_cents: (@bid_pack.price * 100).to_i,
+      currency: "usd",
       stripe_checkout_session_id: SecureRandom.uuid,
+      stripe_payment_intent_id: SecureRandom.uuid,
       status: "completed"
     )
   end
