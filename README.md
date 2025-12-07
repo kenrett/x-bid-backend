@@ -143,6 +143,10 @@ Complex business logic is encapsulated in service objects to keep controllers le
 *   Updating the auction's `current_price` and `winning_user`.
 *   Extending the auction's `end_time` if the bid is placed in the final seconds.
 
+### Query Objects (Read Models)
+
+Read concerns live in dedicated query objects instead of controllers. For example, `Auctions::Queries::PublicIndex` and `Auctions::Queries::PublicShow` (`app/queries/auctions/queries/`) own the projections and eager-loading used by public auction endpoints. This keeps controllers focused on HTTP concerns and gives a single place to adjust filters, projections, or preload strategy for reads.
+
 ### Real-time Updates
 
 When a bid is successfully placed, the `Auctions::PlaceBid` service broadcasts an update via **Action Cable** on the `AuctionChannel`. This pushes real-time information (new price, winning user, end time) to all subscribed clients, eliminating the need for frontend polling and creating a dynamic user experience.
