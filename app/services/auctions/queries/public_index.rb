@@ -1,12 +1,14 @@
 module Auctions
   module Queries
-    class PublicIndex
-      def initialize(relation: Auction.all)
+    class PublicIndex < Base
+      def initialize(params: {}, relation: Auction.all)
+        super(params: params)
         @relation = relation
       end
 
       def call
-        ServiceResult.ok(records: scoped_relation)
+        @records = scoped_relation
+        self
       end
 
       private

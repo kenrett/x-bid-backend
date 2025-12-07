@@ -8,7 +8,7 @@ module Api
       # @summary List all auctions
       # @no_auth
       def index
-        result = ::Auctions::Queries::PublicIndex.new.call
+        result = ::Auctions::Queries::PublicIndex.call
         render json: result.records, each_serializer: Api::V1::AuctionSerializer
       end
 

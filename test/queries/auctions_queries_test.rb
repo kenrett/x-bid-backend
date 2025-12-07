@@ -25,9 +25,8 @@ class AuctionsQueriesTest < ActiveSupport::TestCase
   end
 
   test "public index scopes projection and preloads winning users" do
-    result = Auctions::Queries::PublicIndex.new.call
+    result = Auctions::Queries::PublicIndex.call
 
-    assert result.success?
     auctions = result.records.to_a
     assert_equal [ @auction.id, @secondary_auction.id ].sort, auctions.map(&:id).sort
     assert auctions.first.association(:winning_user).loaded?
