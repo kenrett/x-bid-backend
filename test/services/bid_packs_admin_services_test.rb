@@ -3,6 +3,7 @@ require "test_helper"
 class BidPacksAdminServicesTest < ActiveSupport::TestCase
   def setup
     @admin = User.create!(name: "Admin", email_address: "admin2@example.com", password: "password", role: :admin, bid_credits: 0)
+    @user = User.create!(name: "User", email_address: "user@example.com", password: "password", role: :user, bid_credits: 0)
   end
 
   test "admin upsert creates a bid pack" do
@@ -24,6 +25,15 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
     assert_equal 6.0, pack.reload.price
   end
 
+  test "non-admin upsert is forbidden" do
+    attrs = { name: "Forbidden", description: "Desc", bids: 10, price: 1.0, active: true }
+
+    result = Admin::BidPacks::Upsert.new(actor: @user, attrs: attrs).call
+
+    refute result.ok?
+    assert_equal :forbidden, result.code
+  end
+
   test "retire errors when already retired" do
     pack = BidPack.create!(name: "Bronze", description: "Desc", bids: 10, price: 1.0, active: false, status: :retired)
 
@@ -43,5 +53,15 @@ class BidPacksAdminServicesTest < ActiveSupport::TestCase
     pack.reload
     assert_equal "retired", pack.status
     assert_equal false, pack.active
+  end
+
+  test "non-admin retire is forbidden" do
+    pack = BidPack.create!(name: "Forbidden Retire", description: "Desc", bids: 10, price: 1.0, active: true)
+
+    result = Admin::BidPacks::Retire.new(actor: @user, bid_pack: pack).call
+
+    refute result.ok?
+    assert_equal :forbidden, result.code
+    assert_equal "active", pack.reload.status
   end
 end
