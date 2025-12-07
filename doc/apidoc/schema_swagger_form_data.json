@@ -26,7 +26,13 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "ok"
+            "description": "Success"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Admin privileges required"
           }
         },
         "description": "Returns a list of all auctions. This endpoint is public."
@@ -47,6 +53,45 @@
             "type": "string",
             "in": "formData",
             "required": true
+          },
+          {
+            "name": "auction[description]",
+            "type": "string",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "name": "auction[start_date]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "ISO8601 datetime"
+          },
+          {
+            "name": "auction[current_price]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "Price as string or numeric"
+          },
+          {
+            "name": "auction[image_url]",
+            "type": "string",
+            "in": "formData",
+            "default": null
+          },
+          {
+            "name": "auction[status]",
+            "type": "string",
+            "in": "formData",
+            "default": null
+          },
+          {
+            "name": "auction[end_time]",
+            "type": "string",
+            "in": "formData",
+            "default": null,
+            "description": "ISO8601 datetime"
           },
           {
             "name": "auction[description]",
@@ -84,7 +129,16 @@
         ],
         "responses": {
           "200": {
-            "description": "ok"
+            "description": "Success"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "422": {
+            "description": "Unprocessable content - validation errors or invalid status"
           }
         },
         "description": ""
@@ -132,12 +186,25 @@
             "name": "id",
             "type": "number",
             "in": "path",
-            "required": true
+            "required": true,
+            "description": "Auction ID"
           }
         ],
         "responses": {
-          "200": {
-            "description": "ok"
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable content - validation errors or invalid status"
           }
         },
         "description": ""
@@ -157,12 +224,22 @@
             "name": "id",
             "type": "number",
             "in": "path",
-            "required": true
+            "required": true,
+            "description": "Auction ID"
           }
         ],
         "responses": {
-          "200": {
-            "description": "ok"
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable content - cannot delete auction with bids"
           }
         },
         "description": ""
@@ -210,7 +287,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "ok"
+            "description": "Success"
           }
         },
         "description": "Returns a list of available bid packs."
@@ -237,8 +314,14 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "ok"
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Bid pack not found"
+          },
+          "422": {
+            "description": "Unprocessable content - purchase failed"
           }
         },
         "description": "Purchases a bid pack and credits the user with the bids."
@@ -273,6 +356,82 @@
           }
         },
         "description": "Places a bid on behalf of the authenticated user. Requires a valid JWT."
+      }
+    },
+    "/password/forgot": {
+      "post": {
+        "tags": [
+          "password_resets"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_password_forgot",
+        "summary": "Request a password reset email",
+        "parameters": [
+          {
+            "name": "password[email_address]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "Email for the account"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted (always, to prevent account enumeration)"
+          }
+        },
+        "description": ""
+      }
+    },
+    "/password/reset": {
+      "post": {
+        "tags": [
+          "password_resets"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded",
+          "multipart/form-data"
+        ],
+        "operationId": "post_password_reset",
+        "summary": "Reset password using the reset token",
+        "parameters": [
+          {
+            "name": "password[token]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "Reset token from email"
+          },
+          {
+            "name": "password[password]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "New password"
+          },
+          {
+            "name": "password[password_confirmation]",
+            "type": "string",
+            "in": "formData",
+            "required": true,
+            "description": "New password confirmation"
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Invalid or expired token"
+          },
+          "403": {
+            "description": "User account disabled"
+          },
+          "422": {
+            "description": "Validation errors on password update"
+          }
+        },
+        "description": ""
       }
     },
     "/login": {
@@ -371,8 +530,8 @@
         "summary": "Return the remaining session lifetime",
         "parameters": [],
         "responses": {
-          "200": {
-            "description": "ok"
+          "401": {
+            "description": "Unauthorized - missing or invalid token"
           }
         },
         "description": "Requires Authorization header. Can be polled by the client to display an accurate countdown."
@@ -391,8 +550,8 @@
         "summary": "Log out a user",
         "parameters": [],
         "responses": {
-          "200": {
-            "description": "ok"
+          "401": {
+            "description": "Unauthorized - missing or invalid token"
           }
         },
         "description": "Revokes the active session token and notifies subscribers."
