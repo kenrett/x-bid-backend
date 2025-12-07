@@ -12,6 +12,16 @@ module Api
           render json: result.records, each_serializer: Api::V1::Admin::AuctionSerializer, meta: result.meta
         end
 
+        # GET /api/v1/admin/auctions/:id
+        # @summary Show auction details for admin
+        def show
+          result = ::Auctions::Queries::AdminShow.call(params: { id: params[:id] })
+
+          render json: result.record, serializer: Api::V1::Admin::AuctionSerializer
+        rescue ActiveRecord::RecordNotFound
+          render_error(code: :not_found, message: "Auction not found", status: :not_found)
+        end
+
         private
 
         def admin_index_params
