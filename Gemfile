@@ -44,6 +44,8 @@ gem "oas_rails"
 gem "stripe"
 
 gem "redis", ">= 4.0.1"
+gem "faker"
+gem "letter_opener"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
@@ -57,7 +59,5 @@ group :development, :test do
 end
 
 group :development do
-  gem "faker"
-  gem "letter_opener"
   gem "lefthook", require: false
 end
