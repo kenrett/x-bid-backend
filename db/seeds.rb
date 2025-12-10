@@ -2,6 +2,10 @@
 # PRODUCTION SEEDS (Render, etc.)
 # -------------------------------
 if Rails.env.production?
+  User.destroy_all
+  Auction.destroy_all
+  BidPack.destroy_all
+
   puts "Seeding production data..."
 
   # Users (idempotent)
@@ -38,10 +42,10 @@ if Rails.env.production?
   end
 
   puts "  - Users seeded:"
-  puts "    * #{admin.email_address} (admin / password)"
-  puts "    * #{superadmin.email_address} (superadmin / password)"
-  puts "    * #{user_one.email_address} (user / password)"
-  puts "    * #{user_two.email_address} (user / password)"
+  puts "    * #{admin.email_address}"
+  puts "    * #{superadmin.email_address}"
+  puts "    * #{user_one.email_address}"
+  puts "    * #{user_two.email_address}"
 
   # Bid packs (idempotent)
   bid_packs_data = [
@@ -85,8 +89,6 @@ if Rails.env.production?
     puts "  - Bid pack: #{pack.name}"
   end
 
-  # Optional: a couple of simple “demo” auctions without Faker.
-  # Adjust/remove if you don't want prod auctions by default.
   if Auction.count == 0
     today = Date.today
 
