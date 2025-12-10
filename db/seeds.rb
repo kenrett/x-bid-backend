@@ -1,3 +1,131 @@
+# -------------------------------
+# PRODUCTION SEEDS (Render, etc.)
+# -------------------------------
+if Rails.env.production?
+  puts "Seeding production data..."
+
+  # Users (idempotent)
+  admin = User.find_or_create_by!(email_address: "admin@example.com") do |u|
+    u.name                  = "Admin"
+    u.password              = "password"
+    u.password_confirmation = "password"
+    u.role                  = :admin
+    u.bid_credits           = 1000
+  end
+
+  superadmin = User.find_or_create_by!(email_address: "superadmin@example.com") do |u|
+    u.name                  = "Superadmin"
+    u.password              = "password"
+    u.password_confirmation = "password"
+    u.role                  = :superadmin
+    u.bid_credits           = 1000
+  end
+
+  user_one = User.find_or_create_by!(email_address: "user@example.com") do |u|
+    u.name                  = "User One"
+    u.password              = "password"
+    u.password_confirmation = "password"
+    u.role                  = :user
+    u.bid_credits           = 100
+  end
+
+  user_two = User.find_or_create_by!(email_address: "user2@example.com") do |u|
+    u.name                  = "User Two"
+    u.password              = "password"
+    u.password_confirmation = "password"
+    u.role                  = :user
+    u.bid_credits           = 100
+  end
+
+  puts "  - Users seeded:"
+  puts "    * #{admin.email_address} (admin / password)"
+  puts "    * #{superadmin.email_address} (superadmin / password)"
+  puts "    * #{user_one.email_address} (user / password)"
+  puts "    * #{user_two.email_address} (user / password)"
+
+  # Bid packs (idempotent)
+  bid_packs_data = [
+    {
+      name: "The Flirt",
+      bids: 69,
+      price: 42.0,
+      highlight: false,
+      description: "A perfect start to get a feel for the action."
+    },
+    {
+      name: "The Rendezvous",
+      bids: 150,
+      price: 82.0,
+      highlight: false,
+      description: "For the bidder who's ready to commit to the chase."
+    },
+    {
+      name: "The All-Nighter",
+      bids: 300,
+      price: 150.0,
+      highlight: true,
+      description: "Our most popular pack. Dominate the auctions."
+    },
+    {
+      name: "The Affair",
+      bids: 600,
+      price: 270.0,
+      highlight: false,
+      description: "The ultimate arsenal for the serious player. Best value."
+    }
+  ]
+
+  bid_packs_data.each do |pack_data|
+    pack = BidPack.find_or_create_by!(name: pack_data[:name]) do |p|
+      p.bids       = pack_data[:bids]
+      p.price      = pack_data[:price]
+      p.highlight  = pack_data[:highlight]
+      p.description = pack_data[:description]
+    end
+    puts "  - Bid pack: #{pack.name}"
+  end
+
+  # Optional: a couple of simple “demo” auctions without Faker.
+  # Adjust/remove if you don't want prod auctions by default.
+  if Auction.count == 0
+    today = Date.today
+
+    Auction.create!(
+      title: "Midnight Mystery Gadget",
+      description: "A high-end mystery item for night owls who love the thrill.",
+      current_price: 0,
+      image_url: "https://via.placeholder.com/600x400?text=Midnight+Mystery+Gadget",
+      status: Auction.statuses[:active],
+      start_date: today + 1.day,
+      end_time:   today + 3.days
+    )
+
+    Auction.create!(
+      title: "Weekend Indulgence Bundle",
+      description: "Everything you need for an unforgettable weekend.",
+      current_price: 0,
+      image_url: "https://via.placeholder.com/600x400?text=Weekend+Indulgence",
+      status: Auction.statuses[:active],
+      start_date: today + 2.days,
+      end_time:   today + 4.days
+    )
+
+    puts "  - Seeded 2 sample auctions."
+  else
+    puts "  - Skipped auctions: existing auctions detected (count: #{Auction.count})."
+  end
+
+  puts "Production seeds complete."
+  return
+end
+
+# --------------------------------
+# DEVELOPMENT / TEST SEEDS (Faker)
+# --------------------------------
+# Destructive + noisy + Faker-friendly, only outside production.
+
+puts "Seeding development/test data (destructive)…"
+
 Auction.destroy_all
 BidPack.destroy_all
 User.destroy_all
@@ -86,3 +214,6 @@ today = Date.today
   )
   print "*"
 end
+
+puts
+puts "Development/test seeds complete."
