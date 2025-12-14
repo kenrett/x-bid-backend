@@ -2,9 +2,10 @@
 # PRODUCTION SEEDS (Render, etc.)
 # -------------------------------
 if Rails.env.production?
-  User.destroy_all
+  Bid.destroy_all
   Auction.destroy_all
   BidPack.destroy_all
+  User.destroy_all
 
   puts "Seeding production data..."
 
@@ -128,6 +129,7 @@ end
 
 puts "Seeding development/test data (destructive)…"
 
+Bid.destroy_all
 Auction.destroy_all
 BidPack.destroy_all
 User.destroy_all
