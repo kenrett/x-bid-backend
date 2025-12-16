@@ -207,6 +207,10 @@ Complex business logic is encapsulated in service objects to keep controllers le
 *   Updating the auction's `current_price` and `winning_user`.
 *   Extending the auction's `end_time` if the bid is placed in the final seconds.
 
+### Lock Ordering
+
+To prevent deadlocks, any service that needs to lock both a `User` and an `Auction` must acquire locks in that order (user first, then auction). Use `LockOrder.with_user_then_auction` (`app/services/lock_order.rb`) instead of calling `lock!` directly on those models. The bidding flow already follows this pattern.
+
 ### Query Objects (Read Models)
 
 Read concerns live in dedicated query objects instead of controllers. For example, `Auctions::Queries::PublicIndex` and `Auctions::Queries::PublicShow` (`app/services/auctions/queries/`) own the projections and eager-loading used by public auction endpoints. This keeps controllers focused on HTTP concerns and gives a single place to adjust filters, projections, or preload strategy for reads.

@@ -45,6 +45,27 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal @user1.id, event_args.last.user_id
   end
 
+  test "locks user before auction to follow global lock order" do
+    lock_sequence = []
+    original_user_lock = @user1.method(:lock!)
+    original_auction_lock = @auction.method(:lock!)
+
+    @user1.define_singleton_method(:lock!) do |*args|
+      lock_sequence << :user
+      original_user_lock.call(*args)
+    end
+
+    @auction.define_singleton_method(:lock!) do |*args|
+      lock_sequence << :auction
+      original_auction_lock.call(*args)
+    end
+
+    result = Auctions::PlaceBid.new(user: @user1, auction: @auction).call(broadcast: false)
+
+    assert result.success?, "Bid should succeed"
+    assert_equal [ :user, :auction ], lock_sequence.first(2), "User must be locked before auction"
+  end
+
   test "should fail if auction is not active" do
     @auction.update!(status: :ended)
 

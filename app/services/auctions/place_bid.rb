@@ -63,10 +63,7 @@ module Auctions
       attempts = 0
 
       begin
-        ActiveRecord::Base.transaction do
-          @auction.lock!
-          block.call
-        end
+        LockOrder.with_user_then_auction(user: @user, auction: @auction) { block.call }
       rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
         attempts += 1
         log_retry(e, attempts)
