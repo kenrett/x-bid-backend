@@ -30,6 +30,7 @@ Rails.application.routes.draw do
       get "/logged_in", to: "sessions#logged_in?"
       post "/password/forgot", to: "password_resets#create"
       post "/password/reset", to: "password_resets#update"
+      post "/stripe/webhooks", to: "stripe_webhooks#create"
       # Maintenance mode
       get "/maintenance", to: "maintenance#show"
       namespace :admin do
