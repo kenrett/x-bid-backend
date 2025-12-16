@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_08_000000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -26,6 +26,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_08_000000) do
     t.datetime "updated_at", null: false
     t.bigint "winning_user_id"
     t.index ["winning_user_id"], name: "index_auctions_on_winning_user_id"
+    t.check_constraint "current_price >= 0::numeric", name: "auctions_current_price_non_negative"
   end
 
   create_table "audit_logs", force: :cascade do |t|
@@ -67,6 +68,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_08_000000) do
     t.datetime "updated_at", null: false
     t.index ["auction_id"], name: "index_bids_on_auction_id"
     t.index ["user_id"], name: "index_bids_on_user_id"
+    t.check_constraint "amount >= 0::numeric", name: "bids_amount_non_negative"
   end
 
   create_table "maintenance_settings", force: :cascade do |t|
@@ -107,6 +109,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_08_000000) do
     t.index ["stripe_checkout_session_id"], name: "index_purchases_on_stripe_checkout_session_id", unique: true
     t.index ["stripe_payment_intent_id"], name: "index_purchases_on_stripe_payment_intent_id", unique: true
     t.index ["user_id"], name: "index_purchases_on_user_id"
+    t.check_constraint "amount_cents >= 0", name: "purchases_amount_cents_non_negative"
+    t.check_constraint "refunded_cents >= 0", name: "purchases_refunded_cents_non_negative"
   end
 
   create_table "session_tokens", force: :cascade do |t|
@@ -144,6 +148,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_08_000000) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["is_superuser"], name: "index_users_on_is_superuser"
     t.index ["status"], name: "index_users_on_status"
+    t.check_constraint "bid_credits >= 0", name: "users_bid_credits_non_negative"
   end
 
   add_foreign_key "auctions", "users", column: "winning_user_id"

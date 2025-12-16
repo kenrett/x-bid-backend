@@ -84,7 +84,7 @@ module Auctions
     end
 
     def debit_user_credits!
-      Credits::Debit.for_bid!(user: @user, auction: @auction)
+      Credits::Debit.for_bid!(user: @user, auction: @auction, locked: true)
     end
 
     def extend_auction_if_needed!

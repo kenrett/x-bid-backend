@@ -3,20 +3,28 @@ module Credits
     class << self
       # Debits a user's bid credits for placing a bid, tied to an auction.
       # Raises if the user lacks credits or if the debit fails.
-      def for_bid!(user:, auction:)
+      # If `locked: false`, the call will acquire locks using the global user->auction order.
+      def for_bid!(user:, auction:, locked: false)
         raise ArgumentError, "Auction must be provided" unless auction
         raise ArgumentError, "User must be provided" unless user
 
         raise InsufficientCreditsError, "Insufficient bid credits" if user.bid_credits.to_i <= 0
 
-        user.with_lock do
-          raise InsufficientCreditsError, "Insufficient bid credits" if user.bid_credits.to_i <= 0
-          user.decrement!(:bid_credits)
-          log_debit(user:, auction:)
+        if locked
+          debit!(user:, auction:)
+        else
+          LockOrder.with_user_then_auction(user:, auction:) { debit!(user:, auction:) }
         end
       end
 
       private
+
+      def debit!(user:, auction:)
+        raise InsufficientCreditsError, "Insufficient bid credits" if user.bid_credits.to_i <= 0
+
+        user.decrement!(:bid_credits)
+        log_debit(user:, auction:)
+      end
 
       def log_debit(user:, auction:)
         AppLogger.log(event: "credits.debit", user_id: user.id, auction_id: auction.id, remaining: user.bid_credits)
