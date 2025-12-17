@@ -14,6 +14,7 @@ module Api
 
       # @summary Purchase a bid pack for the current user
       # Creates a purchase for the given bid pack and credits the user after payment processing.
+      # Requires `payment_intent_id` or `checkout_session_id` for idempotency.
       # @parameter id(path) [Integer] ID of the bid pack
       # @response Purchase started (200) [Hash{ message: String }]
       # @response Unauthorized (401) [Error]
@@ -21,7 +22,12 @@ module Api
       # @response Validation error (422) [Error]
       def purchase
         bid_pack = BidPack.active.find(params[:id])
-        result = Billing::PurchaseBidPack.new(user: @current_user, bid_pack: bid_pack).call
+        result = Billing::PurchaseBidPack.new(
+          user: @current_user,
+          bid_pack: bid_pack,
+          payment_intent_id: params[:payment_intent_id],
+          checkout_session_id: params[:checkout_session_id]
+        ).call
 
         if result.success?
           render json: { message: result.message }, status: :ok
