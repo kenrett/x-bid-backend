@@ -27,6 +27,7 @@ module Auctions
       end
 
       publish_bid_placed_event if broadcast
+      broadcast_list_update if broadcast
       ServiceResult.ok(code: :ok, message: "Bid placed", data: { bid: @bid, auction: @auction })
     rescue AuctionNotActiveError
       ServiceResult.fail("Auction is not active", code: :auction_not_active)
@@ -106,6 +107,10 @@ module Auctions
       # kept for backward compatibility if called directly
       return unless @bid.present?
       Auctions::Events::BidPlaced.call(auction: @auction, bid: @bid)
+    end
+
+    def broadcast_list_update
+      Auctions::Events::ListBroadcast.call(auction: @auction) if @auction.present?
     end
 
     def log_retry(error, attempt)

@@ -1,5 +1,10 @@
 class AuctionChannel < ApplicationCable::Channel
   def subscribed
+    if params[:stream] == "list"
+      stream_from list_stream
+      return
+    end
+
     auction_id = params[:auction_id]
 
     # 1. First, check if the client even sent an ID
@@ -37,5 +42,11 @@ class AuctionChannel < ApplicationCable::Channel
   # receiving broadcasts for this auction.
   def start_stream
     stream_for @auction if @auction
+  end
+
+  private
+
+  def list_stream
+    "AuctionChannel:list"
   end
 end

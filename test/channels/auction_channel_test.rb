@@ -12,6 +12,12 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
     )
   end
 
+  test "streams list feed when stream param is list" do
+    subscribe(stream: "list")
+    assert subscription.confirmed?
+    assert stream_exists_for?(list_stream_name)
+  end
+
   test "rejects subscription when auction_id is missing" do
     subscribe
     assert subscription.rejected?
@@ -44,9 +50,13 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
 
   private
 
-  def stream_exists_for?(auction)
+  def stream_exists_for?(target)
     streams = subscription.send(:streams)
-    target = subscription.send(:broadcasting_for, auction)
-    streams&.include?(target)
+    expected = target.is_a?(Auction) ? subscription.send(:broadcasting_for, target) : target
+    streams&.include?(expected)
+  end
+
+  def list_stream_name
+    "AuctionChannel:list"
   end
 end

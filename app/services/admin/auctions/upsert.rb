@@ -16,6 +16,7 @@ module Admin
         end
 
         AuditLogger.log(action: action_name, actor: @actor, target: @auction, payload: @attrs, request: @request)
+        ::Auctions::Events::ListBroadcast.call(auction: @auction)
         ServiceResult.ok(code: action_result_code, message: "Auction #{action_result_code == :created ? 'created' : 'updated'}", record: @auction, data: { auction: @auction })
       rescue ::Auction::InvalidState => e
         ServiceResult.fail(e.message, code: :invalid_state, record: @auction)

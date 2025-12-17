@@ -10,6 +10,7 @@ module Admin
       def perform
         @auction.retire!
         AuditLogger.log(action: "auction.delete", actor: @actor, target: @auction, payload: { status: "inactive" }, request: @request)
+        ::Auctions::Events::ListBroadcast.call(auction: @auction)
         ServiceResult.ok
       rescue ::Auction::InvalidState => e
         ServiceResult.fail(e.message, code: :invalid_state, record: @auction)
