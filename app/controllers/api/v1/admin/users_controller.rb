@@ -84,7 +84,7 @@ module Api
         # @response Validation error (422) [Error]
         def ban
           result = ::Admin::Users::Disable.new(actor: @current_user, user: @user, request: request).call
-          return render_error(code: result.code || :invalid_user, message: result.error, status: map_status(result.code)) unless result.ok?
+          return render_error(code: result.code || :invalid_user, message: result.error, status: result.http_status) unless result.ok?
 
           render_admin_user(result.record)
         end
@@ -149,14 +149,6 @@ module Api
 
         def render_validation_error(user)
           render_error(code: :invalid_user, message: user.errors.full_messages.to_sentence, status: :unprocessable_entity)
-        end
-
-        def map_status(code)
-          case code
-          when :forbidden then :forbidden
-          when :invalid_delta, :invalid_user, :insufficient_credits then :unprocessable_content
-          else :unprocessable_entity
-          end
         end
       end
     end

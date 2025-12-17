@@ -1,6 +1,22 @@
 class ServiceResult
   attr_reader :code, :message, :data, :record
 
+  HTTP_STATUS_BY_CODE = {
+    forbidden: :forbidden,
+    not_found: :not_found,
+    invalid_state: :unprocessable_content,
+    invalid_status: :unprocessable_content,
+    invalid_auction: :unprocessable_content,
+    invalid_bid_pack: :unprocessable_content,
+    invalid_delta: :unprocessable_content,
+    invalid_user: :unprocessable_content,
+    insufficient_credits: :unprocessable_content,
+    invalid_amount: :unprocessable_content,
+    amount_exceeds_charge: :unprocessable_content,
+    gateway_error: :unprocessable_content,
+    already_refunded: :unprocessable_content
+  }.freeze
+
   def initialize(success:, code: nil, message: nil, data: {}, record: nil, metadata: {})
     @success = !!success
     @code = code
@@ -41,5 +57,11 @@ class ServiceResult
 
   def respond_to_missing?(method_name, include_private = false)
     (data.respond_to?(:key?) && data.key?(method_name)) || @metadata.key?(method_name) || super
+  end
+
+  def http_status(success_status: :ok, fallback: :unprocessable_content)
+    return success_status if ok?
+
+    HTTP_STATUS_BY_CODE.fetch(code&.to_sym, fallback)
   end
 end

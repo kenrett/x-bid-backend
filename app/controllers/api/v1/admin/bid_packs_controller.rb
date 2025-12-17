@@ -113,15 +113,7 @@ module Api
             return render json: result.record, status: success_status
           end
 
-          render_error(code: result.code || :invalid_bid_pack, message: result.error, status: map_status(result.code))
-        end
-
-        def map_status(code)
-          case code
-          when :forbidden then :forbidden
-          when :invalid_state, :invalid_bid_pack, :invalid_status then :unprocessable_content
-          else :unprocessable_content
-          end
+          render_error(code: result.code || :invalid_bid_pack, message: result.error, status: result.http_status)
         end
       end
     end

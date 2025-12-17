@@ -36,7 +36,7 @@ module Admin
       result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
       return head :no_content if result.ok?
 
-      render json: { errors: [ result.error ] }, status: map_status(result.code)
+      render json: { errors: [ result.error ] }, status: result.http_status
     end
 
     private
@@ -52,17 +52,9 @@ module Admin
     end
 
     def render_result(result, success_status: :ok)
-      return render json: { errors: [ result.error ] }, status: map_status(result.code) unless result.ok?
+      return render json: { errors: [ result.error ] }, status: result.http_status unless result.ok?
 
       render json: result.record, status: success_status
-    end
-
-    def map_status(code)
-      case code
-      when :forbidden then :forbidden
-      when :invalid_state, :invalid_bid_pack, :invalid_status then :unprocessable_content
-      else :unprocessable_content
-      end
     end
   end
 end

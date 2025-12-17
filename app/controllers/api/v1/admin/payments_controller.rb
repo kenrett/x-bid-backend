@@ -41,7 +41,7 @@ module Api
           if result.ok?
             render json: serialize_payment(payment.reload).merge(refund_id: result.data[:refund_id]), status: :ok
           else
-            render_error(code: result.code || :refund_failed, message: result.error, status: map_status(result.code))
+            render_error(code: result.code || :refund_failed, message: result.error, status: result.http_status)
           end
         rescue ActiveRecord::RecordNotFound
           render_error(code: :not_found, message: "Payment not found", status: :not_found)
@@ -59,14 +59,6 @@ module Api
             status: payment.status,
             created_at: payment.created_at
           }
-        end
-
-        def map_status(code)
-          case code
-          when :forbidden then :forbidden
-          when :invalid_amount, :invalid_state, :amount_exceeds_charge, :gateway_error, :already_refunded then :unprocessable_entity
-          else :unprocessable_content
-          end
         end
       end
     end

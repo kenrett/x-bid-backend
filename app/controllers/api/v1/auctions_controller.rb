@@ -144,14 +144,7 @@ module Api
       end
 
       def render_service_error(result)
-        status = case result.code
-        when :forbidden then :forbidden
-        when :not_found then :not_found
-        when :invalid_state, :invalid_status, :invalid_auction then :unprocessable_content
-        else :unprocessable_content
-        end
-
-        render_error(code: result.code, message: result.message, status: status)
+        render_error(code: result.code, message: result.message, status: result.http_status)
       end
 
       def public_index_params
