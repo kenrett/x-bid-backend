@@ -56,10 +56,12 @@ module Stripe
         payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
         amount_cents = data[:amount_received] || data["amount_received"] || (bid_pack.price.to_d * 100).to_i
         currency = (data[:currency] || data["currency"] || "usd").to_s
+        stripe_event_id = event.respond_to?(:id) ? event.id : nil
 
         ActiveRecord::Base.transaction do
           user.with_lock do
             purchase = Purchase.find_by(stripe_payment_intent_id: payment_intent_id)
+            purchase ||= Purchase.find_by(stripe_event_id: stripe_event_id) if stripe_event_id.present?
             return ServiceResult.ok(code: :already_processed, message: "Payment already applied", data: { purchase: purchase, idempotent: true }) if purchase&.status == "completed"
 
             purchase ||= Purchase.new
@@ -69,6 +71,7 @@ module Stripe
               amount_cents: amount_cents,
               currency: currency,
               stripe_payment_intent_id: payment_intent_id,
+              stripe_event_id: stripe_event_id,
               status: "completed"
             )
             purchase.save!

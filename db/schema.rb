@@ -105,8 +105,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
     t.string "refund_id"
     t.datetime "refunded_at"
     t.string "stripe_payment_intent_id"
+    t.string "stripe_event_id"
     t.index ["bid_pack_id"], name: "index_purchases_on_bid_pack_id"
     t.index ["stripe_checkout_session_id"], name: "index_purchases_on_stripe_checkout_session_id", unique: true
+    t.index ["stripe_event_id"], name: "index_purchases_on_stripe_event_id", unique: true
     t.index ["stripe_payment_intent_id"], name: "index_purchases_on_stripe_payment_intent_id", unique: true
     t.index ["user_id"], name: "index_purchases_on_user_id"
     t.check_constraint "amount_cents >= 0", name: "purchases_amount_cents_non_negative"

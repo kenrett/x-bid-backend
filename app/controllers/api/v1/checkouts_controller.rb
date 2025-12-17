@@ -76,9 +76,14 @@
     end
 
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
+    payment_intent_id = session.payment_intent
 
     # Only fulfill the order if the payment was successful.
     if session.payment_status == "paid"
+      if payment_intent_id.present? && Purchase.exists?(stripe_payment_intent_id: payment_intent_id)
+        return render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :already_reported
+      end
+
       ActiveRecord::Base.transaction do
         bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
 
@@ -89,7 +94,7 @@
           amount_cents: (bid_pack.price * 100).to_i,
           currency: "usd",
           stripe_checkout_session_id: session.id,
-          stripe_payment_intent_id: session.payment_intent,
+          stripe_payment_intent_id: payment_intent_id,
           status: "completed"
         )
 
