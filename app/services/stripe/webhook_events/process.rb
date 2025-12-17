@@ -1,7 +1,7 @@
 module Stripe
   module WebhookEvents
     class Process
-      SUPPORTED_TYPES = [ "payment_intent.succeeded" ].freeze
+      SUPPORTED_TYPES = [ "payment_intent.succeeded", "payment_intent.payment_failed" ].freeze
 
       def self.call(event:)
         new(event: event).call
@@ -39,6 +39,8 @@ module Stripe
         case event.type
         when "payment_intent.succeeded"
           handle_payment_intent_succeeded
+        when "payment_intent.payment_failed"
+          handle_payment_intent_failed
         else
           ServiceResult.ok(code: :ignored, message: "Unhandled event type: #{event.type}")
         end
@@ -47,13 +49,17 @@ module Stripe
       def handle_payment_intent_succeeded
         data = stripe_object_data
         metadata = (data["metadata"] || data[:metadata] || {}).with_indifferent_access
+        payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
+
+        if metadata[:auction_settlement_id].present?
+          return handle_auction_settlement_payment_succeeded(metadata:, payment_intent_id:)
+        end
 
         user = User.find_by(id: metadata[:user_id])
         bid_pack = BidPack.find_by(id: metadata[:bid_pack_id])
         return ServiceResult.fail("User not found for Stripe payment", code: :user_not_found) unless user
         return ServiceResult.fail("Bid pack not found for Stripe payment", code: :bid_pack_not_found) unless bid_pack
 
-        payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
         amount_cents = data[:amount_received] || data["amount_received"] || (bid_pack.price.to_d * 100).to_i
         currency = (data[:currency] || data["currency"] || "usd").to_s
         stripe_event_id = event.respond_to?(:id) ? event.id : nil
@@ -82,6 +88,16 @@ module Stripe
             ServiceResult.ok(code: :processed, message: "Payment applied", data: { purchase: purchase })
           end
         end
+      end
+
+      def handle_payment_intent_failed
+        data = stripe_object_data
+        metadata = (data["metadata"] || data[:metadata] || {}).with_indifferent_access
+        payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
+
+        return handle_auction_settlement_payment_failed(metadata:, payment_intent_id:) if metadata[:auction_settlement_id].present?
+
+        ServiceResult.ok(code: :ignored, message: "Payment failure ignored for non-settlement intent")
       end
 
       def persist_event!
@@ -120,6 +136,40 @@ module Stripe
           amount_cents: purchase.amount_cents,
           currency: purchase.currency
         )
+      end
+
+      def handle_auction_settlement_payment_succeeded(metadata:, payment_intent_id:)
+        settlement = AuctionSettlement.find_by(id: metadata[:auction_settlement_id])
+        return ServiceResult.fail("Settlement not found for Stripe payment", code: :not_found) unless settlement
+        return ServiceResult.ok(code: :already_processed, message: "Settlement already paid", data: { settlement: settlement }) if settlement.paid?
+
+        settlement.mark_paid!(payment_intent_id: payment_intent_id)
+        AppLogger.log(
+          event: "auction.payment_succeeded",
+          auction_id: settlement.auction_id,
+          settlement_id: settlement.id,
+          winning_user_id: settlement.winning_user_id,
+          payment_intent_id: payment_intent_id
+        )
+
+        ServiceResult.ok(code: :paid, message: "Settlement paid", data: { settlement: settlement })
+      end
+
+      def handle_auction_settlement_payment_failed(metadata:, payment_intent_id:)
+        settlement = AuctionSettlement.find_by(id: metadata[:auction_settlement_id])
+        return ServiceResult.fail("Settlement not found for Stripe payment", code: :not_found) unless settlement
+        return ServiceResult.ok(code: :already_processed, message: "Settlement already closed", data: { settlement: settlement }) if settlement.paid? || settlement.cancelled?
+
+        settlement.mark_payment_failed!(reason: "stripe_payment_failed")
+        AppLogger.log(
+          event: "auction.payment_failed",
+          auction_id: settlement.auction_id,
+          settlement_id: settlement.id,
+          winning_user_id: settlement.winning_user_id,
+          payment_intent_id: payment_intent_id
+        )
+
+        ServiceResult.ok(code: :payment_failed, message: "Settlement payment failed", data: { settlement: settlement })
       end
 
       def log_error(exception)

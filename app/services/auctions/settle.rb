@@ -29,6 +29,10 @@ module Auctions
         ended_at: Time.current
       )
 
+      if settlement.pending_payment?
+        ExpireAuctionSettlementsJob.set(wait_until: settlement.retry_window_ends_at).perform_later
+      end
+
       AppLogger.log(
         event: "auction.settled",
         auction_id: auction.id,
