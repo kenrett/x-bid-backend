@@ -5,6 +5,7 @@ class Auction < ApplicationRecord
 
   belongs_to :winning_user, class_name: "User", optional: true
   has_many :bids, -> { order(created_at: :desc) }, dependent: :destroy
+  has_one :settlement, class_name: "AuctionSettlement", dependent: :destroy
 
   enum :status, { pending: 0, active: 1, ended: 2, cancelled: 3, inactive: 4 }
 
@@ -95,7 +96,13 @@ class Auction < ApplicationRecord
 
   def close!(winner: nil)
     assert_state!(active?, "Auction must be active to close")
+    winner ||= winning_user || winning_bid&.user
     update!(status: :ended, winning_user: winner)
+    Auctions::Settle.call(auction: self)
+  end
+
+  def winning_bid
+    bids.first
   end
 
   def cancel!

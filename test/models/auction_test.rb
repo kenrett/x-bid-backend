@@ -102,8 +102,25 @@ class AuctionTest < ActiveSupport::TestCase
     auction = Auction.create!(title: "Closable", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
     auction.close!
     assert_equal "ended", auction.reload.status
+    assert_equal "no_winner", auction.settlement.status
 
     assert_raises(Auction::InvalidState) { auction.close! }
+  end
+
+  test "close! captures winning bid and settlement snapshot" do
+    user = User.create!(name: "Winner", email_address: "winner@example.com", password: "password", bid_credits: 0)
+    auction = Auction.create!(title: "Prize", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 4.0, status: :active, winning_user: user)
+    bid = Bid.create!(auction: auction, user: user, amount: 5.0)
+    auction.update!(current_price: 5.0)
+
+    auction.close!
+
+    settlement = auction.settlement
+    assert_equal "pending_payment", settlement.status
+    assert_equal user.id, settlement.winning_user_id
+    assert_equal bid.id, settlement.winning_bid_id
+    assert_equal 5.0, settlement.final_price.to_f
+    assert settlement.ended_at.present?
   end
 
   test "cancel! only from pending or active" do
