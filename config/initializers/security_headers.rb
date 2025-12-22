@@ -32,8 +32,21 @@ class SecurityHeaders
   end
 
   def static_headers
+    script_sources = [
+      "'self'",
+      "https://js.stripe.com",
+      "https://static.cloudflareinsights.com",
+      "'unsafe-inline'"
+    ].join(" ")
+
     @static_headers ||= {
-      "Content-Security-Policy" => "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+      "Content-Security-Policy" => [
+        "default-src 'self'",
+        "script-src #{script_sources}",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "form-action 'self'"
+      ].join("; "),
       "Referrer-Policy" => "no-referrer",
       "Permissions-Policy" => "geolocation=(), microphone=(), camera=()",
       "X-Content-Type-Options" => "nosniff",

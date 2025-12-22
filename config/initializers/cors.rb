@@ -5,9 +5,13 @@
 
 # Read more: https://github.com/cyu/rack-cors
 
+frontend_origins = [
+  Rails.application.credentials.frontend_origins&.split(",")
+].compact.flatten.map(&:strip).reject(&:empty?)
+
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins Rails.application.credentials.frontend_origins
+    origins frontend_origins.presence || "http://localhost:5173"
 
     resource "*",
       headers: :any,
