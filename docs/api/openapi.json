@@ -1,0 +1,5089 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "XBid API",
+    "summary": "Interactive docs for the XBid backend",
+    "description": "REST API for the XBid auction platform. Endpoints cover authentication,\nauctions, bidding, bid packs, payments, maintenance mode, and admin tools.\n",
+    "termsOfService": "",
+    "contact": {
+      "name": "",
+      "url": "",
+      "email": ""
+    },
+    "license": {
+      "name": "GPL 3.0",
+      "url": "https://www.gnu.org/licenses/gpl-3.0.html#license-text"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Default server"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "List all auctions",
+        "description": "Returns public auction summaries filtered by status.",
+        "operationId": "GET__",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/3c76e0904ddc71e0dcc8562e902e37e4"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/9a6d4adb96b20063bae643cd31073c17"
+          },
+          "422": {
+            "$ref": "#/components/responses/e3c00e30a962e76e60f759694bec160f"
+          }
+        }
+      }
+    },
+    "/api/v1/checkouts": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Start a Stripe Checkout session for a bid pack",
+        "description": "Initializes a Stripe checkout session for the given bid pack and returns the client secret.",
+        "operationId": "POST__api_v1_checkouts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/e47fcdce1e2038e964734571e689bfeb"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/d6b839f954ef7bcdb438b729eb10c35d"
+          },
+          "401": {
+            "$ref": "#/components/responses/5ad0d5f34ddefc2aeb4d2de2379c3ced"
+          },
+          "404": {
+            "$ref": "#/components/responses/b8a039ba6117868037aa7ff2785cc4a9"
+          },
+          "422": {
+            "$ref": "#/components/responses/a48237cc0b16b36f2ebd758e314bb420"
+          },
+          "403": {
+            "$ref": "#/components/responses/973c3575ee59463932cab168a603d9a8"
+          },
+          "500": {
+            "$ref": "#/components/responses/f1656869f1d92f1f8f824f843f3baeff"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/checkout/status": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Check the Stripe checkout session status",
+        "description": "Fetches the status of a Stripe checkout session using its ID.",
+        "operationId": "GET__api_v1_checkout_status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/c96cce3d59cd4fa44833d2fd8dcb937c"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/5b0e070e55dce562b9a691efa5fe1fdb"
+          },
+          "401": {
+            "$ref": "#/components/responses/32265045bc2f4a41b98ff0dc8e8ff8de"
+          },
+          "404": {
+            "$ref": "#/components/responses/bb6a1c481394abbc60302f58414e8ea3"
+          },
+          "403": {
+            "$ref": "#/components/responses/b65e36abd1a3966d878671359610204d"
+          },
+          "500": {
+            "$ref": "#/components/responses/b543809ed42c4d8e59dad6d42ba77690"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/checkout/success": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Handle successful checkout callbacks and credit the user",
+        "description": "Idempotently processes a paid checkout session and credits the user with purchased bids.",
+        "operationId": "GET__api_v1_checkout_success",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/c96cce3d59cd4fa44833d2fd8dcb937c"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ef6cc471013bc4899c9406ac9a49308c"
+          },
+          "208": {
+            "$ref": "#/components/responses/b35b7e551583128a09d479ca2e34070a"
+          },
+          "401": {
+            "$ref": "#/components/responses/ca563a990e2514c4c8c9e29ea301ccab"
+          },
+          "404": {
+            "$ref": "#/components/responses/e287408a9f9abb73ef9b6ee3dd4a7647"
+          },
+          "422": {
+            "$ref": "#/components/responses/8745232dab7eb5d920b9c83b189c54ae"
+          },
+          "403": {
+            "$ref": "#/components/responses/3a1cbfed9f865b3bd3511b9c87fb36ba"
+          },
+          "500": {
+            "$ref": "#/components/responses/fe0b4c8b2a7ce7bb8aa23e2b56a59c02"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bid_packs": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List available bid packs",
+        "description": "Publicly lists active bid packs available for purchase.",
+        "operationId": "GET__api_v1_bid_packs",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/67c2404a36dc44d53bba469c382c4648"
+          }
+        }
+      }
+    },
+    "/api/v1/auctions/{auction_id}/bids": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Place a bid on an auction",
+        "description": "Places a bid for the current user on the specified auction.",
+        "operationId": "POST__api_v1_auctions_{auction_id}_bids",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/6e0158f0b618754c963898ab74806752"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/4ccc0cd601c54e4782e3c3ee5cd436b9"
+          },
+          "401": {
+            "$ref": "#/components/responses/55200894f809d56d600dc5135187a9e8"
+          },
+          "404": {
+            "$ref": "#/components/responses/b645392a1f48e7abc1f93037785d8acc"
+          },
+          "422": {
+            "$ref": "#/components/responses/bb942488d289d56075bfc85e672ce19d"
+          },
+          "403": {
+            "$ref": "#/components/responses/758f8c077b2e22d44399e98c355d7fd5"
+          },
+          "500": {
+            "$ref": "#/components/responses/67251b984fd7a35a61706fe398f67829"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auctions/{auction_id}/bid_history": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List bids for a given auction (newest first)",
+        "description": "GET /api/v1/auctions/:auction_id/bid_history\nReturns the current bid list for an auction along with the winning user, if present.",
+        "operationId": "GET__api_v1_auctions_{auction_id}_bid_history",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/6e0158f0b618754c963898ab74806752"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cfa429dedf0662c54a2ef4865ff16a6e"
+          },
+          "404": {
+            "$ref": "#/components/responses/e46709d60df4b71321ea6407d0ba8434"
+          }
+        }
+      }
+    },
+    "/api/v1/auctions/{id}/extend_time": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Extend an auction's end time (admin only)",
+        "description": "Extends an active auction within the configured extension window.",
+        "operationId": "POST__api_v1_auctions_{id}_extend_time",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/14637594ac0009f3ece4aa5dcb94e089"
+          },
+          "401": {
+            "$ref": "#/components/responses/de763df2b4f00a32d8aee6d913597666"
+          },
+          "404": {
+            "$ref": "#/components/responses/b1a1b2e3926ecfdd87fb64047714ead9"
+          },
+          "403": {
+            "$ref": "#/components/responses/69263fd6f0410c3edece67f0d0fd0695"
+          },
+          "422": {
+            "$ref": "#/components/responses/907e536592f54db051368f90f66159e4"
+          },
+          "500": {
+            "$ref": "#/components/responses/22b218b920075de72948af453c9fd671"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auctions": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List all auctions",
+        "description": "Returns public auction summaries filtered by status.",
+        "operationId": "GET__api_v1_auctions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/3c76e0904ddc71e0dcc8562e902e37e4"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/f7add519d8cc57eb4e46f210965786cd"
+          },
+          "422": {
+            "$ref": "#/components/responses/493385f8779e01e287cb94957958df3a"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Create a new auction (admin only)",
+        "description": "Create and schedule or activate an auction. Status values are normalized to the allowed list.",
+        "operationId": "POST__api_v1_auctions",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/d4465c6790246055523502653bd5b085"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/ea1094f8fe373641ce8f076df0379eaa"
+          },
+          "401": {
+            "$ref": "#/components/responses/bf3269900111bf2db37c8bc9f1b9dac6"
+          },
+          "403": {
+            "$ref": "#/components/responses/a6f6d36590476cfb00d28fd435993ed1"
+          },
+          "422": {
+            "$ref": "#/components/responses/39aa4c1e06f42d09d3fcd8ff31cfbcc5"
+          },
+          "500": {
+            "$ref": "#/components/responses/2abaf3d9ffdf8c244bb891be533b172a"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auctions/{id}": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Retrieve a single auction with bids",
+        "description": "Fetches the auction and embeds the current bid list.",
+        "operationId": "GET__api_v1_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/c0b3057b5136cc0a5d24f66d6bbfe5e4"
+          },
+          "404": {
+            "$ref": "#/components/responses/a90d3dffe9d14906885c96a69cffe045"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Update an existing auction (admin only)",
+        "description": "Update auction details or transition status for an existing auction.",
+        "operationId": "PUT__api_v1_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/bafc450e7d64e8e7ea9168746b5efb50"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/d2e6615e20a68a1d3c48a6d4f12e41bb"
+          },
+          "401": {
+            "$ref": "#/components/responses/57c5038d642c2857641c66cb5f07fed5"
+          },
+          "404": {
+            "$ref": "#/components/responses/f9f3ece50e29c1e59f370dfb3dd6b021"
+          },
+          "403": {
+            "$ref": "#/components/responses/0095f45766897bce2c3f6bcf2c6e8daa"
+          },
+          "422": {
+            "$ref": "#/components/responses/8448460288ac5e9a04c4731d8f9031c9"
+          },
+          "500": {
+            "$ref": "#/components/responses/87ee431f991ccc9e36ad468fd0a29c67"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Update an existing auction (admin only)",
+        "description": "Update auction details or transition status for an existing auction.",
+        "operationId": "PATCH__api_v1_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/d4b27a76610fdf38d72fda88f13cb17c"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/06f5927816cf7b42c3a2fc79b9b51e87"
+          },
+          "401": {
+            "$ref": "#/components/responses/6e93feadad8e28b906538504d2833779"
+          },
+          "404": {
+            "$ref": "#/components/responses/da8bcf2d457b3eb2ecb9b120cd60e3b1"
+          },
+          "403": {
+            "$ref": "#/components/responses/377b775daa51fd6c7df438f2c3d61deb"
+          },
+          "422": {
+            "$ref": "#/components/responses/ffadbd9cf92a1e190473a52bf524aac6"
+          },
+          "500": {
+            "$ref": "#/components/responses/b80d0e1d3918a8e67d1321ac3588db49"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Retire an auction (admin only)",
+        "description": "Retire an auction to prevent further bids while keeping history intact.",
+        "operationId": "DELETE__api_v1_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/5bb5792c4f94a0b31121113f4fdc593d"
+          },
+          "401": {
+            "$ref": "#/components/responses/9a58bc0e0bc3bb1004d0332547e19dd3"
+          },
+          "404": {
+            "$ref": "#/components/responses/caba043639a1a69e06fe725e5a2a7074"
+          },
+          "403": {
+            "$ref": "#/components/responses/b96819f0c449d5fe7e256b3cf751d280"
+          },
+          "422": {
+            "$ref": "#/components/responses/2ecfc1c8f6139617744bb87f4dc134a4"
+          },
+          "500": {
+            "$ref": "#/components/responses/976e2acc4d33dc7c56c4ca8d0968911e"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Register a new user account",
+        "description": "POST /api/v1/users",
+        "operationId": "POST__api_v1_users",
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/70a9ed8e5e00381f15b9b9c2032c8aa5"
+          }
+        }
+      }
+    },
+    "/api/v1/login": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Log in and create a session",
+        "description": "POST /api/v1/login\nAuthenticates a user and returns session tokens plus user context.",
+        "operationId": "POST__api_v1_login",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/06c91414f7892f71564cf4e4ddb2b072"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/2084f6ae34d7675fa59e261bac9f3ab8"
+          },
+          "401": {
+            "$ref": "#/components/responses/4176587223f7e4ffaa1ab5b24bb6665e"
+          },
+          "403": {
+            "$ref": "#/components/responses/3e10a48cbfa4b90e3ddc1d9c753bf562"
+          },
+          "400": {
+            "$ref": "#/components/responses/3f4e99006b3e5967c04f43f1765be9a9"
+          },
+          "422": {
+            "$ref": "#/components/responses/6335b1fcf7382d4d66d65ad567ce788c"
+          }
+        }
+      }
+    },
+    "/api/v1/session/refresh": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Refresh the current session using a refresh token",
+        "description": "Exchanges a valid refresh token for a new session token pair.",
+        "operationId": "POST__api_v1_session_refresh",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/6ee57f4a71c526f53a07a53c8a981a8f"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/860076442fefa0db1140e5256da7ec1d"
+          },
+          "401": {
+            "$ref": "#/components/responses/3b02a962fe4d48f99f7ca2b77ea8243c"
+          },
+          "403": {
+            "$ref": "#/components/responses/65cd5e1ac7f6d38f563ecf20b45ed826"
+          },
+          "400": {
+            "$ref": "#/components/responses/834b80602e55e23f0763ec7ffa600657"
+          }
+        }
+      }
+    },
+    "/api/v1/session/remaining": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Return remaining time for the current session token",
+        "description": "Provides session token metadata for the authenticated user.",
+        "operationId": "GET__api_v1_session_remaining",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/9d315fcbf07a41be7ec60e0e9a348d16"
+          },
+          "401": {
+            "$ref": "#/components/responses/37d9a1106a5b3fc7a4fb5324b4e5f868"
+          },
+          "403": {
+            "$ref": "#/components/responses/0b22dc422bb345781a3004402c10f356"
+          },
+          "500": {
+            "$ref": "#/components/responses/2946d9a61b3631594aa28dd8721653af"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/logout": {
+      "delete": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Log out and revoke the current session token",
+        "description": "DELETE /api/v1/logout\nRevokes the active session token and returns a confirmation message.",
+        "operationId": "DELETE__api_v1_logout",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/b1bc5196988d0c440510750a170ab683"
+          },
+          "401": {
+            "$ref": "#/components/responses/5be6ad1e7ff4a8fd92675ee81dce3436"
+          },
+          "404": {
+            "$ref": "#/components/responses/fbfb3ec9841a43acf26aa67d76061213"
+          },
+          "403": {
+            "$ref": "#/components/responses/df8dbac5b3277140052005cab48cc1ba"
+          },
+          "500": {
+            "$ref": "#/components/responses/003c36def2b88feab20a1f126eda5147"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/logged_in": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Check whether the provided token is valid",
+        "description": "GET /api/v1/logged_in\nReturns session and user context if the token is valid.",
+        "operationId": "GET__api_v1_logged_in",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/14f09a7f5deb0f30a75061c3203166ae"
+          },
+          "401": {
+            "$ref": "#/components/responses/9d5581b5bd93ff23edf8393efa251dd0"
+          },
+          "403": {
+            "$ref": "#/components/responses/6fff6c8cd0f6483a1dc6873d28adee5f"
+          },
+          "500": {
+            "$ref": "#/components/responses/4134e088ff5dc145d4b89b70a9a233d4"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/password/forgot": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Request a password reset email",
+        "description": "",
+        "operationId": "POST__api_v1_password_forgot",
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/86402cbdc5be89f18c878d68e4ddf0a3"
+          },
+          "400": {
+            "$ref": "#/components/responses/668c2ca342c8bbed72a27c75d535b095"
+          },
+          "422": {
+            "$ref": "#/components/responses/18786d9291d4593e71a4f3ce9d06189e"
+          }
+        }
+      }
+    },
+    "/api/v1/password/reset": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Reset a password using a token",
+        "description": "",
+        "operationId": "POST__api_v1_password_reset",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/b24988ca844adbe541129f81893a7c4f"
+          },
+          "401": {
+            "$ref": "#/components/responses/8a4ee91a08cb65c0552f3946868c1fe6"
+          },
+          "403": {
+            "$ref": "#/components/responses/4d2c78bd3dbc1359731274c24592fd27"
+          },
+          "422": {
+            "$ref": "#/components/responses/686d508281f81915f0e8d61523752d99"
+          },
+          "400": {
+            "$ref": "#/components/responses/b6c039699a2f913894152bfadf2c0654"
+          },
+          "404": {
+            "$ref": "#/components/responses/c3877a7261d1f6c19d8b5a74a9aefcf0"
+          }
+        }
+      }
+    },
+    "/api/v1/stripe/webhooks": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Create",
+        "description": "",
+        "operationId": "POST__api_v1_stripe_webhooks",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/b33b5141261ec0d0bb11dcd8215ebed0"
+          },
+          "403": {
+            "$ref": "#/components/responses/b51f6e6d8ff08323b590af3d2fc2e16b"
+          },
+          "500": {
+            "$ref": "#/components/responses/7d73555fad2cbf7d7ff41951b7a47f5e"
+          },
+          "422": {
+            "$ref": "#/components/responses/864b0432c073d617b2214bc2f7f78f25"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/maintenance": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Show public maintenance mode state",
+        "description": "GET /api/v1/maintenance\nReturns whether maintenance mode is enabled for end users.",
+        "operationId": "GET__api_v1_maintenance",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/023a97cdbfac935ce8173fb8efc01a55"
+          },
+          "404": {
+            "$ref": "#/components/responses/aa57061ad627a75a2b288b5c7ec7b0f7"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/maintenance": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Show current maintenance mode state",
+        "description": "GET /api/v1/admin/maintenance\nReturns the maintenance toggle state for administrators.",
+        "operationId": "GET__api_v1_admin_maintenance",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/c6c9d0d9fc1d4228324d46500dea0627"
+          },
+          "401": {
+            "$ref": "#/components/responses/3a73d5534830eb87d0adb55ae0d962d5"
+          },
+          "403": {
+            "$ref": "#/components/responses/a7ec705ac291a572fd43ac64f3ed4cdb"
+          },
+          "404": {
+            "$ref": "#/components/responses/71895f93088a4e14290ac7f95abe340d"
+          },
+          "500": {
+            "$ref": "#/components/responses/9eca285706d4aea75dfc8f8ff5ed565c"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Toggle maintenance mode on or off",
+        "description": "POST /api/v1/admin/maintenance?enabled=true\nAlso accepts JSON body { enabled: true }\nEnables or disables maintenance mode.",
+        "operationId": "POST__api_v1_admin_maintenance",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/4d8a0e115b89a8f46b84d94493a18636"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/88ffefe875fed68caa75c3c16e0f0c89"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/d9ea6d9ba7762cc7916722afdf4b32b2"
+          },
+          "400": {
+            "$ref": "#/components/responses/c114c4010da130b6ef38abb736713845"
+          },
+          "401": {
+            "$ref": "#/components/responses/f7201e1ab89b122430b8eadb260f9baf"
+          },
+          "403": {
+            "$ref": "#/components/responses/b6261d972e55dbb80072e383a5773f14"
+          },
+          "404": {
+            "$ref": "#/components/responses/113c2222ece6b72ee483a4dcdc8ccc8a"
+          },
+          "500": {
+            "$ref": "#/components/responses/533e4a801f58ed752738260d91f48948"
+          },
+          "422": {
+            "$ref": "#/components/responses/5d02f3c0ae6bd3bc5909a7e9a480a859"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bid-packs": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List all bid packs (admin)",
+        "description": "GET /admin/bid_packs\nLists all bid packs including retired ones for administrative management.",
+        "operationId": "GET__api_v1_admin_bid-packs",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/14b335eb3c4467bbd5486803e63e07d0"
+          },
+          "401": {
+            "$ref": "#/components/responses/05cbf163f4a9575e0d657da28014da3e"
+          },
+          "403": {
+            "$ref": "#/components/responses/3169247d98e142c6332a9555ef9f49f7"
+          },
+          "500": {
+            "$ref": "#/components/responses/a3838db0f652e3c67bd0b07dd5edf4b7"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Create",
+        "description": "POST /admin/bid_packs\nCreate a bid pack with the provided attributes.",
+        "operationId": "POST__api_v1_admin_bid-packs",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/52190b6ad3a8a873f18ad4eb5b1ea1b1"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/eea43b35245c4735495a80c974138e73"
+          },
+          "401": {
+            "$ref": "#/components/responses/e8dd9f003788dd8ac4f5703df47f4b42"
+          },
+          "403": {
+            "$ref": "#/components/responses/7000469625f02bacf69376024a7e6c1a"
+          },
+          "422": {
+            "$ref": "#/components/responses/bb525a8743cbada4a583e39b997270c8"
+          },
+          "500": {
+            "$ref": "#/components/responses/149147b7b100e664bf5adf910d42ad44"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bid-packs/new": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Return a template bid pack for creation",
+        "description": "GET /admin/bid_packs/new",
+        "operationId": "GET__api_v1_admin_bid-packs_new",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/dd2b74035406b80958204e3a1e9263ce"
+          },
+          "401": {
+            "$ref": "#/components/responses/0ee649b5a8e7aeaddf232616e60de075"
+          },
+          "403": {
+            "$ref": "#/components/responses/ae4eec1a047525f1854b745fb04b9127"
+          },
+          "500": {
+            "$ref": "#/components/responses/f0f31787ca756ef983c44598e01fae31"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bid-packs/{id}/edit": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Fetch a bid pack for editing",
+        "description": "GET /admin/bid_packs/:id/edit",
+        "operationId": "GET__api_v1_admin_bid-packs_{id}_edit",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/8d0599f85a9865e57a0e4ad8eacd5beb"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/f21be1fee24d91742798bff45cc2309a"
+          },
+          "401": {
+            "$ref": "#/components/responses/1ce0615c752e3ff77a62f27ae7ed0d4e"
+          },
+          "403": {
+            "$ref": "#/components/responses/e5c47aed1faddf56c8f893100811e8b3"
+          },
+          "404": {
+            "$ref": "#/components/responses/2eb5161db669256e6ab84c685dbc3a0a"
+          },
+          "500": {
+            "$ref": "#/components/responses/c05b352115355aa3d3759d97e4c71b7c"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bid-packs/{id}": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Show a bid pack (admin)",
+        "description": "GET /admin/bid_packs/:id",
+        "operationId": "GET__api_v1_admin_bid-packs_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/8d0599f85a9865e57a0e4ad8eacd5beb"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/d0395361b5c1a103b1adedf568e8ef5b"
+          },
+          "401": {
+            "$ref": "#/components/responses/a8d480dd7c90b70cbfa23fed42ff138d"
+          },
+          "403": {
+            "$ref": "#/components/responses/6e7ad173d86e29b70c143fe4211cde14"
+          },
+          "404": {
+            "$ref": "#/components/responses/24f9cd32624d9d51b39c9789c3f8b5ba"
+          },
+          "500": {
+            "$ref": "#/components/responses/e378dbc84becbb968c61ebfeddc1b46d"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Update a bid pack (admin)",
+        "description": "PATCH/PUT /admin/bid_packs/:id\nUpdates bid pack fields or status.",
+        "operationId": "PUT__api_v1_admin_bid-packs_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/8d0599f85a9865e57a0e4ad8eacd5beb"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/c6153830f46958fc1fcf5cf2ac480efc"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/dc9fcb9867a0541785f41ee87354491d"
+          },
+          "401": {
+            "$ref": "#/components/responses/60733eb3374947f264bd0d310ebd77ac"
+          },
+          "403": {
+            "$ref": "#/components/responses/aaff277b468aac93656b8af0fa104a56"
+          },
+          "404": {
+            "$ref": "#/components/responses/25de07b5afc6d58ef40fe04287612400"
+          },
+          "422": {
+            "$ref": "#/components/responses/1acb196b931cbf7d90427dd866562eb0"
+          },
+          "500": {
+            "$ref": "#/components/responses/ab2dee2bf26d81eaf329f1fae789c96a"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Update a bid pack (admin)",
+        "description": "PATCH/PUT /admin/bid_packs/:id\nUpdates bid pack fields or status.",
+        "operationId": "PATCH__api_v1_admin_bid-packs_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/8d0599f85a9865e57a0e4ad8eacd5beb"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/19eebad9105f81cb5352df392d3a9eb9"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/06a339f8345cbdf3b157772d88bf6f2b"
+          },
+          "401": {
+            "$ref": "#/components/responses/c946fbd054f8c5e19c58bfe1b5b49e88"
+          },
+          "403": {
+            "$ref": "#/components/responses/1950fc25d1ec4ca14fb8ac6e924c5a6c"
+          },
+          "404": {
+            "$ref": "#/components/responses/ab2f6bb11bed3d6f4e6d9e23de773c12"
+          },
+          "422": {
+            "$ref": "#/components/responses/176361b76963f654e78abdf88a4c2094"
+          },
+          "500": {
+            "$ref": "#/components/responses/a4aa0c049c8a7cce869fe874fae0876c"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Retire (deactivate) a bid pack (admin)",
+        "description": "DELETE /admin/bid_packs/:id\nRetires a bid pack to prevent purchase while keeping history.\nRetires an existing bid pack while preserving purchase history.",
+        "operationId": "DELETE__api_v1_admin_bid-packs_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/8d0599f85a9865e57a0e4ad8eacd5beb"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/9fc3e7b88396ff4821f8c54466bad746"
+          },
+          "401": {
+            "$ref": "#/components/responses/201d1aae8d31eecff610f3957aaa9258"
+          },
+          "403": {
+            "$ref": "#/components/responses/ea18ac9374365c9c40fc2ea2467b7d4b"
+          },
+          "404": {
+            "$ref": "#/components/responses/f9a4ff5042896467e677145492463dcc"
+          },
+          "422": {
+            "$ref": "#/components/responses/0ceb348fdb7c51e7b19af229a7b0b541"
+          },
+          "500": {
+            "$ref": "#/components/responses/e86e4abc9a93c07d60b360fa7efccb11"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/auctions": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List auctions for admin with filters and pagination",
+        "description": "GET /api/v1/admin/auctions\nReturns auctions with optional status, date, and search filters for admin views.",
+        "operationId": "GET__api_v1_admin_auctions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/3c76e0904ddc71e0dcc8562e902e37e4"
+          },
+          {
+            "$ref": "#/components/parameters/efcd9d2952f804307e8ffce6decf5e94"
+          },
+          {
+            "$ref": "#/components/parameters/af0db788db137a22186baada5847a117"
+          },
+          {
+            "$ref": "#/components/parameters/a841405d71064dbcce48f7d27ae6a081"
+          },
+          {
+            "$ref": "#/components/parameters/3351e2e3c00563360e4e4fd54846fd80"
+          },
+          {
+            "$ref": "#/components/parameters/2f283202ff70ebb99d8bc91461022917"
+          },
+          {
+            "$ref": "#/components/parameters/0abd227a13448d9299e1c1de37060965"
+          },
+          {
+            "$ref": "#/components/parameters/fa14d9ed9953c24b7ca86e0fc8af5f19"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/a590a0a9b38b466002ec90111feb92ce"
+          },
+          "401": {
+            "$ref": "#/components/responses/e3caec76faa700220723d9c5795133cf"
+          },
+          "403": {
+            "$ref": "#/components/responses/52e321c7a71b57362c3dcf8ec7699b5d"
+          },
+          "500": {
+            "$ref": "#/components/responses/232f6e3e31d0d37983794ee9848a307e"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/auctions/{id}": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Show auction details for admin",
+        "description": "GET /api/v1/admin/auctions/:id\nRetrieves full auction details for administrators.",
+        "operationId": "GET__api_v1_admin_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/b78c0d5acdbe61ecc47889bf4ca309f0"
+          },
+          "401": {
+            "$ref": "#/components/responses/dce8019857e87d3451aa53f9f187e4e1"
+          },
+          "403": {
+            "$ref": "#/components/responses/ecb0c5918fac52f828bf5a8654a99e28"
+          },
+          "404": {
+            "$ref": "#/components/responses/034bf7f3dcee1f5b6bf79887c6b49d03"
+          },
+          "500": {
+            "$ref": "#/components/responses/eada114d54ebccac3136370e24f5fbeb"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/grant_admin": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Grant admin role to a user",
+        "description": "",
+        "operationId": "POST__api_v1_admin_users_{id}_grant_admin",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/2dfc903d6e728b5b84c6434f772a2997"
+          },
+          "401": {
+            "$ref": "#/components/responses/bb41d899a949d199b264b30c4c821f0b"
+          },
+          "403": {
+            "$ref": "#/components/responses/848d55eed87939582733301633601263"
+          },
+          "404": {
+            "$ref": "#/components/responses/709d108d9f8392d6256847ad7e744264"
+          },
+          "422": {
+            "$ref": "#/components/responses/4a57b808085f42e0706356031948f99e"
+          },
+          "500": {
+            "$ref": "#/components/responses/375965bd91dc84ae7bae14ed2109f3f8"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/revoke_admin": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Revoke admin role from a user",
+        "description": "",
+        "operationId": "POST__api_v1_admin_users_{id}_revoke_admin",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/2ef1945fed32a052339e97784abb7072"
+          },
+          "401": {
+            "$ref": "#/components/responses/94b8010c1526439a337f62830c1cefbf"
+          },
+          "403": {
+            "$ref": "#/components/responses/a9cdb094fcefa0dc3d58290620f36e7b"
+          },
+          "404": {
+            "$ref": "#/components/responses/6ae27e9102b9121e52c3584850bfb5b3"
+          },
+          "422": {
+            "$ref": "#/components/responses/6fbc0ddffe5f0e1b7f010d3f51c4ceca"
+          },
+          "500": {
+            "$ref": "#/components/responses/bd6ce2a0d6f89a5b6d0eb9c3d94cfac7"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/grant_superadmin": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Grant superadmin role to a user",
+        "description": "",
+        "operationId": "POST__api_v1_admin_users_{id}_grant_superadmin",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/37c042b91d13c7859c2df720feab0a96"
+          },
+          "401": {
+            "$ref": "#/components/responses/7fccca256b26e3d410e4279d5a9f397b"
+          },
+          "403": {
+            "$ref": "#/components/responses/4c14d5c8df0ee61b91f4c52a01819281"
+          },
+          "404": {
+            "$ref": "#/components/responses/2b9734c74a50c5897a144b3a0222bae6"
+          },
+          "422": {
+            "$ref": "#/components/responses/bd3dc926219ba47d8547e161f4b41e7e"
+          },
+          "500": {
+            "$ref": "#/components/responses/d2ed1621c9ab1372438731ce6aa45c97"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/revoke_superadmin": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Revoke superadmin role from a user",
+        "description": "",
+        "operationId": "POST__api_v1_admin_users_{id}_revoke_superadmin",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/f3ba9bf4543312b180239dd2bace0b59"
+          },
+          "401": {
+            "$ref": "#/components/responses/89212eec020bdc1eb394aa8a68f3e3e1"
+          },
+          "403": {
+            "$ref": "#/components/responses/f9754bc689f15cc14ec801bfa21b8505"
+          },
+          "404": {
+            "$ref": "#/components/responses/7a0283061b342340ca215976fd53b44b"
+          },
+          "422": {
+            "$ref": "#/components/responses/95d8bfefff39bd816185d5de7008105a"
+          },
+          "500": {
+            "$ref": "#/components/responses/62e076e80b91c4db143a7439089ac746"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/ban": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Ban a user account",
+        "description": "",
+        "operationId": "POST__api_v1_admin_users_{id}_ban",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/5a9e340df8e38ee7a693247a2a123944"
+          },
+          "401": {
+            "$ref": "#/components/responses/39186b220f1b37e1af316fddbd1d00b9"
+          },
+          "403": {
+            "$ref": "#/components/responses/275b77314482caff88d42d1b1f79923d"
+          },
+          "404": {
+            "$ref": "#/components/responses/c34514cbdcfba8ab855c3c71ad9da98b"
+          },
+          "422": {
+            "$ref": "#/components/responses/9b92944274bed0c8724308ffb50546ba"
+          },
+          "500": {
+            "$ref": "#/components/responses/9401adff2aa64a768fdff2c80aff64d7"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List admin and superadmin users",
+        "description": "GET /api/v1/admin/users\nReturns the list of administrative users.",
+        "operationId": "GET__api_v1_admin_users",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/a68473707d74551b06d021f62206a80a"
+          },
+          "401": {
+            "$ref": "#/components/responses/fc0f53b974b9c5f7e745970cb796b51b"
+          },
+          "403": {
+            "$ref": "#/components/responses/0bb9459bb26ebf274499213090d2b024"
+          },
+          "500": {
+            "$ref": "#/components/responses/196cbce947077e38f62a1ef9f2f9df65"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "put": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Update an admin/superadmin user record",
+        "description": "PATCH/PUT /api/v1/admin/users/:id",
+        "operationId": "PUT__api_v1_admin_users_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/81464cbd87df656af2333149f7fdbd3d"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/f5a3e86d9529911c22cb490d160fa247"
+          },
+          "401": {
+            "$ref": "#/components/responses/add489b6287d2ac096ef81d0477f3fcd"
+          },
+          "403": {
+            "$ref": "#/components/responses/1929afcb5497c56c60b8af04e39cbd62"
+          },
+          "404": {
+            "$ref": "#/components/responses/b53fee2bef18dd3bbd49e0fd036fd11e"
+          },
+          "422": {
+            "$ref": "#/components/responses/d050630f315ac2a635764243cd5d108d"
+          },
+          "500": {
+            "$ref": "#/components/responses/b71e33fa90987e06dfaef9e0ba86076c"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Update an admin/superadmin user record",
+        "description": "PATCH/PUT /api/v1/admin/users/:id",
+        "operationId": "PATCH__api_v1_admin_users_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/1ab6dc819a121c51b85fe92cef981390"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/480d745bb0a449ed59b7d82ea4078ace"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/1965146af509baf80a7cd982e7f40470"
+          },
+          "401": {
+            "$ref": "#/components/responses/51ed1ee1fb84ab6519950b621a7ca1f4"
+          },
+          "403": {
+            "$ref": "#/components/responses/6084c862ced6b5ac14b95b23a4c605cf"
+          },
+          "404": {
+            "$ref": "#/components/responses/dfc7aaa63c098216e3cee48f32c83fe4"
+          },
+          "422": {
+            "$ref": "#/components/responses/c8064947bfd7b25d72cf85abfee68de9"
+          },
+          "500": {
+            "$ref": "#/components/responses/1d631bca423c4e47016626f221c19fd4"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/payments/{id}/refund": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Issue a refund for a payment",
+        "description": "POST /api/v1/admin/payments/:id/refund\nIssues a refund for a payment and records the refund ID from the gateway.",
+        "operationId": "POST__api_v1_admin_payments_{id}_refund",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/3c3ce4ffa8cd4a597cfcbc9686ae2240"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/e0827481e282bba11bad5c9765065f3c"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/28164aa86516342a1f0c48df4c4da080"
+          },
+          "401": {
+            "$ref": "#/components/responses/a94d55ef72d9cdc4a408c54e2bc56d85"
+          },
+          "403": {
+            "$ref": "#/components/responses/c04eadb13ef0d22c6f067e59a9aeb572"
+          },
+          "404": {
+            "$ref": "#/components/responses/34f2d6e1ea826eaa3cf439240403af50"
+          },
+          "422": {
+            "$ref": "#/components/responses/774a5194a44cc6ff856bb378fbfb064a"
+          },
+          "500": {
+            "$ref": "#/components/responses/88b4681efa658129d2c218f85b3d83c6"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/payments": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "List payments with optional email search",
+        "description": "GET /api/v1/admin/payments\nLists purchases with optional fuzzy email search for admins.",
+        "operationId": "GET__api_v1_admin_payments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/824c479f1b10dd39acc3ac03aaf34dc6"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/7549f2d698438202a8b1b4631c083347"
+          },
+          "401": {
+            "$ref": "#/components/responses/799c3685b83236d5fbf41da2f32dbf4f"
+          },
+          "403": {
+            "$ref": "#/components/responses/83c919d0ca25d16803df5bd37e41054e"
+          },
+          "500": {
+            "$ref": "#/components/responses/f5ba1a9936a9b48632ca3e61d8048022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/audit": {
+      "post": {
+        "tags": [
+          "Api"
+        ],
+        "summary": "Create an audit log entry",
+        "description": "POST /api/v1/admin/audit\nRecords an audit log for administrative actions.",
+        "operationId": "POST__api_v1_admin_audit",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/3b370d2a4ef5d44ebdbb2dafaf859206"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/1173afd57e5ea558315cbdbd4ed7520e"
+          },
+          "401": {
+            "$ref": "#/components/responses/6e30bbd353173e51a8c5474856abb3f3"
+          },
+          "403": {
+            "$ref": "#/components/responses/b187eb72aabb29a9b844df3e14726cb4"
+          },
+          "422": {
+            "$ref": "#/components/responses/eae86ad54f8076b5a8f36c58df1ffbb3"
+          },
+          "500": {
+            "$ref": "#/components/responses/9a3e3081df1557fcbd735f181c551fc0"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "6a66905fa98d3338490e0e1fa319f020": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/AuctionSummary"
+        }
+      },
+      "3e47d336c6c6a6fa077f7f17876e56f1": {
+        "$ref": "#/components/schemas/Error"
+      },
+      "b6f9ed4b3630fb2e02eba22dced97fac": {
+        "$ref": "#/components/schemas/CheckoutSession"
+      },
+      "d79407304a1f91dbdcfa03f0d06dc75e": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "195fee13a2e676e36bcaf119071f3cc9": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BidPack"
+        }
+      },
+      "6175057dd6ab3c3e45d847a73028d9c3": {
+        "$ref": "#/components/schemas/BidPlacementResponse"
+      },
+      "feca50860d589971172a2b752bbc787f": {
+        "$ref": "#/components/schemas/BidHistoryResponse"
+      },
+      "92391726031d167dc21005ee2680953a": {
+        "$ref": "#/components/schemas/Auction"
+      },
+      "8f2da65cfba791e94dd2ba283fcaf20b": {
+        "$ref": "#/components/schemas/AuctionUpsert"
+      },
+      "183f737b640374d4f693193012fa6154": "hash{}",
+      "276c024e8515065c3bec759819bda57c": {
+        "$ref": "#/components/schemas/LoginRequest"
+      },
+      "09eda044efad4320218b100180234bec": {
+        "$ref": "#/components/schemas/UserSession"
+      },
+      "8fcf44720df100dc78c3cb161689ebb0": {
+        "$ref": "#/components/schemas/RefreshRequest"
+      },
+      "73af65de8790c9f1d83ff0685c870a18": {
+        "type": "object",
+        "properties": {
+          "session_expires_at": {
+            "type": "string"
+          },
+          "session_token_id": {
+            "type": "integer"
+          },
+          "seconds_remaining": {
+            "type": "integer"
+          }
+        }
+      },
+      "f1c20ccef0049507184555a5f2ee6723": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "73ecc0629092579294659b44067a079e": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "a5a373a545e3cb0ecbc6b5a1ef83a993": {
+        "type": "object",
+        "properties": {
+          "maintenance": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "30d3c70eaf62d1e420cb43b97fdec55f": {
+        "$ref": "#/components/schemas/MaintenanceToggle"
+      },
+      "0ff4072fbad423c5d8e556357b2a12e7": {
+        "$ref": "#/components/schemas/BidPackUpsert"
+      },
+      "f009e6be2776100ca0e0a85b276069e1": {
+        "$ref": "#/components/schemas/BidPack"
+      },
+      "ddaf05b3867210b395551e23d4d571d8": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Auction"
+        }
+      },
+      "2fcd9b5aab073fe3e7e089bfc0ede365": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email_address": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "0c90018525308fa74a5c4563f158a360": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "email_address": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "3b6a8f53a53c0471294532bfc2aa40b3": {
+        "$ref": "#/components/schemas/AdminUserUpdate"
+      },
+      "78da01e9c4466fd305f19c38c1a268aa": {
+        "$ref": "#/components/schemas/PaymentRefundRequest"
+      },
+      "938df4e96be2ad9d9a42d686b66ea6d6": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "user_email": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "float"
+          },
+          "refunded_cents": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "refund_id": {
+            "type": "string"
+          }
+        }
+      },
+      "1d72cc17842046d9c1a343fb85baa2bc": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "user_email": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "float"
+            },
+            "refunded_cents": {
+              "type": "integer"
+            },
+            "status": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "a9e1a606eb82c3fa25a4df4f74ec3380": {
+        "$ref": "#/components/schemas/AuditLogCreate"
+      },
+      "Auction": {
+        "type": "object",
+        "description": "Full auction details including pricing and winner information.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "inactive",
+              "scheduled",
+              "active",
+              "complete",
+              "cancelled"
+            ]
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current_price": {
+            "type": "number",
+            "format": "float"
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "highest_bidder_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "winning_user_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "winning_user_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "bids": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/Bid"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "status",
+          "start_date",
+          "end_time",
+          "current_price"
+        ]
+      },
+      "AuctionSummary": {
+        "type": "object",
+        "description": "Slimmer auction representation for list views to reduce payload size.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "inactive",
+              "scheduled",
+              "active",
+              "complete",
+              "cancelled"
+            ]
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current_price": {
+            "type": "number",
+            "format": "float"
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "winning_user_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "winning_user_name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "end_time",
+          "current_price"
+        ]
+      },
+      "Bid": {
+        "type": "object",
+        "description": "A single bid placed against an auction.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "auction_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "float"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "username",
+          "amount",
+          "created_at"
+        ]
+      },
+      "BidHistoryItem": {
+        "type": "object",
+        "description": "Bid history entry with bidder display name.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "float"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "username",
+          "amount",
+          "created_at"
+        ]
+      },
+      "BidHistoryResponse": {
+        "type": "object",
+        "description": "Envelope returned from bid history endpoints.",
+        "properties": {
+          "auction": {
+            "type": "object",
+            "properties": {
+              "winning_user_id": {
+                "type": "integer",
+                "nullable": true
+              },
+              "winning_user_name": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "bids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BidHistoryItem"
+            }
+          }
+        },
+        "required": [
+          "auction",
+          "bids"
+        ]
+      },
+      "BidPack": {
+        "type": "object",
+        "description": "Information about a purchasable bid pack.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bids": {
+            "type": "integer",
+            "description": "Number of bids included."
+          },
+          "price": {
+            "type": "number",
+            "format": "float"
+          },
+          "pricePerBid": {
+            "type": "string"
+          },
+          "highlight": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "bids",
+          "price",
+          "status",
+          "active"
+        ]
+      },
+      "UserSession": {
+        "type": "object",
+        "description": "Session details and tokens returned after login/refresh.",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT used for authenticated requests."
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "session_token_id": {
+                "type": "integer"
+              },
+              "session_expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "seconds_remaining": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "session_token_id",
+              "session_expires_at",
+              "seconds_remaining"
+            ]
+          },
+          "is_admin": {
+            "type": "boolean"
+          },
+          "is_superuser": {
+            "type": "boolean"
+          },
+          "redirect_path": {
+            "type": "string",
+            "nullable": true
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "emailAddress": {
+                "type": "string",
+                "format": "email"
+              },
+              "bidCredits": {
+                "type": "integer"
+              },
+              "is_admin": {
+                "type": "boolean"
+              },
+              "is_superuser": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "role",
+              "emailAddress",
+              "bidCredits"
+            ]
+          }
+        },
+        "required": [
+          "token",
+          "refresh_token",
+          "session",
+          "user"
+        ]
+      },
+      "CheckoutSession": {
+        "type": "object",
+        "description": "Stripe checkout session details used to complete purchases.",
+        "properties": {
+          "clientSecret": {
+            "type": "string",
+            "description": "Client secret used to render the Stripe checkout flow."
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "updated_bid_credits": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "clientSecret"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "description": "Standard error envelope returned by all error responses. error_code maps to ServiceResult#code or controller error codes.",
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "description": "Symbol/string code derived from ServiceResult#code so clients can branch on error type.",
+            "enum": [
+              "forbidden",
+              "not_found",
+              "bad_request",
+              "invalid_status",
+              "invalid_state",
+              "invalid_auction",
+              "invalid_bid_pack",
+              "invalid_payment",
+              "invalid_amount",
+              "amount_exceeds_charge",
+              "gateway_error",
+              "database_error",
+              "unexpected_error",
+              "validation_error",
+              "auction_not_active",
+              "insufficient_credits",
+              "bid_race_lost",
+              "bid_invalid",
+              "bid_pack_purchase_failed",
+              "invalid_credentials",
+              "invalid_session",
+              "account_disabled",
+              "invalid_token",
+              "invalid_password",
+              "invalid_user",
+              "invalid_delta",
+              "already_disabled",
+              "already_refunded",
+              "retired",
+              "missing_payment_intent"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "email_address": {
+                "type": "string",
+                "format": "email"
+              },
+              "password": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "email_address",
+              "password"
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "refresh_token": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "refresh_token"
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "AuctionUpsert": {
+        "type": "object",
+        "description": "Attributes accepted when creating or updating an auction via admin endpoints.",
+        "properties": {
+          "auction": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "image_url": {
+                "type": "string",
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "inactive",
+                  "scheduled",
+                  "active",
+                  "complete",
+                  "cancelled"
+                ],
+                "nullable": true
+              },
+              "start_date": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "end_time": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "current_price": {
+                "type": "number",
+                "format": "float",
+                "nullable": true
+              }
+            },
+            "required": [
+              "title",
+              "description"
+            ]
+          }
+        },
+        "required": [
+          "auction"
+        ]
+      },
+      "BidPackUpsert": {
+        "type": "object",
+        "description": "Attributes accepted when creating or updating bid packs via admin endpoints.",
+        "properties": {
+          "bid_pack": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "price": {
+                "type": "number",
+                "format": "float"
+              },
+              "bids": {
+                "type": "integer"
+              },
+              "highlight": {
+                "type": "boolean",
+                "nullable": true
+              },
+              "description": {
+                "type": "string",
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "retired"
+                ],
+                "nullable": true
+              },
+              "active": {
+                "type": "boolean",
+                "nullable": true
+              }
+            },
+            "required": [
+              "name",
+              "price",
+              "bids"
+            ]
+          }
+        },
+        "required": [
+          "bid_pack"
+        ]
+      },
+      "AuditLogCreate": {
+        "type": "object",
+        "properties": {
+          "audit": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "target_type": {
+                "type": "string",
+                "nullable": true
+              },
+              "target_id": {
+                "type": "integer",
+                "nullable": true
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "action"
+            ]
+          }
+        },
+        "required": [
+          "audit"
+        ]
+      },
+      "PaymentRefundRequest": {
+        "type": "object",
+        "properties": {
+          "amount_cents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "amount_cents"
+        ]
+      },
+      "AdminUserUpdate": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "nullable": true
+              },
+              "email_address": {
+                "type": "string",
+                "format": "email",
+                "nullable": true
+              },
+              "role": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        },
+        "required": [
+          "user"
+        ]
+      },
+      "MaintenanceToggle": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "BidPlacementResponse": {
+        "type": "object",
+        "description": "Response envelope returned after placing a bid.",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "bid": {
+            "$ref": "#/components/schemas/Bid"
+          },
+          "bidCredits": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "success",
+          "bid",
+          "bidCredits"
+        ]
+      }
+    },
+    "responses": {
+      "9a6d4adb96b20063bae643cd31073c17": {
+        "description": "Auctions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/6a66905fa98d3338490e0e1fa319f020"
+            }
+          }
+        }
+      },
+      "e3c00e30a962e76e60f759694bec160f": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "d6b839f954ef7bcdb438b729eb10c35d": {
+        "description": "Checkout session created",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
+            }
+          }
+        }
+      },
+      "5ad0d5f34ddefc2aeb4d2de2379c3ced": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b8a039ba6117868037aa7ff2785cc4a9": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "a48237cc0b16b36f2ebd758e314bb420": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "973c3575ee59463932cab168a603d9a8": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "f1656869f1d92f1f8f824f843f3baeff": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "5b0e070e55dce562b9a691efa5fe1fdb": {
+        "description": "Checkout status",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
+            }
+          }
+        }
+      },
+      "32265045bc2f4a41b98ff0dc8e8ff8de": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "bb6a1c481394abbc60302f58414e8ea3": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b65e36abd1a3966d878671359610204d": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "b543809ed42c4d8e59dad6d42ba77690": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "ef6cc471013bc4899c9406ac9a49308c": {
+        "description": "Purchase applied",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
+            }
+          }
+        }
+      },
+      "b35b7e551583128a09d479ca2e34070a": {
+        "description": "Already processed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
+            }
+          }
+        }
+      },
+      "ca563a990e2514c4c8c9e29ea301ccab": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "e287408a9f9abb73ef9b6ee3dd4a7647": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "8745232dab7eb5d920b9c83b189c54ae": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "3a1cbfed9f865b3bd3511b9c87fb36ba": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "fe0b4c8b2a7ce7bb8aa23e2b56a59c02": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "67c2404a36dc44d53bba469c382c4648": {
+        "description": "Bid packs",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/195fee13a2e676e36bcaf119071f3cc9"
+            }
+          }
+        }
+      },
+      "4ccc0cd601c54e4782e3c3ee5cd436b9": {
+        "description": "Bid placed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/6175057dd6ab3c3e45d847a73028d9c3"
+            }
+          }
+        }
+      },
+      "55200894f809d56d600dc5135187a9e8": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b645392a1f48e7abc1f93037785d8acc": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "bb942488d289d56075bfc85e672ce19d": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "758f8c077b2e22d44399e98c355d7fd5": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "67251b984fd7a35a61706fe398f67829": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "cfa429dedf0662c54a2ef4865ff16a6e": {
+        "description": "Bid history",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/feca50860d589971172a2b752bbc787f"
+            }
+          }
+        }
+      },
+      "e46709d60df4b71321ea6407d0ba8434": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "14637594ac0009f3ece4aa5dcb94e089": {
+        "description": "Auction extended",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        }
+      },
+      "de763df2b4f00a32d8aee6d913597666": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b1a1b2e3926ecfdd87fb64047714ead9": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "69263fd6f0410c3edece67f0d0fd0695": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "907e536592f54db051368f90f66159e4": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "22b218b920075de72948af453c9fd671": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "f7add519d8cc57eb4e46f210965786cd": {
+        "description": "Auctions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/6a66905fa98d3338490e0e1fa319f020"
+            }
+          }
+        }
+      },
+      "493385f8779e01e287cb94957958df3a": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ea1094f8fe373641ce8f076df0379eaa": {
+        "description": "Auction created",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        }
+      },
+      "bf3269900111bf2db37c8bc9f1b9dac6": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "a6f6d36590476cfb00d28fd435993ed1": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "39aa4c1e06f42d09d3fcd8ff31cfbcc5": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "2abaf3d9ffdf8c244bb891be533b172a": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "c0b3057b5136cc0a5d24f66d6bbfe5e4": {
+        "description": "Auction found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        }
+      },
+      "a90d3dffe9d14906885c96a69cffe045": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "06f5927816cf7b42c3a2fc79b9b51e87": {
+        "description": "Auction updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        }
+      },
+      "6e93feadad8e28b906538504d2833779": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "da8bcf2d457b3eb2ecb9b120cd60e3b1": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "377b775daa51fd6c7df438f2c3d61deb": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ffadbd9cf92a1e190473a52bf524aac6": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b80d0e1d3918a8e67d1321ac3588db49": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "d2e6615e20a68a1d3c48a6d4f12e41bb": {
+        "description": "Auction updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        }
+      },
+      "57c5038d642c2857641c66cb5f07fed5": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "f9f3ece50e29c1e59f370dfb3dd6b021": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "0095f45766897bce2c3f6bcf2c6e8daa": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "8448460288ac5e9a04c4731d8f9031c9": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "87ee431f991ccc9e36ad468fd0a29c67": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "5bb5792c4f94a0b31121113f4fdc593d": {
+        "description": "Auction retired",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/183f737b640374d4f693193012fa6154"
+            }
+          }
+        }
+      },
+      "9a58bc0e0bc3bb1004d0332547e19dd3": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "caba043639a1a69e06fe725e5a2a7074": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b96819f0c449d5fe7e256b3cf751d280": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "2ecfc1c8f6139617744bb87f4dc134a4": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "976e2acc4d33dc7c56c4ca8d0968911e": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "70a9ed8e5e00381f15b9b9c2032c8aa5": {
+        "description": "The server could not process the request due to semantic errors. Please check your input and try again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "2084f6ae34d7675fa59e261bac9f3ab8": {
+        "description": "Session created",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/09eda044efad4320218b100180234bec"
+            }
+          }
+        }
+      },
+      "4176587223f7e4ffaa1ab5b24bb6665e": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "3e10a48cbfa4b90e3ddc1d9c753bf562": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "3f4e99006b3e5967c04f43f1765be9a9": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "6335b1fcf7382d4d66d65ad567ce788c": {
+        "description": "The server could not process the request due to semantic errors. Please check your input and try again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "860076442fefa0db1140e5256da7ec1d": {
+        "description": "Session refreshed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/09eda044efad4320218b100180234bec"
+            }
+          }
+        }
+      },
+      "3b02a962fe4d48f99f7ca2b77ea8243c": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "65cd5e1ac7f6d38f563ecf20b45ed826": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "834b80602e55e23f0763ec7ffa600657": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "9d315fcbf07a41be7ec60e0e9a348d16": {
+        "description": "Session timing",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/73af65de8790c9f1d83ff0685c870a18"
+            }
+          }
+        }
+      },
+      "37d9a1106a5b3fc7a4fb5324b4e5f868": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "0b22dc422bb345781a3004402c10f356": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "2946d9a61b3631594aa28dd8721653af": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "b1bc5196988d0c440510750a170ab683": {
+        "description": "Logged out",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
+            }
+          }
+        }
+      },
+      "5be6ad1e7ff4a8fd92675ee81dce3436": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "fbfb3ec9841a43acf26aa67d76061213": {
+        "description": "The requested resource could not be found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "df8dbac5b3277140052005cab48cc1ba": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "003c36def2b88feab20a1f126eda5147": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "14f09a7f5deb0f30a75061c3203166ae": {
+        "description": "Session valid",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/09eda044efad4320218b100180234bec"
+            }
+          }
+        }
+      },
+      "9d5581b5bd93ff23edf8393efa251dd0": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "6fff6c8cd0f6483a1dc6873d28adee5f": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "4134e088ff5dc145d4b89b70a9a233d4": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "86402cbdc5be89f18c878d68e4ddf0a3": {
+        "description": "Accepted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
+            }
+          }
+        }
+      },
+      "668c2ca342c8bbed72a27c75d535b095": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "18786d9291d4593e71a4f3ce9d06189e": {
+        "description": "The server could not process the request due to semantic errors. Please check your input and try again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "b24988ca844adbe541129f81893a7c4f": {
+        "description": "Password reset",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/73ecc0629092579294659b44067a079e"
+            }
+          }
+        }
+      },
+      "8a4ee91a08cb65c0552f3946868c1fe6": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "4d2c78bd3dbc1359731274c24592fd27": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "686d508281f81915f0e8d61523752d99": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b6c039699a2f913894152bfadf2c0654": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "c3877a7261d1f6c19d8b5a74a9aefcf0": {
+        "description": "The requested resource could not be found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "b33b5141261ec0d0bb11dcd8215ebed0": {
+        "description": "You are not authorized to access this resource. You need to authenticate yourself first.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "b51f6e6d8ff08323b590af3d2fc2e16b": {
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "7d73555fad2cbf7d7ff41951b7a47f5e": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "864b0432c073d617b2214bc2f7f78f25": {
+        "description": "The server could not process the request due to semantic errors. Please check your input and try again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "023a97cdbfac935ce8173fb8efc01a55": {
+        "description": "Maintenance status",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
+            }
+          }
+        }
+      },
+      "aa57061ad627a75a2b288b5c7ec7b0f7": {
+        "description": "The requested resource could not be found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "c6c9d0d9fc1d4228324d46500dea0627": {
+        "description": "Maintenance status",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
+            }
+          }
+        }
+      },
+      "3a73d5534830eb87d0adb55ae0d962d5": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "a7ec705ac291a572fd43ac64f3ed4cdb": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "71895f93088a4e14290ac7f95abe340d": {
+        "description": "The requested resource could not be found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "9eca285706d4aea75dfc8f8ff5ed565c": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "d9ea6d9ba7762cc7916722afdf4b32b2": {
+        "description": "Maintenance updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
+            }
+          }
+        }
+      },
+      "c114c4010da130b6ef38abb736713845": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "f7201e1ab89b122430b8eadb260f9baf": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b6261d972e55dbb80072e383a5773f14": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "113c2222ece6b72ee483a4dcdc8ccc8a": {
+        "description": "The requested resource could not be found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "533e4a801f58ed752738260d91f48948": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "5d02f3c0ae6bd3bc5909a7e9a480a859": {
+        "description": "The server could not process the request due to semantic errors. Please check your input and try again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "14b335eb3c4467bbd5486803e63e07d0": {
+        "description": "Bid packs",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/195fee13a2e676e36bcaf119071f3cc9"
+            }
+          }
+        }
+      },
+      "05cbf163f4a9575e0d657da28014da3e": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "3169247d98e142c6332a9555ef9f49f7": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "a3838db0f652e3c67bd0b07dd5edf4b7": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "eea43b35245c4735495a80c974138e73": {
+        "description": "Bid pack created",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "e8dd9f003788dd8ac4f5703df47f4b42": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "7000469625f02bacf69376024a7e6c1a": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "bb525a8743cbada4a583e39b997270c8": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "149147b7b100e664bf5adf910d42ad44": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "dd2b74035406b80958204e3a1e9263ce": {
+        "description": "Template",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "0ee649b5a8e7aeaddf232616e60de075": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ae4eec1a047525f1854b745fb04b9127": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "f0f31787ca756ef983c44598e01fae31": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "f21be1fee24d91742798bff45cc2309a": {
+        "description": "Bid pack",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "1ce0615c752e3ff77a62f27ae7ed0d4e": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "e5c47aed1faddf56c8f893100811e8b3": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "2eb5161db669256e6ab84c685dbc3a0a": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "c05b352115355aa3d3759d97e4c71b7c": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "d0395361b5c1a103b1adedf568e8ef5b": {
+        "description": "Bid pack",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "a8d480dd7c90b70cbfa23fed42ff138d": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "6e7ad173d86e29b70c143fe4211cde14": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "24f9cd32624d9d51b39c9789c3f8b5ba": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "e378dbc84becbb968c61ebfeddc1b46d": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "06a339f8345cbdf3b157772d88bf6f2b": {
+        "description": "Bid pack updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "c946fbd054f8c5e19c58bfe1b5b49e88": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "1950fc25d1ec4ca14fb8ac6e924c5a6c": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ab2f6bb11bed3d6f4e6d9e23de773c12": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "176361b76963f654e78abdf88a4c2094": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "a4aa0c049c8a7cce869fe874fae0876c": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "dc9fcb9867a0541785f41ee87354491d": {
+        "description": "Bid pack updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "60733eb3374947f264bd0d310ebd77ac": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "aaff277b468aac93656b8af0fa104a56": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "25de07b5afc6d58ef40fe04287612400": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "1acb196b931cbf7d90427dd866562eb0": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ab2dee2bf26d81eaf329f1fae789c96a": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "9fc3e7b88396ff4821f8c54466bad746": {
+        "description": "Bid pack retired",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        }
+      },
+      "201d1aae8d31eecff610f3957aaa9258": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ea18ac9374365c9c40fc2ea2467b7d4b": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "f9a4ff5042896467e677145492463dcc": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "0ceb348fdb7c51e7b19af229a7b0b541": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "e86e4abc9a93c07d60b360fa7efccb11": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "a590a0a9b38b466002ec90111feb92ce": {
+        "description": "Admin auctions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ddaf05b3867210b395551e23d4d571d8"
+            }
+          }
+        }
+      },
+      "e3caec76faa700220723d9c5795133cf": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "52e321c7a71b57362c3dcf8ec7699b5d": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "232f6e3e31d0d37983794ee9848a307e": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "b78c0d5acdbe61ecc47889bf4ca309f0": {
+        "description": "Auction found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        }
+      },
+      "dce8019857e87d3451aa53f9f187e4e1": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "ecb0c5918fac52f828bf5a8654a99e28": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "034bf7f3dcee1f5b6bf79887c6b49d03": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "eada114d54ebccac3136370e24f5fbeb": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "2dfc903d6e728b5b84c6434f772a2997": {
+        "description": "Role updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "bb41d899a949d199b264b30c4c821f0b": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "848d55eed87939582733301633601263": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "709d108d9f8392d6256847ad7e744264": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "4a57b808085f42e0706356031948f99e": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "375965bd91dc84ae7bae14ed2109f3f8": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "2ef1945fed32a052339e97784abb7072": {
+        "description": "Role updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "94b8010c1526439a337f62830c1cefbf": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "a9cdb094fcefa0dc3d58290620f36e7b": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "6ae27e9102b9121e52c3584850bfb5b3": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "6fbc0ddffe5f0e1b7f010d3f51c4ceca": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "bd6ce2a0d6f89a5b6d0eb9c3d94cfac7": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "37c042b91d13c7859c2df720feab0a96": {
+        "description": "Role updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "7fccca256b26e3d410e4279d5a9f397b": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "4c14d5c8df0ee61b91f4c52a01819281": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "2b9734c74a50c5897a144b3a0222bae6": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "bd3dc926219ba47d8547e161f4b41e7e": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "d2ed1621c9ab1372438731ce6aa45c97": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "f3ba9bf4543312b180239dd2bace0b59": {
+        "description": "Role updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "89212eec020bdc1eb394aa8a68f3e3e1": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "f9754bc689f15cc14ec801bfa21b8505": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "7a0283061b342340ca215976fd53b44b": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "95d8bfefff39bd816185d5de7008105a": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "62e076e80b91c4db143a7439089ac746": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "5a9e340df8e38ee7a693247a2a123944": {
+        "description": "User banned",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "39186b220f1b37e1af316fddbd1d00b9": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "275b77314482caff88d42d1b1f79923d": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "c34514cbdcfba8ab855c3c71ad9da98b": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "9b92944274bed0c8724308ffb50546ba": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "9401adff2aa64a768fdff2c80aff64d7": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "a68473707d74551b06d021f62206a80a": {
+        "description": "Admin users",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/0c90018525308fa74a5c4563f158a360"
+            }
+          }
+        }
+      },
+      "fc0f53b974b9c5f7e745970cb796b51b": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "0bb9459bb26ebf274499213090d2b024": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "196cbce947077e38f62a1ef9f2f9df65": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "1965146af509baf80a7cd982e7f40470": {
+        "description": "User updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "51ed1ee1fb84ab6519950b621a7ca1f4": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "6084c862ced6b5ac14b95b23a4c605cf": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "dfc7aaa63c098216e3cee48f32c83fe4": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "c8064947bfd7b25d72cf85abfee68de9": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "1d631bca423c4e47016626f221c19fd4": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "f5a3e86d9529911c22cb490d160fa247": {
+        "description": "User updated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        }
+      },
+      "add489b6287d2ac096ef81d0477f3fcd": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "1929afcb5497c56c60b8af04e39cbd62": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b53fee2bef18dd3bbd49e0fd036fd11e": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "d050630f315ac2a635764243cd5d108d": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b71e33fa90987e06dfaef9e0ba86076c": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "28164aa86516342a1f0c48df4c4da080": {
+        "description": "Refund issued",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/938df4e96be2ad9d9a42d686b66ea6d6"
+            }
+          }
+        }
+      },
+      "a94d55ef72d9cdc4a408c54e2bc56d85": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "c04eadb13ef0d22c6f067e59a9aeb572": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "34f2d6e1ea826eaa3cf439240403af50": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "774a5194a44cc6ff856bb378fbfb064a": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "88b4681efa658129d2c218f85b3d83c6": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "7549f2d698438202a8b1b4631c083347": {
+        "description": "Payments",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/1d72cc17842046d9c1a343fb85baa2bc"
+            }
+          }
+        }
+      },
+      "799c3685b83236d5fbf41da2f32dbf4f": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "83c919d0ca25d16803df5bd37e41054e": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "f5ba1a9936a9b48632ca3e61d8048022": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      },
+      "1173afd57e5ea558315cbdbd4ed7520e": {
+        "description": "Audit logged",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
+            }
+          }
+        }
+      },
+      "6e30bbd353173e51a8c5474856abb3f3": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "b187eb72aabb29a9b844df3e14726cb4": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "eae86ad54f8076b5a8f36c58df1ffbb3": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        }
+      },
+      "9a3e3081df1557fcbd735f181c551fc0": {
+        "description": "An unexpected error occurred on the server. The server was unable to process the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "3c76e0904ddc71e0dcc8562e902e37e4": {
+        "name": "status",
+        "in": "query",
+        "description": "Filter by status (allowed: inactive, scheduled, active, complete, cancelled)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "e47fcdce1e2038e964734571e689bfeb": {
+        "name": "bid_pack_id",
+        "in": "query",
+        "description": "ID of the bid pack to purchase",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "form"
+      },
+      "c96cce3d59cd4fa44833d2fd8dcb937c": {
+        "name": "session_id",
+        "in": "query",
+        "description": "ID of the Stripe checkout session",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "6e0158f0b618754c963898ab74806752": {
+        "name": "auction_id",
+        "in": "path",
+        "description": "ID of the auction",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "simple"
+      },
+      "08c34767a5405f30927bbac7a3c4fc71": {
+        "name": "id",
+        "in": "path",
+        "description": "ID of the auction",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "simple"
+      },
+      "4d8a0e115b89a8f46b84d94493a18636": {
+        "name": "enabled",
+        "in": "query",
+        "description": "Set to true to enable maintenance mode (optional if provided in body)",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        },
+        "style": "form"
+      },
+      "8d0599f85a9865e57a0e4ad8eacd5beb": {
+        "name": "id",
+        "in": "path",
+        "description": "ID of the bid pack",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "simple"
+      },
+      "efcd9d2952f804307e8ffce6decf5e94": {
+        "name": "search",
+        "in": "query",
+        "description": "Search by title or description",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "af0db788db137a22186baada5847a117": {
+        "name": "start_date_from",
+        "in": "query",
+        "description": "ISO8601 lower bound for start date",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "a841405d71064dbcce48f7d27ae6a081": {
+        "name": "start_date_to",
+        "in": "query",
+        "description": "ISO8601 upper bound for start date",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "3351e2e3c00563360e4e4fd54846fd80": {
+        "name": "sort",
+        "in": "query",
+        "description": "Sort column (e.g., start_date, end_time)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "2f283202ff70ebb99d8bc91461022917": {
+        "name": "direction",
+        "in": "query",
+        "description": "Sort direction (asc or desc)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
+      "0abd227a13448d9299e1c1de37060965": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number for pagination",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "form"
+      },
+      "fa14d9ed9953c24b7ca86e0fc8af5f19": {
+        "name": "per_page",
+        "in": "query",
+        "description": "Number of records per page",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "form"
+      },
+      "1ab6dc819a121c51b85fe92cef981390": {
+        "name": "id",
+        "in": "path",
+        "description": "ID of the user",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "simple"
+      },
+      "3c3ce4ffa8cd4a597cfcbc9686ae2240": {
+        "name": "id",
+        "in": "path",
+        "description": "ID of the payment",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "style": "simple"
+      },
+      "824c479f1b10dd39acc3ac03aaf34dc6": {
+        "name": "search",
+        "in": "query",
+        "description": "Filter payments by user email substring",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      }
+    },
+    "requestBodies": {
+      "d4465c6790246055523502653bd5b085": {
+        "description": "Auction payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
+            }
+          }
+        },
+        "required": true
+      },
+      "d4b27a76610fdf38d72fda88f13cb17c": {
+        "description": "Auction payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
+            }
+          }
+        },
+        "required": true
+      },
+      "bafc450e7d64e8e7ea9168746b5efb50": {
+        "description": "Auction payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
+            }
+          }
+        },
+        "required": true
+      },
+      "06c91414f7892f71564cf4e4ddb2b072": {
+        "description": "Login payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/276c024e8515065c3bec759819bda57c"
+            }
+          }
+        },
+        "required": true
+      },
+      "6ee57f4a71c526f53a07a53c8a981a8f": {
+        "description": "Refresh payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/8fcf44720df100dc78c3cb161689ebb0"
+            }
+          }
+        },
+        "required": true
+      },
+      "88ffefe875fed68caa75c3c16e0f0c89": {
+        "description": "Maintenance toggle",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/30d3c70eaf62d1e420cb43b97fdec55f"
+            }
+          }
+        },
+        "required": false
+      },
+      "52190b6ad3a8a873f18ad4eb5b1ea1b1": {
+        "description": "Bid pack payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
+            }
+          }
+        },
+        "required": true
+      },
+      "19eebad9105f81cb5352df392d3a9eb9": {
+        "description": "Bid pack payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
+            }
+          }
+        },
+        "required": true
+      },
+      "c6153830f46958fc1fcf5cf2ac480efc": {
+        "description": "Bid pack payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
+            }
+          }
+        },
+        "required": true
+      },
+      "480d745bb0a449ed59b7d82ea4078ace": {
+        "description": "Admin user payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3b6a8f53a53c0471294532bfc2aa40b3"
+            }
+          }
+        },
+        "required": false
+      },
+      "81464cbd87df656af2333149f7fdbd3d": {
+        "description": "Admin user payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3b6a8f53a53c0471294532bfc2aa40b3"
+            }
+          }
+        },
+        "required": false
+      },
+      "e0827481e282bba11bad5c9765065f3c": {
+        "description": "Refund payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/78da01e9c4466fd305f19c38c1a268aa"
+            }
+          }
+        },
+        "required": false
+      },
+      "3b370d2a4ef5d44ebdbb2dafaf859206": {
+        "description": "Audit payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/a9e1a606eb82c3fa25a4df4f74ec3380"
+            }
+          }
+        },
+        "required": true
+      }
+    },
+    "securitySchemes": {
+      "bearer_jwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "A bearer token that will be supplied within an `Authorization` header as `bearer <token>`. In this case, the format of the token is specified as JWT."
+      }
+    },
+    "headers": {},
+    "examples": {},
+    "links": {},
+    "callbacks": {}
+  },
+  "security": [
+    {
+      "bearer_jwt": []
+    }
+  ]
+}

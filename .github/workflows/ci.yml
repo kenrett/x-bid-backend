@@ -72,3 +72,43 @@ jobs:
 
       - name: Lint code for consistent style
         run: bin/rubocop -f github
+
+  openapi_drift:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      RAILS_ENV: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/x_bid_backend_test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Prepare database
+        run: bundle exec rails db:prepare
+
+      - name: Generate OpenAPI spec
+        run: bundle exec rails openapi:generate
+
+      - name: Fail on schema drift
+        run: git diff --exit-code docs/api/openapi.json

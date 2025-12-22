@@ -93,6 +93,14 @@ bin/lint  # runs rubocop and brakeman
 ```
 Run lint/security checks before merging.
 
+### API schema drift check
+
+Regenerate the OpenAPI spec (CI will fail if `docs/api/openapi.json` is out of date):
+
+```bash
+bundle exec rails openapi:generate
+```
+
 ## Architecture checks
 
 Ensure public services do not reference admin namespaces:
