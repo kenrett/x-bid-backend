@@ -85,13 +85,15 @@ Rails.application.configure do
   config.action_cable.url = ENV.fetch("ACTION_CABLE_URL", "wss://x-bid-backend.onrender.com/cable")
   config.action_cable.allowed_request_origins = [
     ENV["FRONTEND_ORIGIN"],
-    "https://your-custom-domain.com" # TODO UPDATE THIS
+    "https://x-bid-backend.onrender.com",
+    ENV["CUSTOM_DOMAIN"]
   ].compact
 
   # Enable DNS rebinding protection and other host header attacks.
   config.hosts = [
-    ENV.fetch("APP_HOST", "x-bid-backend.onrender.com"),
+    "x-bid-backend.onrender.com",
     ENV["CUSTOM_DOMAIN"],
-    /.*\.onrender\.com/
+    "localhost",
+    "127.0.0.1"
   ].compact
 end
