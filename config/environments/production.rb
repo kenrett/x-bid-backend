@@ -89,8 +89,9 @@ Rails.application.configure do
   ].compact
 
   # Enable DNS rebinding protection and other host header attacks.
-  # config.hosts = [
-  #   "example.com",
-  #   /.*\.example\.com/
-  # ]
+  config.hosts = [
+    ENV.fetch("APP_HOST", "x-bid-backend.onrender.com"),
+    ENV["CUSTOM_DOMAIN"],
+    /.*\.onrender\.com/
+  ].compact
 end
