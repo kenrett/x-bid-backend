@@ -4,6 +4,9 @@ require "minitest/mock"
 require "rails/test_help"
 
 class ActiveSupport::TestCase
+  # Use the test adapter for Action Cable to avoid external Redis during tests.
+  ActionCable.server.config.cable = { adapter: "test" }
+
   # Run tests in parallel with specified workers
   parallelize(workers: :number_of_processors)
 

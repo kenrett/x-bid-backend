@@ -38,11 +38,11 @@ class RackAttackTest < ActionDispatch::IntegrationTest
 
   test "throttles bidding endpoints separately from general traffic" do
     50.times do
-      post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3" }
+      post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3", "HTTP_AUTHORIZATION" => "Bearer token" }
       assert_not_equal 429, response.status
     end
 
-    post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3" }
+    post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3", "HTTP_AUTHORIZATION" => "Bearer token" }
     assert_response :too_many_requests
   end
 

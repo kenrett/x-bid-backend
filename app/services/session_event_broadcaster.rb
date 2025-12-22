@@ -4,6 +4,9 @@ class SessionEventBroadcaster
   CHANNEL_PREFIX = "session_notifications".freeze
 
   def self.session_invalidated(session_token, reason: "invalidated")
+    # In test, avoid hitting Action Cable adapters that may require Redis.
+    return if Rails.env.test?
+
     ActionCable.server.broadcast(channel_name(session_token), {
       type: "session_invalidated",
       session_token_id: session_token.id,

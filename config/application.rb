@@ -17,6 +17,7 @@ require "action_cable/engine"
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
+require_relative "initializers/security_headers"
 
 module XBidBackend
   class Application < Rails::Application
@@ -41,6 +42,7 @@ module XBidBackend
     config.eager_load_paths << Rails.root.join("app/queries")
 
     config.middleware.use Rack::Attack
+    config.middleware.insert_after Rack::Attack, ::SecurityHeaders
 
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.
