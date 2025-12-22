@@ -181,36 +181,25 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
+              "$ref": "#/components/schemas/8fcf44720df100dc78c3cb161689ebb0"
             }
           }
         },
-        "description": "Bid pack payload",
+        "description": "Refresh payload",
         "required": true
       },
       "req_002": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
+              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
             }
           }
         },
-        "description": "Bid pack payload",
+        "description": "Auction payload",
         "required": true
       },
       "req_003": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
-            }
-          }
-        },
-        "description": "Bid pack payload",
-        "required": true
-      },
-      "req_004": {
         "content": {
           "application/json": {
             "schema": {
@@ -221,40 +210,7 @@
         "description": "Login payload",
         "required": true
       },
-      "req_005": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/30d3c70eaf62d1e420cb43b97fdec55f"
-            }
-          }
-        },
-        "description": "Maintenance toggle",
-        "required": false
-      },
-      "req_006": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3b6a8f53a53c0471294532bfc2aa40b3"
-            }
-          }
-        },
-        "description": "Admin user payload",
-        "required": false
-      },
-      "req_007": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3b6a8f53a53c0471294532bfc2aa40b3"
-            }
-          }
-        },
-        "description": "Admin user payload",
-        "required": false
-      },
-      "req_008": {
+      "req_004": {
         "content": {
           "application/json": {
             "schema": {
@@ -265,51 +221,29 @@
         "description": "Refund payload",
         "required": false
       },
-      "req_009": {
+      "req_005": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
+              "$ref": "#/components/schemas/3b6a8f53a53c0471294532bfc2aa40b3"
             }
           }
         },
-        "description": "Auction payload",
-        "required": true
+        "description": "Admin user payload",
+        "required": false
       },
-      "req_010": {
+      "req_006": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
+              "$ref": "#/components/schemas/0ff4072fbad423c5d8e556357b2a12e7"
             }
           }
         },
-        "description": "Auction payload",
+        "description": "Bid pack payload",
         "required": true
       },
-      "req_011": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/8f2da65cfba791e94dd2ba283fcaf20b"
-            }
-          }
-        },
-        "description": "Auction payload",
-        "required": true
-      },
-      "req_012": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/8fcf44720df100dc78c3cb161689ebb0"
-            }
-          }
-        },
-        "description": "Refresh payload",
-        "required": true
-      },
-      "req_013": {
+      "req_007": {
         "content": {
           "application/json": {
             "schema": {
@@ -319,10 +253,51 @@
         },
         "description": "Audit payload",
         "required": true
+      },
+      "req_008": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/30d3c70eaf62d1e420cb43b97fdec55f"
+            }
+          }
+        },
+        "description": "Maintenance toggle",
+        "required": false
       }
     },
     "responses": {
       "resp_001": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        },
+        "description": "Bid pack updated"
+      },
+      "resp_002": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+            }
+          }
+        },
+        "description": "Not found"
+      },
+      "resp_003": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/73ecc0629092579294659b44067a079e"
+            }
+          }
+        },
+        "description": "Password reset"
+      },
+      "resp_004": {
         "content": {
           "application/json": {
             "schema": {
@@ -332,17 +307,27 @@
         },
         "description": "Session created"
       },
-      "resp_002": {
+      "resp_005": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/09eda044efad4320218b100180234bec"
+              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
             }
           }
         },
-        "description": "Session refreshed"
+        "description": "Audit logged"
       },
-      "resp_003": {
+      "resp_006": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        },
+        "description": "Auction found"
+      },
+      "resp_007": {
         "content": {
           "application/json": {
             "schema": {
@@ -352,47 +337,67 @@
         },
         "description": "Session valid"
       },
-      "resp_004": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/0c90018525308fa74a5c4563f158a360"
-            }
-          }
-        },
-        "description": "Admin users"
-      },
-      "resp_005": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/183f737b640374d4f693193012fa6154"
-            }
-          }
-        },
-        "description": "Auction retired"
-      },
-      "resp_006": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/195fee13a2e676e36bcaf119071f3cc9"
-            }
-          }
-        },
-        "description": "Bid packs"
-      },
-      "resp_007": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/195fee13a2e676e36bcaf119071f3cc9"
-            }
-          }
-        },
-        "description": "Bid packs"
-      },
       "resp_008": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        },
+        "description": "Bid pack created"
+      },
+      "resp_009": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
+            }
+          }
+        },
+        "description": "Auction extended"
+      },
+      "resp_010": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/feca50860d589971172a2b752bbc787f"
+            }
+          }
+        },
+        "description": "Bid history"
+      },
+      "resp_011": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/09eda044efad4320218b100180234bec"
+            }
+          }
+        },
+        "description": "Session refreshed"
+      },
+      "resp_012": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ddaf05b3867210b395551e23d4d571d8"
+            }
+          }
+        },
+        "description": "Admin auctions"
+      },
+      "resp_013": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/195fee13a2e676e36bcaf119071f3cc9"
+            }
+          }
+        },
+        "description": "Bid packs"
+      },
+      "resp_014": {
         "content": {
           "application/json": {
             "schema": {
@@ -402,195 +407,135 @@
         },
         "description": "Payments"
       },
-      "resp_009": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
-            }
-          }
-        },
-        "description": "Role updated"
-      },
-      "resp_010": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
-            }
-          }
-        },
-        "description": "Role updated"
-      },
-      "resp_011": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
-            }
-          }
-        },
-        "description": "Role updated"
-      },
-      "resp_012": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
-            }
-          }
-        },
-        "description": "Role updated"
-      },
-      "resp_013": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
-            }
-          }
-        },
-        "description": "User banned"
-      },
-      "resp_014": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
-            }
-          }
-        },
-        "description": "User updated"
-      },
       "resp_015": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
             }
           }
         },
-        "description": "User updated"
+        "description": "Bad request"
       },
       "resp_016": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
             }
           }
         },
-        "description": "Bad request"
+        "description": "An unexpected error occurred on the server. The server was unable to process the request."
       },
       "resp_017": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/6a66905fa98d3338490e0e1fa319f020"
             }
           }
         },
-        "description": "Bad request"
+        "description": "Auctions"
       },
       "resp_018": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
             }
           }
         },
-        "description": "Bad request"
+        "description": "Role updated"
       },
       "resp_019": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
             }
           }
         },
-        "description": "Bad request"
+        "description": "Auction updated"
       },
       "resp_020": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
             }
           }
         },
-        "description": "Bad request"
+        "description": "User updated"
       },
       "resp_021": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Already processed"
       },
       "resp_022": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/73af65de8790c9f1d83ff0685c870a18"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Session timing"
       },
       "resp_023": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Template"
       },
       "resp_024": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Maintenance updated"
       },
       "resp_025": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "You are not authorized to access this resource. You need to authenticate yourself first."
       },
       "resp_026": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Bid pack"
       },
       "resp_027": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "The requested resource could not be found."
       },
       "resp_028": {
         "content": {
@@ -600,47 +545,47 @@
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Validation error"
       },
       "resp_029": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Bid pack retired"
       },
       "resp_030": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
       },
       "resp_031": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "The server could not process the request due to semantic errors. Please check your input and try again."
       },
       "resp_032": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
+              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
             }
           }
         },
-        "description": "Forbidden"
+        "description": "Logged out"
       },
       "resp_033": {
         "content": {
@@ -656,1213 +601,23 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_035": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_036": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_037": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_038": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_039": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_040": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_041": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_042": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_043": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_044": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_045": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_046": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_047": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_048": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_049": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_050": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_051": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Forbidden"
-      },
-      "resp_052": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_053": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_054": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_055": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_056": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_057": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_058": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_059": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_060": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_061": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_062": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_063": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_064": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_065": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_066": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_067": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_068": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_069": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_070": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_071": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_072": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_073": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_074": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_075": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Not found"
-      },
-      "resp_076": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_077": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_078": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_079": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_080": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_081": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_082": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_083": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_084": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_085": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_086": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_087": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_088": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_089": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_090": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_091": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_092": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_093": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_094": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_095": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_096": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_097": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_098": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_099": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_100": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_101": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_102": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_103": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_104": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_105": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_106": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_107": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_108": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_109": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_110": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_111": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_112": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_113": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Unauthorized"
-      },
-      "resp_114": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_115": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_116": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_117": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_118": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_119": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_120": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_121": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_122": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_123": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_124": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_125": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_126": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_127": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_128": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_129": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_130": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_131": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_132": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_133": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_134": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_135": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_136": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_137": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
-            }
-          }
-        },
-        "description": "Validation error"
-      },
-      "resp_138": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/6175057dd6ab3c3e45d847a73028d9c3"
-            }
-          }
-        },
-        "description": "Bid placed"
-      },
-      "resp_139": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/6a66905fa98d3338490e0e1fa319f020"
-            }
-          }
-        },
-        "description": "Auctions"
-      },
-      "resp_140": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/6a66905fa98d3338490e0e1fa319f020"
-            }
-          }
-        },
-        "description": "Auctions"
-      },
-      "resp_141": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/73af65de8790c9f1d83ff0685c870a18"
-            }
-          }
-        },
-        "description": "Session timing"
-      },
-      "resp_142": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/73ecc0629092579294659b44067a079e"
-            }
-          }
-        },
-        "description": "Password reset"
-      },
-      "resp_143": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
-            }
-          }
-        },
-        "description": "Auction created"
-      },
-      "resp_144": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
-            }
-          }
-        },
-        "description": "Auction extended"
-      },
-      "resp_145": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
-            }
-          }
-        },
-        "description": "Auction found"
-      },
-      "resp_146": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
-            }
-          }
-        },
-        "description": "Auction found"
-      },
-      "resp_147": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
-            }
-          }
-        },
-        "description": "Auction updated"
-      },
-      "resp_148": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
-            }
-          }
-        },
-        "description": "Auction updated"
-      },
-      "resp_149": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/938df4e96be2ad9d9a42d686b66ea6d6"
-            }
-          }
-        },
-        "description": "Refund issued"
-      },
-      "resp_150": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
-            }
-          }
-        },
-        "description": "Maintenance status"
-      },
-      "resp_151": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
-            }
-          }
-        },
-        "description": "Maintenance status"
-      },
-      "resp_152": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
-            }
-          }
-        },
-        "description": "Maintenance updated"
-      },
-      "resp_153": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
-            }
-          }
-        },
-        "description": "Already processed"
-      },
-      "resp_154": {
-        "content": {
-          "application/json": {
-            "schema": {
               "$ref": "#/components/schemas/b6f9ed4b3630fb2e02eba22dced97fac"
             }
           }
         },
         "description": "Checkout session created"
       },
-      "resp_155": {
+      "resp_035": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/2fcd9b5aab073fe3e7e089bfc0ede365"
+            }
+          }
+        },
+        "description": "User banned"
+      },
+      "resp_036": {
         "content": {
           "application/json": {
             "schema": {
@@ -1872,7 +627,7 @@
         },
         "description": "Checkout status"
       },
-      "resp_156": {
+      "resp_037": {
         "content": {
           "application/json": {
             "schema": {
@@ -1882,637 +637,47 @@
         },
         "description": "Purchase applied"
       },
-      "resp_157": {
+      "resp_038": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+              "$ref": "#/components/schemas/6175057dd6ab3c3e45d847a73028d9c3"
             }
           }
         },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
+        "description": "Bid placed"
       },
-      "resp_158": {
+      "resp_039": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+              "$ref": "#/components/schemas/183f737b640374d4f693193012fa6154"
             }
           }
         },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
+        "description": "Auction retired"
       },
-      "resp_159": {
+      "resp_040": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+              "$ref": "#/components/schemas/0c90018525308fa74a5c4563f158a360"
             }
           }
         },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
+        "description": "Admin users"
       },
-      "resp_160": {
+      "resp_041": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+              "$ref": "#/components/schemas/92391726031d167dc21005ee2680953a"
             }
           }
         },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
+        "description": "Auction created"
       },
-      "resp_161": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_162": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_163": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_164": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_165": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_166": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_167": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_168": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_169": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_170": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_171": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_172": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_173": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_174": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_175": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_176": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_177": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_178": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_179": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_180": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_181": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_182": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_183": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_184": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_185": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_186": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_187": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_188": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_189": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_190": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_191": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_192": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "An unexpected error occurred on the server. The server was unable to process the request."
-      },
-      "resp_193": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The requested resource could not be found."
-      },
-      "resp_194": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The requested resource could not be found."
-      },
-      "resp_195": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The requested resource could not be found."
-      },
-      "resp_196": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The requested resource could not be found."
-      },
-      "resp_197": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The requested resource could not be found."
-      },
-      "resp_198": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The server could not process the request due to semantic errors. Please check your input and try again."
-      },
-      "resp_199": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The server could not process the request due to semantic errors. Please check your input and try again."
-      },
-      "resp_200": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The server could not process the request due to semantic errors. Please check your input and try again."
-      },
-      "resp_201": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The server could not process the request due to semantic errors. Please check your input and try again."
-      },
-      "resp_202": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "The server could not process the request due to semantic errors. Please check your input and try again."
-      },
-      "resp_203": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_204": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_205": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_206": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_207": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_208": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_209": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_210": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not allowed to access this resource. You do not have the necessary permissions."
-      },
-      "resp_211": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not authorized to access this resource. You need to authenticate yourself first."
-      },
-      "resp_212": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ddaf05b3867210b395551e23d4d571d8"
-            }
-          }
-        },
-        "description": "Admin auctions"
-      },
-      "resp_213": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Bid pack created"
-      },
-      "resp_214": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Bid pack retired"
-      },
-      "resp_215": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Bid pack updated"
-      },
-      "resp_216": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Bid pack updated"
-      },
-      "resp_217": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Bid pack"
-      },
-      "resp_218": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Bid pack"
-      },
-      "resp_219": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
-            }
-          }
-        },
-        "description": "Template"
-      },
-      "resp_220": {
+      "resp_042": {
         "content": {
           "application/json": {
             "schema": {
@@ -2522,35 +687,35 @@
         },
         "description": "Accepted"
       },
-      "resp_221": {
+      "resp_043": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
+              "$ref": "#/components/schemas/3e47d336c6c6a6fa077f7f17876e56f1"
             }
           }
         },
-        "description": "Audit logged"
+        "description": "Unauthorized"
       },
-      "resp_222": {
+      "resp_044": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/f1c20ccef0049507184555a5f2ee6723"
+              "$ref": "#/components/schemas/a5a373a545e3cb0ecbc6b5a1ef83a993"
             }
           }
         },
-        "description": "Logged out"
+        "description": "Maintenance status"
       },
-      "resp_223": {
+      "resp_045": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/feca50860d589971172a2b752bbc787f"
+              "$ref": "#/components/schemas/938df4e96be2ad9d9a42d686b66ea6d6"
             }
           }
         },
-        "description": "Bid history"
+        "description": "Refund issued"
       }
     },
     "schemas": {
@@ -3490,10 +1655,10 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_140"
+            "$ref": "#/components/responses/resp_017"
           },
           "422": {
-            "$ref": "#/components/responses/resp_120"
+            "$ref": "#/components/responses/resp_028"
           }
         },
         "summary": "List all auctions"
@@ -3531,16 +1696,16 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_212"
+            "$ref": "#/components/responses/resp_012"
           },
           "401": {
-            "$ref": "#/components/responses/resp_113"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_024"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_181"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3565,19 +1730,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_145"
+            "$ref": "#/components/responses/resp_006"
           },
           "401": {
-            "$ref": "#/components/responses/resp_077"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_032"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_067"
+            "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_182"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3596,23 +1761,23 @@
         "description": "POST /api/v1/admin/audit\nRecords an audit log for administrative actions.",
         "operationId": "POST__api_v1_admin_audit",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_013"
+          "$ref": "#/components/requestBodies/req_007"
         },
         "responses": {
           "201": {
-            "$ref": "#/components/responses/resp_221"
+            "$ref": "#/components/responses/resp_005"
           },
           "401": {
-            "$ref": "#/components/responses/resp_078"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_042"
+            "$ref": "#/components/responses/resp_033"
           },
           "422": {
-            "$ref": "#/components/responses/resp_114"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_157"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3632,16 +1797,16 @@
         "operationId": "GET__api_v1_admin_bid-packs",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_007"
+            "$ref": "#/components/responses/resp_013"
           },
           "401": {
-            "$ref": "#/components/responses/resp_102"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_051"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_173"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3658,23 +1823,23 @@
         "description": "POST /admin/bid_packs\nCreate a bid pack with the provided attributes.",
         "operationId": "POST__api_v1_admin_bid-packs",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_002"
+          "$ref": "#/components/requestBodies/req_006"
         },
         "responses": {
           "201": {
-            "$ref": "#/components/responses/resp_213"
+            "$ref": "#/components/responses/resp_008"
           },
           "401": {
-            "$ref": "#/components/responses/resp_103"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_045"
+            "$ref": "#/components/responses/resp_033"
           },
           "422": {
-            "$ref": "#/components/responses/resp_137"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_174"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3694,16 +1859,16 @@
         "operationId": "GET__api_v1_admin_bid-packs_new",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_219"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
-            "$ref": "#/components/responses/resp_105"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_044"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_175"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3728,22 +1893,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_214"
+            "$ref": "#/components/responses/resp_029"
           },
           "401": {
-            "$ref": "#/components/responses/resp_112"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_064"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_133"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_180"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3766,19 +1931,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_217"
+            "$ref": "#/components/responses/resp_026"
           },
           "401": {
-            "$ref": "#/components/responses/resp_108"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_039"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_066"
+            "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_177"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3800,26 +1965,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_003"
+          "$ref": "#/components/requestBodies/req_006"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_215"
+            "$ref": "#/components/responses/resp_001"
           },
           "401": {
-            "$ref": "#/components/responses/resp_076"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_036"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_060"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_128"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_178"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3841,26 +2006,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_001"
+          "$ref": "#/components/requestBodies/req_006"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_216"
+            "$ref": "#/components/responses/resp_001"
           },
           "401": {
-            "$ref": "#/components/responses/resp_109"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_034"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_074"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_136"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_179"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3885,19 +2050,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_218"
+            "$ref": "#/components/responses/resp_026"
           },
           "401": {
-            "$ref": "#/components/responses/resp_106"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_041"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_069"
+            "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_176"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3917,19 +2082,19 @@
         "operationId": "GET__api_v1_admin_maintenance",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_150"
+            "$ref": "#/components/responses/resp_044"
           },
           "401": {
-            "$ref": "#/components/responses/resp_098"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_029"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_194"
+            "$ref": "#/components/responses/resp_027"
           },
           "500": {
-            "$ref": "#/components/responses/resp_171"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3951,29 +2116,29 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_005"
+          "$ref": "#/components/requestBodies/req_008"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_152"
+            "$ref": "#/components/responses/resp_024"
           },
           "400": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_015"
           },
           "401": {
-            "$ref": "#/components/responses/resp_099"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_025"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_193"
+            "$ref": "#/components/responses/resp_027"
           },
           "422": {
-            "$ref": "#/components/responses/resp_200"
+            "$ref": "#/components/responses/resp_031"
           },
           "500": {
-            "$ref": "#/components/responses/resp_172"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -3998,16 +2163,16 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_008"
+            "$ref": "#/components/responses/resp_014"
           },
           "401": {
-            "$ref": "#/components/responses/resp_089"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_022"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_192"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4031,26 +2196,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_008"
+          "$ref": "#/components/requestBodies/req_004"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_149"
+            "$ref": "#/components/responses/resp_045"
           },
           "401": {
-            "$ref": "#/components/responses/resp_094"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_023"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_073"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_115"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_191"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4070,16 +2235,16 @@
         "operationId": "GET__api_v1_admin_users",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_004"
+            "$ref": "#/components/responses/resp_040"
           },
           "401": {
-            "$ref": "#/components/responses/resp_104"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_188"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4103,26 +2268,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_006"
+          "$ref": "#/components/requestBodies/req_005"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_014"
+            "$ref": "#/components/responses/resp_020"
           },
           "401": {
-            "$ref": "#/components/responses/resp_100"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_026"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_072"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_129"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_189"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4144,26 +2309,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_007"
+          "$ref": "#/components/requestBodies/req_005"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_015"
+            "$ref": "#/components/responses/resp_020"
           },
           "401": {
-            "$ref": "#/components/responses/resp_097"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_056"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_131"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_190"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4188,22 +2353,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_013"
-          },
-          "401": {
-            "$ref": "#/components/responses/resp_111"
-          },
-          "403": {
             "$ref": "#/components/responses/resp_035"
           },
+          "401": {
+            "$ref": "#/components/responses/resp_043"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_033"
+          },
           "404": {
-            "$ref": "#/components/responses/resp_062"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_123"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_187"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4228,22 +2393,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_009"
+            "$ref": "#/components/responses/resp_018"
           },
           "401": {
-            "$ref": "#/components/responses/resp_079"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_070"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_118"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_183"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4268,22 +2433,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_010"
+            "$ref": "#/components/responses/resp_018"
           },
           "401": {
-            "$ref": "#/components/responses/resp_081"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_027"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_054"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_124"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_185"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4308,22 +2473,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_011"
+            "$ref": "#/components/responses/resp_018"
           },
           "401": {
-            "$ref": "#/components/responses/resp_080"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_048"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_061"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_117"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_184"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4348,22 +2513,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_012"
+            "$ref": "#/components/responses/resp_018"
           },
           "401": {
-            "$ref": "#/components/responses/resp_082"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_075"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_122"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_186"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4388,10 +2553,10 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_139"
+            "$ref": "#/components/responses/resp_017"
           },
           "422": {
-            "$ref": "#/components/responses/resp_127"
+            "$ref": "#/components/responses/resp_028"
           }
         },
         "summary": "List all auctions",
@@ -4403,23 +2568,23 @@
         "description": "Create and schedule or activate an auction. Status values are normalized to the allowed list.",
         "operationId": "POST__api_v1_auctions",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_009"
+          "$ref": "#/components/requestBodies/req_002"
         },
         "responses": {
           "201": {
-            "$ref": "#/components/responses/resp_143"
+            "$ref": "#/components/responses/resp_041"
           },
           "401": {
-            "$ref": "#/components/responses/resp_084"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_038"
+            "$ref": "#/components/responses/resp_033"
           },
           "422": {
-            "$ref": "#/components/responses/resp_125"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_163"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4444,10 +2609,10 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_223"
+            "$ref": "#/components/responses/resp_010"
           },
           "404": {
-            "$ref": "#/components/responses/resp_057"
+            "$ref": "#/components/responses/resp_002"
           }
         },
         "summary": "List bids for a given auction (newest first)",
@@ -4467,22 +2632,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_138"
+            "$ref": "#/components/responses/resp_038"
           },
           "401": {
-            "$ref": "#/components/responses/resp_110"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_204"
+            "$ref": "#/components/responses/resp_030"
           },
           "404": {
-            "$ref": "#/components/responses/resp_063"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_126"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_161"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4507,22 +2672,22 @@
         ],
         "responses": {
           "204": {
-            "$ref": "#/components/responses/resp_005"
+            "$ref": "#/components/responses/resp_039"
           },
           "401": {
-            "$ref": "#/components/responses/resp_087"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_046"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_059"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_135"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_166"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4545,10 +2710,10 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_146"
+            "$ref": "#/components/responses/resp_006"
           },
           "404": {
-            "$ref": "#/components/responses/resp_068"
+            "$ref": "#/components/responses/resp_002"
           }
         },
         "summary": "Retrieve a single auction with bids",
@@ -4565,26 +2730,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_010"
+          "$ref": "#/components/requestBodies/req_002"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_147"
+            "$ref": "#/components/responses/resp_019"
           },
           "401": {
-            "$ref": "#/components/responses/resp_085"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_040"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_071"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_121"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_164"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4606,26 +2771,26 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_011"
+          "$ref": "#/components/requestBodies/req_002"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_148"
+            "$ref": "#/components/responses/resp_019"
           },
           "401": {
-            "$ref": "#/components/responses/resp_086"
-          },
-          "403": {
             "$ref": "#/components/responses/resp_043"
           },
+          "403": {
+            "$ref": "#/components/responses/resp_033"
+          },
           "404": {
-            "$ref": "#/components/responses/resp_053"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_119"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_165"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4650,22 +2815,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_144"
+            "$ref": "#/components/responses/resp_009"
           },
           "401": {
-            "$ref": "#/components/responses/resp_083"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
             "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_065"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_134"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_162"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4685,7 +2850,7 @@
         "operationId": "GET__api_v1_bid_packs",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_006"
+            "$ref": "#/components/responses/resp_013"
           }
         },
         "summary": "List available bid packs",
@@ -4705,19 +2870,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_155"
+            "$ref": "#/components/responses/resp_036"
           },
           "401": {
-            "$ref": "#/components/responses/resp_088"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_210"
+            "$ref": "#/components/responses/resp_030"
           },
           "404": {
-            "$ref": "#/components/responses/resp_055"
+            "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_159"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4742,25 +2907,25 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_156"
+            "$ref": "#/components/responses/resp_037"
           },
           "208": {
-            "$ref": "#/components/responses/resp_153"
+            "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_101"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_206"
+            "$ref": "#/components/responses/resp_030"
           },
           "404": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_116"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_160"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4785,22 +2950,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_154"
+            "$ref": "#/components/responses/resp_034"
           },
           "401": {
-            "$ref": "#/components/responses/resp_107"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_203"
+            "$ref": "#/components/responses/resp_030"
           },
           "404": {
-            "$ref": "#/components/responses/resp_058"
+            "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_132"
+            "$ref": "#/components/responses/resp_028"
           },
           "500": {
-            "$ref": "#/components/responses/resp_158"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4820,16 +2985,16 @@
         "operationId": "GET__api_v1_logged_in",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_003"
+            "$ref": "#/components/responses/resp_007"
           },
           "401": {
-            "$ref": "#/components/responses/resp_095"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_207"
+            "$ref": "#/components/responses/resp_030"
           },
           "500": {
-            "$ref": "#/components/responses/resp_169"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4848,23 +3013,23 @@
         "description": "POST /api/v1/login\nAuthenticates a user and returns session tokens plus user context.",
         "operationId": "POST__api_v1_login",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_004"
+          "$ref": "#/components/requestBodies/req_003"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_001"
+            "$ref": "#/components/responses/resp_004"
           },
           "400": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "401": {
-            "$ref": "#/components/responses/resp_090"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_049"
+            "$ref": "#/components/responses/resp_033"
           },
           "422": {
-            "$ref": "#/components/responses/resp_202"
+            "$ref": "#/components/responses/resp_031"
           }
         },
         "summary": "Log in and create a session",
@@ -4879,19 +3044,19 @@
         "operationId": "DELETE__api_v1_logout",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_222"
+            "$ref": "#/components/responses/resp_032"
           },
           "401": {
-            "$ref": "#/components/responses/resp_093"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_208"
+            "$ref": "#/components/responses/resp_030"
           },
           "404": {
-            "$ref": "#/components/responses/resp_196"
+            "$ref": "#/components/responses/resp_027"
           },
           "500": {
-            "$ref": "#/components/responses/resp_168"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -4911,10 +3076,10 @@
         "operationId": "GET__api_v1_maintenance",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_151"
+            "$ref": "#/components/responses/resp_044"
           },
           "404": {
-            "$ref": "#/components/responses/resp_195"
+            "$ref": "#/components/responses/resp_027"
           }
         },
         "summary": "Show public maintenance mode state",
@@ -4929,13 +3094,13 @@
         "operationId": "POST__api_v1_password_forgot",
         "responses": {
           "202": {
-            "$ref": "#/components/responses/resp_220"
+            "$ref": "#/components/responses/resp_042"
           },
           "400": {
-            "$ref": "#/components/responses/resp_018"
+            "$ref": "#/components/responses/resp_015"
           },
           "422": {
-            "$ref": "#/components/responses/resp_199"
+            "$ref": "#/components/responses/resp_031"
           }
         },
         "summary": "Request a password reset email",
@@ -4950,22 +3115,22 @@
         "operationId": "POST__api_v1_password_reset",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_142"
+            "$ref": "#/components/responses/resp_003"
           },
           "400": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_015"
           },
           "401": {
-            "$ref": "#/components/responses/resp_096"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_028"
+            "$ref": "#/components/responses/resp_033"
           },
           "404": {
-            "$ref": "#/components/responses/resp_197"
+            "$ref": "#/components/responses/resp_027"
           },
           "422": {
-            "$ref": "#/components/responses/resp_130"
+            "$ref": "#/components/responses/resp_028"
           }
         },
         "summary": "Reset a password using a token",
@@ -4979,20 +3144,20 @@
         "description": "Exchanges a valid refresh token for a new session token pair.",
         "operationId": "POST__api_v1_session_refresh",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_012"
+          "$ref": "#/components/requestBodies/req_001"
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_002"
+            "$ref": "#/components/responses/resp_011"
           },
           "400": {
-            "$ref": "#/components/responses/resp_019"
+            "$ref": "#/components/responses/resp_015"
           },
           "401": {
-            "$ref": "#/components/responses/resp_091"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_050"
+            "$ref": "#/components/responses/resp_033"
           }
         },
         "summary": "Refresh the current session using a refresh token",
@@ -5007,16 +3172,16 @@
         "operationId": "GET__api_v1_session_remaining",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_141"
+            "$ref": "#/components/responses/resp_022"
           },
           "401": {
-            "$ref": "#/components/responses/resp_092"
+            "$ref": "#/components/responses/resp_043"
           },
           "403": {
-            "$ref": "#/components/responses/resp_209"
+            "$ref": "#/components/responses/resp_030"
           },
           "500": {
-            "$ref": "#/components/responses/resp_167"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -5036,16 +3201,16 @@
         "operationId": "POST__api_v1_stripe_webhooks",
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_211"
+            "$ref": "#/components/responses/resp_025"
           },
           "403": {
-            "$ref": "#/components/responses/resp_205"
+            "$ref": "#/components/responses/resp_030"
           },
           "422": {
-            "$ref": "#/components/responses/resp_201"
+            "$ref": "#/components/responses/resp_031"
           },
           "500": {
-            "$ref": "#/components/responses/resp_170"
+            "$ref": "#/components/responses/resp_016"
           }
         },
         "security": [
@@ -5065,7 +3230,7 @@
         "operationId": "POST__api_v1_users",
         "responses": {
           "422": {
-            "$ref": "#/components/responses/resp_198"
+            "$ref": "#/components/responses/resp_031"
           }
         },
         "summary": "Register a new user account",

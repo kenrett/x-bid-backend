@@ -1,5 +1,6 @@
 require "json"
 require "fileutils"
+require "digest"
 
 namespace :openapi do
   desc "Generate OpenAPI spec into docs/api/openapi.json"
@@ -31,15 +32,26 @@ namespace :openapi do
 
   def canonicalize_components!(spec_hash, component_key, prefix)
     components = spec_hash.dig("components", component_key) || {}
-    sorted = components.sort_by { |_, content| JSON.generate(deep_sort(content)) }
 
-    mapping = {}
+    canonicalized = components.to_h do |old_key, content|
+      canonical_content = deep_sort(content)
+      digest = Digest::SHA256.hexdigest(JSON.generate(canonical_content))
+      [ old_key, [ digest, canonical_content ] ]
+    end
+
+    digest_to_new_key = {}
     new_components = {}
 
-    sorted.each_with_index do |(old_key, content), idx|
-      new_key = "#{prefix}#{format('%03d', idx + 1)}"
-      mapping[old_key] = new_key
-      new_components[new_key] = content
+    canonicalized.values.uniq { |digest, _| digest }
+      .sort_by { |digest, _| digest }
+      .each_with_index do |(digest, content), idx|
+        new_key = "#{prefix}#{format('%03d', idx + 1)}"
+        digest_to_new_key[digest] = new_key
+        new_components[new_key] = content
+      end
+
+    mapping = canonicalized.to_h do |old_key, (digest, _)|
+      [ old_key, digest_to_new_key.fetch(digest) ]
     end
 
     spec_hash["components"] ||= {}

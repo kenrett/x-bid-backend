@@ -111,4 +111,4 @@ jobs:
         run: bundle exec rails openapi:generate
 
       - name: Fail on schema drift
-        run: git diff --exit-code docs/api/openapi.json
+        run: git diff --stat --exit-code docs/api/openapi.json
