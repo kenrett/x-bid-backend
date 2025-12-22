@@ -84,7 +84,7 @@ Rails.application.configure do
   # -----------------------------
   config.action_cable.url = ENV.fetch("ACTION_CABLE_URL", "wss://x-bid-backend.onrender.com/cable")
   config.action_cable.allowed_request_origins = [
-    ENV["FRONTEND_ORIGIN"],
+    Eails.application.credentials.frontend_origins,
     "https://x-bid-backend.onrender.com",
     ENV["CUSTOM_DOMAIN"]
   ].compact
