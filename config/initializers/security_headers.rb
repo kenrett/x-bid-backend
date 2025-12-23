@@ -1,4 +1,6 @@
 # Sets a baseline of security headers for all API responses.
+require "securerandom"
+
 class SecurityHeaders
   def initialize(app)
     @app = app
@@ -8,7 +10,10 @@ class SecurityHeaders
     status, headers, body = @app.call(env)
     headers ||= {}
 
-    apply_static_headers(headers)
+    script_nonce = SecureRandom.base64(16)
+    expose_nonce_to_rails(env, script_nonce)
+
+    apply_static_headers(headers, script_nonce)
     apply_hsts(headers, env)
 
     [ status, headers, body ]
@@ -16,8 +21,13 @@ class SecurityHeaders
 
   private
 
-  def apply_static_headers(headers)
-    static_headers.each do |key, value|
+  def expose_nonce_to_rails(env, script_nonce)
+    env[ActionDispatch::ContentSecurityPolicy::Request::NONCE] = script_nonce
+    env[ActionDispatch::ContentSecurityPolicy::Request::NONCE_GENERATOR] = ->(_request) { script_nonce }
+  end
+
+  def apply_static_headers(headers, script_nonce)
+    static_headers(script_nonce).each do |key, value|
       headers[key] = value
     end
   end
@@ -31,15 +41,15 @@ class SecurityHeaders
     headers["Strict-Transport-Security"] ||= "max-age=63072000; includeSubDomains; preload"
   end
 
-  def static_headers
+  def static_headers(script_nonce)
     script_sources = [
       "'self'",
       "https://js.stripe.com",
       "https://static.cloudflareinsights.com",
-      "'unsafe-inline'"
+      "'nonce-#{script_nonce}'"
     ].join(" ")
 
-    @static_headers ||= {
+    {
       "Content-Security-Policy" => [
         "default-src 'self'",
         "script-src #{script_sources}",

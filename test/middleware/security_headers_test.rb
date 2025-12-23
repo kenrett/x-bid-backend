@@ -11,7 +11,8 @@ class SecurityHeadersTest < ActionDispatch::IntegrationTest
     assert_equal "same-origin", response.headers["Cross-Origin-Opener-Policy"]
     assert_equal "same-origin", response.headers["Cross-Origin-Resource-Policy"]
     assert_includes csp, "default-src 'self'"
-    assert_includes csp, "script-src 'self' https://js.stripe.com https://static.cloudflareinsights.com 'unsafe-inline'"
+    assert_match(/script-src 'self' https:\/\/js\.stripe\.com https:\/\/static\.cloudflareinsights\.com 'nonce-[^']+'/, csp)
+    refute_includes csp, "'unsafe-inline'"
   end
 
   test "emits HSTS only over SSL in production" do
