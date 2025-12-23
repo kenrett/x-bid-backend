@@ -49,10 +49,16 @@ class SecurityHeaders
       "'nonce-#{script_nonce}'"
     ].join(" ")
 
+    connect_sources = [
+      "'self'",
+      "https://cloudflareinsights.com"
+    ].join(" ")
+
     {
       "Content-Security-Policy" => [
         "default-src 'self'",
         "script-src #{script_sources}",
+        "connect-src #{connect_sources}",
         "frame-ancestors 'none'",
         "base-uri 'none'",
         "form-action 'self'"
