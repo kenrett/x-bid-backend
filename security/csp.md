@@ -4,7 +4,8 @@ The API sets its Content-Security-Policy via `config/initializers/security_heade
 
 Current directives:
 - `default-src 'self'`
-- `script-src 'self' https://js.stripe.com https://static.cloudflareinsights.com 'nonce-{per-request}'`  
+- `script-src 'self' https://js.stripe.com https://static.cloudflareinsights.com 'nonce-{per-request}'`
+- `script-src-elem 'self' https://js.stripe.com https://static.cloudflareinsights.com 'nonce-{per-request}'`  
   *Stripe Checkout embeds and Cloudflare Insights beacon loader are allowed.*
 - `connect-src 'self' https://cloudflareinsights.com`  
   *Cloudflare Insights sends telemetry to this origin.*

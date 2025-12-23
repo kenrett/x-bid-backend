@@ -58,6 +58,7 @@ class SecurityHeaders
       "Content-Security-Policy" => [
         "default-src 'self'",
         "script-src #{script_sources}",
+        "script-src-elem #{script_sources}",
         "connect-src #{connect_sources}",
         "frame-ancestors 'none'",
         "base-uri 'none'",

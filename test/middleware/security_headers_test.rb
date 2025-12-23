@@ -12,6 +12,7 @@ class SecurityHeadersTest < ActionDispatch::IntegrationTest
     assert_equal "same-origin", response.headers["Cross-Origin-Resource-Policy"]
     assert_includes csp, "default-src 'self'"
     assert_match(/script-src 'self' https:\/\/js\.stripe\.com https:\/\/static\.cloudflareinsights\.com 'nonce-[^']+'/, csp)
+    assert_match(/script-src-elem 'self' https:\/\/js\.stripe\.com https:\/\/static\.cloudflareinsights\.com 'nonce-[^']+'/, csp)
     assert_includes csp, "connect-src 'self' https://cloudflareinsights.com"
     refute_includes csp, "'unsafe-inline'"
   end
