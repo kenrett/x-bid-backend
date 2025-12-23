@@ -14,7 +14,7 @@
 
     begin
       # Stripe redirects the user here after they complete the payment flow.
-      return_url = "#{ENV.fetch('FRONTEND_URL', 'http://localhost:5173')}/purchase-status?session_id={CHECKOUT_SESSION_ID}"
+      return_url = "#{Rails.application.credentials.frontend_origins&.split(",")&.first || 'http://localhost:5173'}/purchase-status?session_id={CHECKOUT_SESSION_ID}"
 
       @session = Stripe::Checkout::Session.create({
         payment_method_types: [ "card" ],

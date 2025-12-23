@@ -55,6 +55,9 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
 
+      - name: Check gems for known vulnerabilities
+        run: bundle exec bundler-audit check --update
+
       - name: Scan for common Rails security vulnerabilities using static analysis
         run: bin/brakeman --no-pager
 

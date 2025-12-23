@@ -91,6 +91,7 @@ bin/test
 ```bash
 bin/lint  # runs rubocop and brakeman
 ```
+CI also runs bundler-audit to check Gemfile.lock for vulnerable dependencies.
 Run lint/security checks before merging.
 
 ### API schema drift check

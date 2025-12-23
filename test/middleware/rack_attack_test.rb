@@ -37,16 +37,31 @@ class RackAttackTest < ActionDispatch::IntegrationTest
   end
 
   test "throttles bidding endpoints separately from general traffic" do
-    50.times do
-      post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3", "HTTP_AUTHORIZATION" => "Bearer token" }
-      assert_not_equal 429, response.status
-    end
+    stub_authentication_and_bids_controller do
+      50.times do
+        post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3", "HTTP_AUTHORIZATION" => "Bearer token" }
+        assert_not_equal 429, response.status
+      end
 
-    post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3", "HTTP_AUTHORIZATION" => "Bearer token" }
-    assert_response :too_many_requests
+      post "/api/v1/auctions/1/bids", headers: { "REMOTE_ADDR" => "3.3.3.3", "HTTP_AUTHORIZATION" => "Bearer token" }
+      assert_response :too_many_requests
+    end
   end
 
   private
+
+  def stub_authentication_and_bids_controller
+    original_authenticate = Api::V1::BidsController.instance_method(:authenticate_request!)
+    original_create = Api::V1::BidsController.instance_method(:create)
+
+    Api::V1::BidsController.define_method(:authenticate_request!) { }
+    Api::V1::BidsController.define_method(:create) { head :ok }
+
+    yield
+  ensure
+    Api::V1::BidsController.define_method(:authenticate_request!, original_authenticate)
+    Api::V1::BidsController.define_method(:create, original_create)
+  end
 
   def post_login(email, ip: "1.1.1.1")
     post "/api/v1/login",
