@@ -13,8 +13,12 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     origins frontend_origins.presence || "http://localhost:5173"
 
-    resource "*",
-      headers: :any,
+    resource "/api/*",
+      headers: %w[Authorization Content-Type Accept Origin],
       methods: [ :get, :post, :put, :patch, :delete, :options, :head ]
+
+    resource "/cable",
+      headers: %w[Authorization Origin],
+      methods: [ :get, :options ]
   end
 end
