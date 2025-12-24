@@ -20,10 +20,11 @@ class PasswordResetToken < ApplicationRecord
     [ token, raw_token ]
   end
 
-  def self.find_valid_by_raw_token(raw_token)
+  def self.find_valid_by_raw_token(raw_token, lock: false)
     return nil if raw_token.blank?
 
-    find_by(token_digest: digest(raw_token))&.tap do |token|
+    scope = lock ? all.lock : all
+    scope.find_by(token_digest: digest(raw_token))&.tap do |token|
       return nil unless token.active?
     end
   end

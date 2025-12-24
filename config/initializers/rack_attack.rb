@@ -70,6 +70,7 @@ module RackAttackRules
 
   def self.normalized_email(req)
     email = req.params.dig("session", "email_address") ||
+      req.params.dig("password", "email_address") ||
       req.params["email_address"] ||
       req.params["email"]
     trimmed = email.to_s.strip
@@ -116,6 +117,10 @@ end
 
 Rack::Attack.throttle("password_reset/ip", limit: 10, period: 10.minutes) do |req|
   req.ip if RackAttackRules.password_reset?(req)
+end
+
+Rack::Attack.throttle("password_reset/email", limit: 6, period: 30.minutes) do |req|
+  RackAttackRules.normalized_email(req) if RackAttackRules.password_reset?(req)
 end
 
 # Bidding is hot; keep a short window but allow a handful before throttling.
