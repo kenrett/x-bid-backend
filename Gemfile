@@ -35,6 +35,7 @@ gem "thruster", require: false
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
 gem "rack-attack"
+gem "rack-timeout", require: "rack/timeout/base"
 
 # JSON Web Token implementation in Ruby
 gem "jwt"

@@ -12,6 +12,7 @@ require "action_mailbox/engine"
 require "action_text/engine"
 require "action_view/railtie"
 require "action_cable/engine"
+require_relative "../app/lib/middleware/request_size_limiter"
 # require "rails/test_unit/railtie"
 
 # Require the gems listed in Gemfile, including any gems
@@ -43,6 +44,9 @@ module XBidBackend
 
     config.middleware.use Rack::Attack
     config.middleware.insert_after Rack::Attack, ::SecurityHeaders
+    config.middleware.insert_after Rack::Attack, Middleware::RequestSizeLimiter
+
+    config.middleware.insert_before Rack::Runtime, Rack::Timeout
 
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.
