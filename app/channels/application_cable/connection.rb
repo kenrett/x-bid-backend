@@ -13,7 +13,7 @@ module ApplicationCable
     def authenticate_connection
       token = websocket_token
       unless token
-        Rails.logger.warn("ActionCable connection rejected: no token provided via params, headers, or cookies")
+        Rails.logger.warn("ActionCable connection rejected: no token provided via Authorization header or secure cookie")
         reject_unauthorized_connection
       end
 
@@ -31,11 +31,8 @@ module ApplicationCable
     end
 
     def websocket_token
-      # Prefer explicit params/header, but also fall back to an encrypted cookie if present.
-      request.params[:token].presence ||
-        request.params[:jwt].presence ||
-        authorization_header_token ||
-        cookies.encrypted[:jwt]
+      # Accept Authorization header as primary; allow secure encrypted cookie fallback.
+      authorization_header_token || cookies.encrypted[:jwt]
     end
 
     def authorization_header_token
