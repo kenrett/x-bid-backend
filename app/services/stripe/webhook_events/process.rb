@@ -65,39 +65,22 @@ module Stripe
         currency = (data[:currency] || data["currency"] || "usd").to_s
         stripe_event_id = event.respond_to?(:id) ? event.id : nil
 
-        ActiveRecord::Base.transaction do
-          user.with_lock do
-            purchase = Purchase.find_by(stripe_payment_intent_id: payment_intent_id)
-            purchase ||= Purchase.find_by(stripe_event_id: stripe_event_id) if stripe_event_id.present?
-            return ServiceResult.ok(code: :already_processed, message: "Payment already applied", data: { purchase: purchase, idempotent: true }) if purchase&.status == "completed"
+        result = Payments::ApplyBidPackPurchase.call!(
+          user: user,
+          bid_pack: bid_pack,
+          stripe_checkout_session_id: nil,
+          stripe_payment_intent_id: payment_intent_id,
+          stripe_event_id: stripe_event_id,
+          amount_cents: amount_cents,
+          currency: currency,
+          source: "stripe_webhook"
+        )
+        return result unless result.ok?
 
-            purchase ||= Purchase.new
-            purchase.assign_attributes(
-              user: user,
-              bid_pack: bid_pack,
-              amount_cents: amount_cents,
-              currency: currency,
-              stripe_payment_intent_id: payment_intent_id,
-              stripe_event_id: stripe_event_id,
-              status: "completed"
-            )
-            purchase.save!
+        purchase = result.purchase
+        log_payment_applied(user:, bid_pack:, purchase:, payment_intent_id:)
 
-            Credits::Apply.apply!(
-              user: user,
-              reason: "bid_pack_purchase",
-              amount: bid_pack.bids,
-              purchase: purchase,
-              stripe_event: persisted_event,
-              stripe_payment_intent_id: payment_intent_id,
-              idempotency_key: "stripe:payment_intent:#{payment_intent_id}",
-              metadata: { source: "stripe_webhook" }
-            )
-            log_payment_applied(user:, bid_pack:, purchase:, payment_intent_id:)
-
-            ServiceResult.ok(code: :processed, message: "Payment applied", data: { purchase: purchase })
-          end
-        end
+        result
       end
 
       def handle_payment_intent_failed

@@ -84,33 +84,24 @@ class Api::V1::CheckoutsController < ApplicationController
         return render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :already_reported
       end
 
-      ActiveRecord::Base.transaction do
-        bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
+      bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @current_user,
+        bid_pack: bid_pack,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: payment_intent_id,
+        stripe_event_id: nil,
+        amount_cents: (bid_pack.price * 100).to_i,
+        currency: "usd",
+        source: "checkout_success"
+      )
 
-        # Create a purchase record to prevent duplicate processing.
-        purchase = Purchase.create!(
-          user: @current_user,
-          bid_pack: bid_pack,
-          amount_cents: (bid_pack.price * 100).to_i,
-          currency: "usd",
-          stripe_checkout_session_id: session.id,
-          stripe_payment_intent_id: payment_intent_id,
-          status: "completed"
-        )
-
-        Credits::Apply.apply!(
-          user: @current_user,
-          reason: "bid_pack_purchase",
-          amount: bid_pack.bids,
-          purchase: purchase,
-          stripe_payment_intent_id: payment_intent_id,
-          stripe_checkout_session_id: session.id,
-          idempotency_key: "checkout_session:#{session.id}",
-          metadata: { source: "checkout_success" }
-        )
+      if result.ok?
+        status = result.idempotent ? :already_reported : :ok
+        render json: { status: "success", message: result.message, updated_bid_credits: @current_user.reload.bid_credits }, status: status
+      else
+        render json: { status: "error", error: result.error }, status: result.http_status
       end
-
-      render json: { status: "success", message: "Purchase successful!", updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
     else
       render json: { status: "error", error: "Payment was not successful." }, status: :unprocessable_content
     end
