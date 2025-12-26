@@ -18,14 +18,18 @@ module Payments
               stripe_event_id: stripe_event_id
             )
 
+            if purchase.persisted? && purchase.bid_pack_id.present? && purchase.bid_pack_id != bid_pack.id
+              raise ArgumentError, "Bid pack mismatch for purchase"
+            end
+
             purchase.assign_attributes(
               user: user,
               bid_pack: bid_pack,
               amount_cents: amount_cents.to_i,
               currency: currency.to_s,
-              stripe_payment_intent_id: stripe_payment_intent_id.presence || purchase.stripe_payment_intent_id,
-              stripe_checkout_session_id: stripe_checkout_session_id.presence || purchase.stripe_checkout_session_id,
-              stripe_event_id: stripe_event_id.presence || purchase.stripe_event_id,
+              stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
+              stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
+              stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
               status: "completed"
             )
 
@@ -43,9 +47,9 @@ module Payments
                 bid_pack: bid_pack,
                 amount_cents: amount_cents.to_i,
                 currency: currency.to_s,
-                stripe_payment_intent_id: stripe_payment_intent_id.presence || purchase.stripe_payment_intent_id,
-                stripe_checkout_session_id: stripe_checkout_session_id.presence || purchase.stripe_checkout_session_id,
-                stripe_event_id: stripe_event_id.presence || purchase.stripe_event_id,
+                stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
+                stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
+                stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
                 status: "completed"
               )
               purchase.save!
