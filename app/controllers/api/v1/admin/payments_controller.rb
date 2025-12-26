@@ -35,6 +35,31 @@ module Api
           render_error(code: :not_found, message: "Payment not found", status: :not_found)
         end
 
+        # POST /api/v1/admin/payments/:id/repair_credits
+        # @summary Repair missing purchase credits
+        # Ensures the ledger grant exists for a completed purchase without double-crediting.
+        def repair_credits
+          payment = Purchase.find(params[:id])
+          result = ::Admin::Payments::RepairCredits.new(actor: @current_user, purchase: payment, request: request).call
+
+          unless result.ok?
+            return render_error(code: result.code || :repair_failed, message: result.error, status: result.http_status)
+          end
+
+          payment = payment.reload
+          credit_transactions = CreditTransaction.where(purchase_id: payment.id).order(created_at: :asc)
+          audit = Credits::AuditBalance.call(user: payment.user)
+
+          render json: {
+            idempotent: !!result.idempotent,
+            purchase: serialize_payment_detail(payment),
+            credit_transactions: credit_transactions.map { |tx| serialize_credit_transaction(tx) },
+            balance_audit: audit
+          }, status: :ok
+        rescue ActiveRecord::RecordNotFound
+          render_error(code: :not_found, message: "Payment not found", status: :not_found)
+        end
+
         # POST /api/v1/admin/payments/:id/refund
         # @summary Issue a refund for a payment
         # Issues a refund for a payment and records the refund ID from the gateway.

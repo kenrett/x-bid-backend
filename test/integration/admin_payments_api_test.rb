@@ -182,6 +182,40 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     assert_equal Credits::Balance.for_user(user), audit["derived"]
   end
 
+  test "repair_credits creates missing ledger row and returns reconciliation view" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+
+    assert_equal 0, CreditTransaction.where(purchase_id: purchase.id).count
+
+    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers(@admin, @admin_session)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal false, body["idempotent"]
+    assert_equal purchase.id, body.dig("purchase", "id")
+    assert_equal 1, body["credit_transactions"].size
+    assert_equal true, body.dig("balance_audit", "matches")
+    assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+  end
+
+  test "repair_credits is safe to call twice" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+
+    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers(@admin, @admin_session)
+    assert_response :success
+    body1 = JSON.parse(response.body)
+    assert_equal false, body1["idempotent"]
+
+    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers(@admin, @admin_session)
+    assert_response :success
+    body2 = JSON.parse(response.body)
+    assert_equal true, body2["idempotent"]
+
+    assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+  end
+
   private
 
   def create_user(email:, role: :user)

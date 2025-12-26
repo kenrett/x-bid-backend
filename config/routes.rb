@@ -53,6 +53,7 @@ Rails.application.routes.draw do
         resources :payments, only: [ :index, :show ] do
           member do
             post :refund
+            post :repair_credits
           end
         end
         post "/audit", to: "audit#create"
