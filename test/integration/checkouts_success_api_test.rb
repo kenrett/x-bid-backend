@@ -1,0 +1,122 @@
+require "test_helper"
+require "jwt"
+require "ostruct"
+
+class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
+  FakeCheckoutSession = Struct.new(:id, :payment_status, :payment_intent, :metadata, keyword_init: true)
+
+  def setup
+    @user = User.create!(
+      name: "Buyer",
+      email_address: "buyer@example.com",
+      password: "password",
+      role: :user,
+      bid_credits: 0
+    )
+    @session_token = SessionToken.create!(
+      user: @user,
+      token_digest: SessionToken.digest("raw"),
+      expires_at: 1.hour.from_now
+    )
+    @bid_pack = BidPack.create!(
+      name: "Starter",
+      bids: 10,
+      price: BigDecimal("9.99"),
+      highlight: false,
+      description: "test pack",
+      active: true
+    )
+  end
+
+  test "double-click is idempotent" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_123",
+      payment_status: "paid",
+      payment_intent: "pi_123",
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id)
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_123" }, headers: auth_headers(@user, @session_token)
+      assert_response :success
+      body1 = JSON.parse(response.body)
+      assert_equal false, body1["idempotent"]
+      assert body1["purchaseId"].present?
+      assert_equal 10, body1["updated_bid_credits"]
+
+      get "/api/v1/checkout/success", params: { session_id: "cs_123" }, headers: auth_headers(@user, @session_token)
+      assert_response :success
+      body2 = JSON.parse(response.body)
+      assert_equal true, body2["idempotent"]
+      assert_equal body1["purchaseId"], body2["purchaseId"]
+      assert_equal 10, body2["updated_bid_credits"]
+    end
+  end
+
+  test "retries on record-not-unique and still succeeds" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_456",
+      payment_status: "paid",
+      payment_intent: "pi_456",
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id)
+    )
+
+    original = Payments::ApplyBidPackPurchase.method(:call!)
+    attempts = 0
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      Payments::ApplyBidPackPurchase.stub(:call!, lambda { |**kwargs|
+        attempts += 1
+        raise ActiveRecord::RecordNotUnique if attempts == 1
+        original.call(**kwargs)
+      }) do
+        get "/api/v1/checkout/success", params: { session_id: "cs_456" }, headers: auth_headers(@user, @session_token)
+      end
+    end
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "success", body["status"]
+    assert_equal 10, body["updated_bid_credits"]
+    assert_equal 2, attempts
+  end
+
+  test "success after webhook already applied returns idempotent true" do
+    webhook_apply = Payments::ApplyBidPackPurchase.call!(
+      user: @user,
+      bid_pack: @bid_pack,
+      stripe_checkout_session_id: nil,
+      stripe_payment_intent_id: "pi_789",
+      stripe_event_id: "evt_789",
+      amount_cents: (@bid_pack.price * 100).to_i,
+      currency: "usd",
+      source: "stripe_webhook"
+    )
+    assert webhook_apply.ok?
+    assert_equal 10, @user.reload.bid_credits
+
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_789",
+      payment_status: "paid",
+      payment_intent: "pi_789",
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id)
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_789" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal true, body["idempotent"]
+    assert_equal 10, body["updated_bid_credits"]
+  end
+
+  private
+
+  def auth_headers(user, session_token)
+    payload = { user_id: user.id, session_token_id: session_token.id, exp: 1.hour.from_now.to_i }
+    token = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    { "Authorization" => "Bearer #{token}" }
+  end
+end

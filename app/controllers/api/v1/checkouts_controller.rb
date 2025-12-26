@@ -70,21 +70,13 @@ class Api::V1::CheckoutsController < ApplicationController
   # @response Not found (404) [Error]
   # @response Validation error (422) [Error]
   def success
-    # If this purchase has already been processed, do nothing more.
-    if Purchase.exists?(stripe_checkout_session_id: params[:session_id])
-      return render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :already_reported
-    end
-
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
+    return render json: { status: "error", error: "Payment was not successful." }, status: :unprocessable_content unless session.payment_status == "paid"
+
     payment_intent_id = session.payment_intent
+    bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
 
-    # Only fulfill the order if the payment was successful.
-    if session.payment_status == "paid"
-      if payment_intent_id.present? && Purchase.exists?(stripe_payment_intent_id: payment_intent_id)
-        return render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :already_reported
-      end
-
-      bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
+    begin
       result = Payments::ApplyBidPackPurchase.call!(
         user: @current_user,
         bid_pack: bid_pack,
@@ -95,22 +87,32 @@ class Api::V1::CheckoutsController < ApplicationController
         currency: "usd",
         source: "checkout_success"
       )
+    rescue ActiveRecord::RecordNotUnique
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @current_user,
+        bid_pack: bid_pack,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: payment_intent_id,
+        stripe_event_id: nil,
+        amount_cents: (bid_pack.price * 100).to_i,
+        currency: "usd",
+        source: "checkout_success"
+      )
+    end
 
-      if result.ok?
-        status = result.idempotent ? :already_reported : :ok
-        render json: { status: "success", message: result.message, updated_bid_credits: @current_user.reload.bid_credits }, status: status
-      else
-        render json: { status: "error", error: result.error }, status: result.http_status
-      end
+    if result.ok?
+      render json: {
+        status: "success",
+        idempotent: !!result.idempotent,
+        purchaseId: result.purchase.id,
+        updated_bid_credits: @current_user.reload.bid_credits
+      }, status: :ok
     else
-      render json: { status: "error", error: "Payment was not successful." }, status: :unprocessable_content
+      render json: { status: "error", error: result.error }, status: result.http_status
     end
   rescue Stripe::InvalidRequestError => e
     render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
   rescue ActiveRecord::RecordNotFound
     render json: { status: "error", error: "Bid pack not found or inactive." }, status: :not_found
-  rescue ActiveRecord::RecordNotUnique
-    # This handles a race condition where two requests try to process the same session simultaneously.
-    render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
-end
+  end
 end
