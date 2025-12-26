@@ -18,6 +18,23 @@ module Api
           render json: payments.map { |payment| serialize_payment(payment) }
         end
 
+        # GET /api/v1/admin/payments/:id
+        # @summary Show a payment reconciliation view
+        # Returns the purchase, related credit transactions, and a balance audit for admins.
+        def show
+          payment = Purchase.includes(:user, :bid_pack).find(params[:id])
+          credit_transactions = CreditTransaction.where(purchase_id: payment.id).order(created_at: :asc)
+          audit = Credits::AuditBalance.call(user: payment.user)
+
+          render json: {
+            purchase: serialize_payment_detail(payment),
+            credit_transactions: credit_transactions.map { |tx| serialize_credit_transaction(tx) },
+            balance_audit: audit
+          }
+        rescue ActiveRecord::RecordNotFound
+          render_error(code: :not_found, message: "Payment not found", status: :not_found)
+        end
+
         # POST /api/v1/admin/payments/:id/refund
         # @summary Issue a refund for a payment
         # Issues a refund for a payment and records the refund ID from the gateway.
@@ -57,7 +74,39 @@ module Api
             amount: amount,
             refunded_cents: payment.refunded_cents,
             status: payment.status,
+            created_at: payment.created_at,
+            stripe_checkout_session_id: payment.stripe_checkout_session_id,
+            stripe_payment_intent_id: payment.stripe_payment_intent_id,
+            stripe_event_id: payment.stripe_event_id
+          }
+        end
+
+        def serialize_payment_detail(payment)
+          {
+            id: payment.id,
+            user_email: payment.user.email_address,
+            bid_pack: {
+              id: payment.bid_pack.id,
+              name: payment.bid_pack.name
+            },
+            amount_cents: payment.amount_cents,
+            currency: payment.currency,
+            status: payment.status,
+            stripe_checkout_session_id: payment.stripe_checkout_session_id,
+            stripe_payment_intent_id: payment.stripe_payment_intent_id,
+            stripe_event_id: payment.stripe_event_id,
             created_at: payment.created_at
+          }
+        end
+
+        def serialize_credit_transaction(tx)
+          {
+            id: tx.id,
+            kind: tx.kind,
+            amount: tx.amount,
+            reason: tx.reason,
+            idempotency_key: tx.idempotency_key,
+            created_at: tx.created_at
           }
         end
       end

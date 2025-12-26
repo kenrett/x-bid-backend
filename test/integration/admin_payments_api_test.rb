@@ -42,6 +42,9 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     assert_in_delta @bid_pack.price.to_f, payment["amount"].to_f, 0.001
     assert_equal purchase.status, payment["status"]
     assert payment["created_at"].present?
+    assert_equal purchase.stripe_checkout_session_id, payment["stripe_checkout_session_id"]
+    assert_equal purchase.stripe_payment_intent_id, payment["stripe_payment_intent_id"]
+    assert_equal purchase.stripe_event_id, payment["stripe_event_id"]
   end
 
   test "filters payments by user email search" do
@@ -103,6 +106,80 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     assert_equal @admin, captured_kwargs[:actor]
     assert_equal purchase, captured_kwargs[:payment]
     assert_equal "mistake", captured_kwargs[:reason]
+  end
+
+  test "shows payment reconciliation with matching ledger entry" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+    credit = CreditTransaction.create!(
+      user: user,
+      purchase: purchase,
+      kind: :grant,
+      amount: @bid_pack.bids,
+      reason: "bid_pack_purchase",
+      idempotency_key: "purchase:#{purchase.id}:grant",
+      metadata: {}
+    )
+    Credits::RebuildBalance.call!(user: user)
+
+    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers(@admin, @admin_session)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal purchase.id, body.dig("purchase", "id")
+    assert_equal user.email_address, body.dig("purchase", "user_email")
+    assert_equal purchase.amount_cents, body.dig("purchase", "amount_cents")
+    assert_equal purchase.currency, body.dig("purchase", "currency")
+    assert_equal purchase.status, body.dig("purchase", "status")
+    assert_equal purchase.stripe_payment_intent_id, body.dig("purchase", "stripe_payment_intent_id")
+
+    txs = body["credit_transactions"]
+    assert_equal 1, txs.size
+    assert_equal credit.id, txs.first["id"]
+    assert_equal "grant", txs.first["kind"]
+    assert_equal @bid_pack.bids, txs.first["amount"]
+    assert_equal "purchase:#{purchase.id}:grant", txs.first["idempotency_key"]
+
+    audit = body["balance_audit"]
+    assert_equal true, audit["matches"]
+    assert_equal user.reload.bid_credits, audit["cached"]
+    assert_equal user.reload.bid_credits, audit["derived"]
+  end
+
+  test "shows empty credit transaction list when ledger entry missing" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+
+    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers(@admin, @admin_session)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal purchase.id, body.dig("purchase", "id")
+    assert_equal [], body["credit_transactions"]
+  end
+
+  test "balance audit mismatch surfaces correctly" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+    CreditTransaction.create!(
+      user: user,
+      purchase: purchase,
+      kind: :grant,
+      amount: @bid_pack.bids,
+      reason: "bid_pack_purchase",
+      idempotency_key: "purchase:#{purchase.id}:grant",
+      metadata: {}
+    )
+    Credits::RebuildBalance.call!(user: user)
+    user.update_columns(bid_credits: user.bid_credits + 1)
+
+    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers(@admin, @admin_session)
+
+    assert_response :success
+    audit = JSON.parse(response.body)["balance_audit"]
+    assert_equal false, audit["matches"]
+    assert_equal user.reload.bid_credits, audit["cached"]
+    assert_equal Credits::Balance.for_user(user), audit["derived"]
   end
 
   private

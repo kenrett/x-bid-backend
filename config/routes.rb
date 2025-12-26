@@ -50,7 +50,7 @@ Rails.application.routes.draw do
             post :ban
           end
         end
-        resources :payments, only: [ :index ] do
+        resources :payments, only: [ :index, :show ] do
           member do
             post :refund
           end
