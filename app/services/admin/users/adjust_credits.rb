@@ -17,14 +17,14 @@ module Admin
           new_balance = derived_balance + @delta
           return insufficient_balance(derived_balance) if new_balance.negative?
 
-          CreditTransaction.create!(
+          Credits::Apply.apply!(
             user: @user,
-            admin_actor: @actor,
-            kind: :adjustment,
-            amount: @delta,
             reason: @reason.presence || "admin adjustment",
-            idempotency_key: SecureRandom.uuid,
-            metadata: { request_path: @request&.path }.compact
+            amount: @delta,
+            kind: :adjustment,
+            idempotency_key: "admin_adjustment:#{@actor.id}:#{@user.id}:#{SecureRandom.uuid}",
+            admin_actor: @actor,
+            metadata: { request_path: @request&.path, delta: @delta, source: "admin_adjust_credits" }.compact
           )
 
           updated_balance = Credits::RebuildBalance.call!(user: @user, lock: false)

@@ -6,36 +6,47 @@ module Credits
       # Debits a user's bid credits for placing a bid, tied to an auction.
       # Raises if the user lacks credits or if the debit fails.
       # If `locked: false`, the call will acquire locks using the global user->auction order.
-      def for_bid!(user:, auction:, locked: false)
+      def for_bid!(user:, auction:, idempotency_key:, locked: false)
         raise ArgumentError, "Auction must be provided" unless auction
         raise ArgumentError, "User must be provided" unless user
-
-        raise InsufficientCreditsError, "Insufficient bid credits" if user.bid_credits.to_i <= 0
+        raise ArgumentError, "Idempotency key must be provided" if idempotency_key.blank?
 
         if locked
-          debit!(user:, auction:)
+          debit!(user:, auction:, idempotency_key:)
         else
-          LockOrder.with_user_then_auction(user:, auction:) { debit!(user:, auction:) }
+          LockOrder.with_user_then_auction(user:, auction:) { debit!(user:, auction:, idempotency_key:) }
         end
       end
 
       private
 
-      def debit!(user:, auction:)
-        balance = Credits::Balance.for_user(user)
-        raise InsufficientCreditsError, "Insufficient bid credits" if balance <= 0
+      def debit!(user:, auction:, idempotency_key:)
+        existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
+        if existing
+          raise ArgumentError, "Idempotency key belongs to a different user" if existing.user_id != user.id
+          remaining = Credits::RebuildBalance.call!(user: user, lock: false)
+          return log_debit(user:, auction:, remaining:)
+        end
 
         Credits::Ledger.bootstrap!(user)
 
-        CreditTransaction.create!(
-          user: user,
-          auction: auction,
-          kind: :debit,
-          amount: -1,
-          reason: "auction bid debit",
-          idempotency_key: SecureRandom.uuid,
-          metadata: {}
-        )
+        balance = Credits::Balance.for_user(user)
+        raise InsufficientCreditsError, "Insufficient bid credits" if balance <= 0
+
+        begin
+          CreditTransaction.create!(
+            user: user,
+            auction: auction,
+            kind: :debit,
+            amount: -1,
+            reason: "auction bid debit",
+            idempotency_key: idempotency_key,
+            metadata: {}
+          )
+        rescue ActiveRecord::RecordNotUnique
+          existing = CreditTransaction.find_by!(idempotency_key: idempotency_key)
+          raise ArgumentError, "Idempotency key belongs to a different user" if existing.user_id != user.id
+        end
 
         remaining = Credits::RebuildBalance.call!(user: user, lock: false)
         log_debit(user:, auction:, remaining:)
