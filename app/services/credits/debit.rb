@@ -1,3 +1,5 @@
+require "securerandom"
+
 module Credits
   class Debit
     class << self
@@ -20,14 +22,27 @@ module Credits
       private
 
       def debit!(user:, auction:)
-        raise InsufficientCreditsError, "Insufficient bid credits" if user.bid_credits.to_i <= 0
+        balance = Credits::Balance.for_user(user)
+        raise InsufficientCreditsError, "Insufficient bid credits" if balance <= 0
 
-        user.decrement!(:bid_credits)
-        log_debit(user:, auction:)
+        Credits::Ledger.bootstrap!(user)
+
+        CreditTransaction.create!(
+          user: user,
+          auction: auction,
+          kind: :debit,
+          amount: -1,
+          reason: "auction bid debit",
+          idempotency_key: SecureRandom.uuid,
+          metadata: {}
+        )
+
+        remaining = Credits::RebuildBalance.call!(user: user, lock: false)
+        log_debit(user:, auction:, remaining:)
       end
 
-      def log_debit(user:, auction:)
-        AppLogger.log(event: "credits.debit", user_id: user.id, auction_id: auction.id, remaining: user.bid_credits)
+      def log_debit(user:, auction:, remaining:)
+        AppLogger.log(event: "credits.debit", user_id: user.id, auction_id: auction.id, remaining: remaining)
       end
     end
 

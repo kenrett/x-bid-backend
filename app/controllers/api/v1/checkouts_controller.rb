@@ -1,4 +1,4 @@
-  class Api::V1::CheckoutsController < ApplicationController
+class Api::V1::CheckoutsController < ApplicationController
   before_action :authenticate_request!
 
   # @summary Start a Stripe Checkout session for a bid pack
@@ -88,7 +88,7 @@
         bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
 
         # Create a purchase record to prevent duplicate processing.
-        Purchase.create!(
+        purchase = Purchase.create!(
           user: @current_user,
           bid_pack: bid_pack,
           amount_cents: (bid_pack.price * 100).to_i,
@@ -98,8 +98,16 @@
           status: "completed"
         )
 
-        # Atomically increment the user's bid credits.
-        @current_user.increment!(:bid_credits, bid_pack.bids)
+        Credits::Apply.apply!(
+          user: @current_user,
+          reason: "bid_pack_purchase",
+          amount: bid_pack.bids,
+          purchase: purchase,
+          stripe_payment_intent_id: payment_intent_id,
+          stripe_checkout_session_id: session.id,
+          idempotency_key: "checkout_session:#{session.id}",
+          metadata: { source: "checkout_success" }
+        )
       end
 
       render json: { status: "success", message: "Purchase successful!", updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
@@ -113,5 +121,5 @@
   rescue ActiveRecord::RecordNotUnique
     # This handles a race condition where two requests try to process the same session simultaneously.
     render json: { status: "success", message: "This purchase has already been processed.", updated_bid_credits: @current_user.reload.bid_credits }, status: :ok
-  end
-  end
+end
+end

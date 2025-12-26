@@ -1,3 +1,5 @@
+require "securerandom"
+
 module Admin
   module Users
     class AdjustCredits < Admin::BaseCommand
@@ -11,13 +13,23 @@ module Admin
         return ServiceResult.fail("Delta must be non-zero", code: :invalid_delta) if @delta.zero?
 
         @user.with_lock do
-          old_balance = @user.bid_credits.to_i
-          new_balance = old_balance + @delta
-          return insufficient_balance(old_balance) if new_balance.negative?
+          derived_balance = Credits::Balance.for_user(@user)
+          new_balance = derived_balance + @delta
+          return insufficient_balance(derived_balance) if new_balance.negative?
 
-          @user.update!(bid_credits: new_balance)
+          CreditTransaction.create!(
+            user: @user,
+            admin_actor: @actor,
+            kind: :adjustment,
+            amount: @delta,
+            reason: @reason.presence || "admin adjustment",
+            idempotency_key: SecureRandom.uuid,
+            metadata: { request_path: @request&.path }.compact
+          )
+
+          updated_balance = Credits::RebuildBalance.call!(user: @user, lock: false)
           AuditLogger.log(action: "user.adjust_credits", actor: @actor, target: @user, payload: { delta: @delta, reason: @reason }, request: @request)
-          log_outcome(success: true, old_balance: old_balance, new_balance: new_balance)
+          log_outcome(success: true, old_balance: derived_balance, new_balance: updated_balance)
           ServiceResult.ok(code: :ok, message: "Credits adjusted", record: @user, data: { user: @user })
         end
       rescue ActiveRecord::RecordInvalid => e

@@ -1,3 +1,5 @@
+require "securerandom"
+
 module Billing
   class PurchaseBidPack
     def initialize(user:, bid_pack:, payment_intent_id: nil, checkout_session_id: nil)
@@ -28,7 +30,16 @@ module Billing
         )
         purchase.save!
 
-        Credits::Apply.apply!(user: @user, reason: "bid_pack_purchase", amount: @bid_pack.bids)
+        Credits::Apply.apply!(
+          user: @user,
+          reason: "bid_pack_purchase",
+          amount: @bid_pack.bids,
+          purchase: purchase,
+          stripe_payment_intent_id: @payment_intent_id,
+          stripe_checkout_session_id: @checkout_session_id,
+          idempotency_key: idempotency_key,
+          metadata: { source: "billing_purchase_bid_pack" }
+        )
         AppLogger.log(
           event: "billing.purchase_bid_pack",
           user_id: @user.id,
@@ -71,6 +82,13 @@ module Billing
 
     def amount_cents
       (@bid_pack.price.to_d * 100).to_i
+    end
+
+    def idempotency_key
+      return "stripe:payment_intent:#{@payment_intent_id}" if @payment_intent_id.present?
+      return "stripe:checkout_session:#{@checkout_session_id}" if @checkout_session_id.present?
+
+      SecureRandom.uuid
     end
   end
 end

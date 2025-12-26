@@ -30,6 +30,7 @@ module Stripe
       private
 
       attr_reader :event
+      attr_reader :persisted_event
 
       def supported_event?
         SUPPORTED_TYPES.include?(event.type)
@@ -82,7 +83,16 @@ module Stripe
             )
             purchase.save!
 
-            user.update!(bid_credits: user.bid_credits + bid_pack.bids)
+            Credits::Apply.apply!(
+              user: user,
+              reason: "bid_pack_purchase",
+              amount: bid_pack.bids,
+              purchase: purchase,
+              stripe_event: persisted_event,
+              stripe_payment_intent_id: payment_intent_id,
+              idempotency_key: "stripe:payment_intent:#{payment_intent_id}",
+              metadata: { source: "stripe_webhook" }
+            )
             log_payment_applied(user:, bid_pack:, purchase:, payment_intent_id:)
 
             ServiceResult.ok(code: :processed, message: "Payment applied", data: { purchase: purchase })
@@ -101,7 +111,7 @@ module Stripe
       end
 
       def persist_event!
-        StripeEvent.create!(
+        @persisted_event ||= StripeEvent.create!(
           stripe_event_id: event.id,
           event_type: event.type,
           payload: event_payload,

@@ -14,12 +14,13 @@ module Auctions
       @user = user
       @auction = auction
       @bid = nil
+      @starting_price = auction.current_price
+      @bid_amount = @starting_price + BID_INCREMENT
     end
 
     def call(broadcast: true)
       validate_auction!
       ensure_user_has_credits!
-      capture_bid_amount!
 
       with_lock_and_retries do
         persist_bid!
@@ -49,11 +50,7 @@ module Auctions
     end
 
     def ensure_user_has_credits!
-      raise InsufficientCreditsError if @user.bid_credits <= 0
-    end
-
-    def capture_bid_amount!
-      @bid_amount = @auction.current_price + BID_INCREMENT
+      raise InsufficientCreditsError if Credits::Balance.for_user(@user) <= 0
     end
 
     def bid_amount
@@ -76,12 +73,16 @@ module Auctions
     end
 
     def persist_bid!
-      raise BidRaceLostError if @auction.current_price >= bid_amount
+      @auction.reload(lock: true)
+      current = @auction.current_price
+      raise BidRaceLostError if current != @starting_price
+      raise BidRaceLostError if current >= bid_amount
 
       debit_user_credits!
       @bid = @auction.bids.create!(user: @user, amount: bid_amount)
-      AppLogger.log(event: "bid.saved", auction_id: @auction.id, bid_id: @bid.id, user_id: @user.id, amount: bid_amount)
+
       @auction.update!(current_price: bid_amount, winning_user: @user)
+      AppLogger.log(event: "bid.saved", auction_id: @auction.id, bid_id: @bid.id, user_id: @user.id, amount: bid_amount)
     end
 
     def debit_user_credits!
