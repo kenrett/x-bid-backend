@@ -33,6 +33,10 @@ Rails.application.routes.draw do
       post "/stripe/webhooks", to: "stripe_webhooks#create"
       # Maintenance mode
       get "/maintenance", to: "maintenance#show"
+
+      # Wallet (credits)
+      get "/wallet", to: "wallet#show"
+      get "/wallet/transactions", to: "wallet#transactions"
       namespace :admin do
         get "/maintenance", to: "maintenance#show"
         post "/maintenance", to: "maintenance#update"
