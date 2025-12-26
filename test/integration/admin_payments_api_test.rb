@@ -44,7 +44,7 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     assert payment["created_at"].present?
     assert_equal purchase.stripe_checkout_session_id, payment["stripe_checkout_session_id"]
     assert_equal purchase.stripe_payment_intent_id, payment["stripe_payment_intent_id"]
-    assert_equal purchase.stripe_event_id, payment["stripe_event_id"]
+    assert_nil payment["stripe_event_id"]
   end
 
   test "filters payments by user email search" do
