@@ -92,6 +92,32 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
     t.check_constraint "amount >= 0::numeric", name: "bids_amount_non_negative"
   end
 
+  create_table "credit_transactions", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "kind", null: false
+    t.integer "amount", null: false
+    t.string "reason", null: false
+    t.string "idempotency_key", null: false
+    t.bigint "purchase_id"
+    t.bigint "auction_id"
+    t.bigint "admin_actor_id"
+    t.bigint "stripe_event_id"
+    t.string "stripe_payment_intent_id"
+    t.string "stripe_checkout_session_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["admin_actor_id"], name: "index_credit_transactions_on_admin_actor_id"
+    t.index ["auction_id"], name: "index_credit_transactions_on_auction_id"
+    t.index ["idempotency_key"], name: "unique_index_credit_transactions_on_idempotency_key", unique: true
+    t.index ["purchase_id"], name: "index_credit_transactions_on_purchase_id"
+    t.index ["stripe_checkout_session_id"], name: "index_credit_transactions_on_stripe_checkout_session_id"
+    t.index ["stripe_event_id"], name: "index_credit_transactions_on_stripe_event_id"
+    t.index ["stripe_payment_intent_id"], name: "index_credit_transactions_on_stripe_payment_intent_id"
+    t.index ["user_id", "created_at"], name: "index_credit_transactions_on_user_id_created_at"
+    t.index ["user_id"], name: "index_credit_transactions_on_user_id"
+  end
+
   create_table "maintenance_settings", force: :cascade do |t|
     t.string "key", null: false
     t.boolean "enabled", default: false, null: false
@@ -181,6 +207,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
   add_foreign_key "audit_logs", "users", column: "actor_id"
   add_foreign_key "bids", "auctions"
   add_foreign_key "bids", "users"
+  add_foreign_key "credit_transactions", "auctions"
+  add_foreign_key "credit_transactions", "purchases"
+  add_foreign_key "credit_transactions", "stripe_events"
+  add_foreign_key "credit_transactions", "users"
+  add_foreign_key "credit_transactions", "users", column: "admin_actor_id"
   add_foreign_key "password_reset_tokens", "users"
   add_foreign_key "purchases", "bid_packs"
   add_foreign_key "purchases", "users"
