@@ -22,6 +22,9 @@ class CreditsDebitTest < ActiveSupport::TestCase
     end
 
     assert_equal 1, CreditTransaction.where(idempotency_key: key).count
+    debit = CreditTransaction.find_by!(idempotency_key: key)
+    assert_equal "debit", debit.kind
+    assert_equal @auction.id, debit.auction_id
     assert_equal 0, Credits::Balance.for_user(@user.reload)
     assert_equal 0, @user.reload.bid_credits
   end

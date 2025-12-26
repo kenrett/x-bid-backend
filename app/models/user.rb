@@ -13,6 +13,8 @@ class User < ApplicationRecord
   normalizes :email_address, with: ->(e) { e.strip.downcase }
 
   validates :email_address, :role, :status, :password_digest, presence: true
+  # `bid_credits` is a cached balance; write through the credit ledger (Credits::Apply/Debit)
+  # and use Credits::RebuildBalance to recompute from the ledger when needed.
   validates :bid_credits, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
   def disable_and_revoke_sessions!

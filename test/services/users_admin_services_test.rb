@@ -82,6 +82,7 @@ class UsersAdminServicesTest < ActiveSupport::TestCase
 
     assert result.ok?
     assert_equal 5, @user.reload.bid_credits
+    assert_equal 1, CreditTransaction.where(user_id: @user.id, kind: "adjustment", amount: 5).count
     assert_equal "admin.users.adjust_credits", logged.last[:event]
     assert_equal true, logged.last[:success]
     assert_equal 5, logged.last[:delta]
