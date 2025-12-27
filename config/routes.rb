@@ -16,6 +16,8 @@ Rails.application.routes.draw do
 
         member do
           post :extend_time
+          post :watch, to: "auction_watches#create"
+          delete :watch, to: "auction_watches#destroy"
         end
       end
 
@@ -39,6 +41,7 @@ Rails.application.routes.draw do
       get "/wallet/transactions", to: "wallet#transactions"
 
       resources :purchases, only: [ :index, :show ]
+      get "/me/activity", to: "me/activity#index"
 
       namespace :admin do
         get "/maintenance", to: "maintenance#show"

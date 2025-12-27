@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_27_195500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -33,6 +33,16 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
     t.index ["status"], name: "index_auction_settlements_on_status"
     t.index ["winning_bid_id"], name: "index_auction_settlements_on_winning_bid_id"
     t.index ["winning_user_id"], name: "index_auction_settlements_on_winning_user_id"
+  end
+
+  create_table "auction_watches", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "auction_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["auction_id"], name: "index_auction_watches_on_auction_id"
+    t.index ["user_id", "auction_id"], name: "index_auction_watches_on_user_id_and_auction_id", unique: true
+    t.index ["user_id"], name: "index_auction_watches_on_user_id"
   end
 
   create_table "auctions", force: :cascade do |t|
@@ -203,6 +213,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_16_144942) do
   add_foreign_key "auction_settlements", "auctions"
   add_foreign_key "auction_settlements", "bids", column: "winning_bid_id"
   add_foreign_key "auction_settlements", "users", column: "winning_user_id"
+  add_foreign_key "auction_watches", "auctions"
+  add_foreign_key "auction_watches", "users"
   add_foreign_key "auctions", "users", column: "winning_user_id"
   add_foreign_key "audit_logs", "users", column: "actor_id"
   add_foreign_key "bids", "auctions"
