@@ -5,9 +5,9 @@
 
 # Read more: https://github.com/cyu/rack-cors
 
-frontend_origins = [
-  Rails.application.credentials.frontend_origins&.split(",")
-].compact.flatten.map(&:strip).reject(&:empty?)
+require Rails.root.join("app/lib/frontend_origins")
+
+frontend_origins = FrontendOrigins.for_env!
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do

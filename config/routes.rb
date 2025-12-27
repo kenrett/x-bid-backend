@@ -37,6 +37,7 @@ Rails.application.routes.draw do
       # Wallet (credits)
       get "/wallet", to: "wallet#show"
       get "/wallet/transactions", to: "wallet#transactions"
+
       namespace :admin do
         get "/maintenance", to: "maintenance#show"
         post "/maintenance", to: "maintenance#update"

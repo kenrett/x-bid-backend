@@ -82,9 +82,8 @@ Rails.application.configure do
   # -----------------------------
   # ACTION CABLE
   # -----------------------------
-  frontend_origins = [
-    Rails.application.credentials.frontend_origins&.split(",")
-  ].compact.flatten.map(&:strip).reject(&:empty?)
+  require Rails.root.join("app/lib/frontend_origins")
+  frontend_origins = FrontendOrigins.for_env!
 
   config.action_cable.url = ENV.fetch("ACTION_CABLE_URL", "wss://x-bid-backend.onrender.com/cable")
   config.action_cable.allowed_request_origins = [

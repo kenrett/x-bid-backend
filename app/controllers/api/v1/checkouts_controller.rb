@@ -1,3 +1,6 @@
+require "uri"
+require Rails.root.join("app/lib/frontend_origins")
+
 class Api::V1::CheckoutsController < ApplicationController
   before_action :authenticate_request!
 
@@ -13,16 +16,16 @@ class Api::V1::CheckoutsController < ApplicationController
     # debugger
 
     begin
-      # Stripe redirects the user here after they complete the payment flow.
-      return_url = "#{Rails.application.credentials.frontend_origins&.split(",")&.first || 'http://localhost:5173'}/purchase-status?session_id={CHECKOUT_SESSION_ID}"
+      origin = resolve_frontend_origin
+      return_url = "#{origin}/purchase-status?session_id={CHECKOUT_SESSION_ID}"
 
       @session = Stripe::Checkout::Session.create({
         payment_method_types: [ "card" ],
         line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
+            {
+              price_data: {
+                currency: "usd",
+                product_data: {
                 name: bid_pack.name
               },
               unit_amount: (bid_pack.price * 100).to_i # Price in cents
@@ -114,5 +117,34 @@ class Api::V1::CheckoutsController < ApplicationController
     render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
   rescue ActiveRecord::RecordNotFound
     render json: { status: "error", error: "Bid pack not found or inactive." }, status: :not_found
+  end
+
+  def resolve_frontend_origin
+    allowed = FrontendOrigins.for_env!
+
+    origin = normalize_origin(request.headers["Origin"])
+    return origin if origin.present? && allowed.include?(origin)
+
+    referer_origin = normalize_origin(referer_origin_from(request.referer))
+    return referer_origin if referer_origin.present? && allowed.include?(referer_origin)
+
+    allowed.first
+  end
+
+  def referer_origin_from(referer)
+    return if referer.blank?
+
+    uri = URI.parse(referer.to_s)
+    return if uri.scheme.blank? || uri.host.blank?
+
+    default_port = uri.scheme == "https" ? 443 : 80
+    port_part = uri.port.present? && uri.port != default_port ? ":#{uri.port}" : ""
+    "#{uri.scheme}://#{uri.host}#{port_part}"
+  rescue URI::InvalidURIError
+    nil
+  end
+
+  def normalize_origin(origin)
+    origin.to_s.strip.delete_suffix("/").presence
   end
 end
