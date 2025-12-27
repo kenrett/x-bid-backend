@@ -33,6 +33,7 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = JSON.parse(response.body)
 
+    assert body.is_a?(Array)
     assert_equal 2, body.length
     assert_equal newer.id, body[0]["id"]
     assert_equal older.id, body[1]["id"]

@@ -8,9 +8,10 @@ module Api
       # @response Purchases (200) [Array<Purchase>]
       # @response Unauthorized (401) [Error]
       def index
-        result = Payments::Queries::PurchasesForUser.call(user: @current_user)
+        purchases = Payments::Queries::PurchasesForUser.call(user: @current_user).records
 
-        render json: result.records.map { |purchase| Api::V1::PurchaseSerializer.new(purchase).as_json }
+        # Use an explicit collection serializer + rootless adapter to avoid AMS root inference errors.
+        render json: purchases, each_serializer: Api::V1::PurchaseSerializer, adapter: :attributes
       end
 
       # GET /api/v1/purchases/:id
