@@ -38,6 +38,8 @@ Rails.application.routes.draw do
       get "/wallet", to: "wallet#show"
       get "/wallet/transactions", to: "wallet#transactions"
 
+      resources :purchases, only: [ :index, :show ]
+
       namespace :admin do
         get "/maintenance", to: "maintenance#show"
         post "/maintenance", to: "maintenance#update"
