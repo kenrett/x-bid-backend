@@ -149,6 +149,25 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_999")
   end
 
+  test "returns a clean error when payment is not completed" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_unpaid",
+      payment_status: "unpaid",
+      payment_intent: "pi_unpaid",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id)
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_unpaid" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "error", body["status"]
+    assert_equal "Payment not completed.", body["error"]
+  end
+
   private
 
   def auth_headers(user, session_token)

@@ -74,7 +74,9 @@ class Api::V1::CheckoutsController < ApplicationController
   # @response Validation error (422) [Error]
   def success
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
-    return render json: { status: "error", error: "Payment was not successful." }, status: :unprocessable_content unless session.payment_status == "paid"
+    unless session.payment_status == "paid"
+      return render json: { status: "error", error: "Payment not completed." }, status: :unprocessable_content
+    end
 
     ownership_error = validate_checkout_session_ownership(session)
     if ownership_error
