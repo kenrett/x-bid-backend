@@ -65,7 +65,7 @@ module Api
         # Issues a refund for a payment and records the refund ID from the gateway.
         # @parameter id(path) [Integer] ID of the payment
         # @request_body Refund payload (application/json) [PaymentRefundRequest]
-        # @response Refund issued (200) [Hash{ id: Integer, user_email: String, amount: Float, refunded_cents: Integer, status: String, created_at: String, refund_id: String }]
+        # @response Refund issued (200) [Hash{ id: Integer, user_email: String, amount: Float, refunded_cents: Integer, status: String, created_at: String, stripe_checkout_session_id: String, stripe_payment_intent_id: String, stripe_event_id: String, refund_id: String }]
         # @response Unauthorized (401) [Error]
         # @response Forbidden (403) [Error]
         # @response Not found (404) [Error]

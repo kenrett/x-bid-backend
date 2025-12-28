@@ -314,7 +314,7 @@ module OasSchemas
         amount_cents: { type: "integer", minimum: 0 },
         reason: { type: "string", nullable: true }
       },
-      required: %w[amount_cents]
+      required: []
     },
     "AdminUserUpdate" => {
       type: "object",
