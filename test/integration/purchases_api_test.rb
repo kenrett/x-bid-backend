@@ -23,12 +23,12 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "GET /api/v1/purchases returns only current user's purchases (newest first)" do
+  test "GET /api/v1/me/purchases returns only current user's purchases (newest first)" do
     older = create_purchase(user: @user, status: "pending", created_at: 2.days.ago)
     newer = create_purchase(user: @user, status: "completed", created_at: 1.day.ago)
     create_purchase(user: @other_user, status: "completed", created_at: 1.hour.ago)
 
-    get "/api/v1/purchases", headers: auth_headers(@user, @session_token)
+    get "/api/v1/me/purchases", headers: auth_headers(@user, @session_token)
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -48,20 +48,20 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
     assert_equal (@bid_pack.price * 100).to_i, body[0].dig("bid_pack", "price_cents")
   end
 
-  test "GET /api/v1/purchases/:id denies access to other user's purchase" do
+  test "GET /api/v1/me/purchases/:id denies access to other user's purchase" do
     purchase = create_purchase(user: @other_user, status: "completed")
 
-    get "/api/v1/purchases/#{purchase.id}", headers: auth_headers(@user, @session_token)
+    get "/api/v1/me/purchases/#{purchase.id}", headers: auth_headers(@user, @session_token)
 
     assert_response :not_found
     body = JSON.parse(response.body)
     assert_equal "not_found", body["error_code"]
   end
 
-  test "GET /api/v1/purchases/:id returns purchase detail for current user" do
+  test "GET /api/v1/me/purchases/:id returns purchase detail for current user" do
     purchase = create_purchase(user: @user, status: "failed")
 
-    get "/api/v1/purchases/#{purchase.id}", headers: auth_headers(@user, @session_token)
+    get "/api/v1/me/purchases/#{purchase.id}", headers: auth_headers(@user, @session_token)
 
     assert_response :success
     body = JSON.parse(response.body)

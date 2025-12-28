@@ -40,7 +40,6 @@ Rails.application.routes.draw do
       get "/wallet", to: "wallet#show"
       get "/wallet/transactions", to: "wallet#transactions"
 
-      resources :purchases, only: [ :index, :show ]
       get "/me/purchases", to: "me/purchases#index"
       get "/me/purchases/:id", to: "me/purchases#show"
       get "/me/activity", to: "me/activity#index"
