@@ -4,7 +4,8 @@ module Stripe
       SUPPORTED_TYPES = [
         "payment_intent.succeeded",
         "payment_intent.payment_failed",
-        "charge.refunded"
+        "charge.refunded",
+        "checkout.session.completed"
       ].freeze
 
       def self.call(event:)
@@ -49,9 +50,87 @@ module Stripe
           handle_payment_intent_failed
         when "charge.refunded"
           handle_charge_refunded
+        when "checkout.session.completed"
+          handle_checkout_session_completed
         else
           ServiceResult.ok(code: :ignored, message: "Unhandled event type: #{event.type}")
         end
+      end
+
+      def handle_checkout_session_completed
+        session = stripe_object_data
+        session_hash =
+          if session.is_a?(Hash)
+            session
+          elsif session.respond_to?(:to_hash)
+            session.to_hash
+          elsif session.respond_to?(:as_json)
+            session.as_json
+          else
+            {}
+          end
+
+        session_data = (session_hash || {}).with_indifferent_access
+
+        payment_status = session_data[:payment_status].to_s
+        return ServiceResult.ok(code: :ignored, message: "Checkout session not paid", data: { payment_status: payment_status }) unless payment_status == "paid"
+
+        metadata = (session_data[:metadata] || {}).with_indifferent_access
+        user_id = metadata[:user_id]
+        bid_pack_id = metadata[:bid_pack_id]
+        return ServiceResult.fail("Missing metadata on checkout session", code: :missing_metadata) if user_id.blank? || bid_pack_id.blank?
+
+        user = User.find_by(id: user_id)
+        bid_pack = BidPack.find_by(id: bid_pack_id)
+        return ServiceResult.fail("User not found for checkout session", code: :user_not_found) unless user
+        return ServiceResult.fail("Bid pack not found for checkout session", code: :bid_pack_not_found) unless bid_pack
+
+        stripe_event_id = event.respond_to?(:id) ? event.id : nil
+        checkout_session_id = session_data[:id].presence
+        stripe_payment_intent_id = session_data[:payment_intent].presence
+
+        amount_total = session_data[:amount_total]
+        amount_cents = amount_total.present? ? amount_total.to_i : (bid_pack.price.to_d * 100).to_i
+        currency = (session_data[:currency].presence || "usd").to_s
+
+        result = Payments::ApplyBidPackPurchase.call!(
+          user: user,
+          bid_pack: bid_pack,
+          stripe_checkout_session_id: checkout_session_id,
+          stripe_payment_intent_id: stripe_payment_intent_id,
+          stripe_event_id: stripe_event_id,
+          amount_cents: amount_cents,
+          currency: currency,
+          source: "stripe_webhook_checkout_session_completed"
+        )
+
+        unless result.ok?
+          AppLogger.log(
+            event: "stripe.checkout_session_completed.purchase_not_created",
+            level: :error,
+            stripe_event_id: stripe_event_id,
+            checkout_session_id: checkout_session_id,
+            payment_intent_id: stripe_payment_intent_id,
+            code: result.code,
+            message: result.message
+          )
+          raise "Stripe checkout session completed but purchase was not created"
+        end
+
+        purchase = result.purchase
+        unless purchase&.persisted?
+          AppLogger.log(
+            event: "stripe.checkout_session_completed.purchase_not_created",
+            level: :error,
+            stripe_event_id: stripe_event_id,
+            checkout_session_id: checkout_session_id,
+            payment_intent_id: stripe_payment_intent_id
+          )
+          raise "Stripe checkout session completed but purchase was not created"
+        end
+
+        log_payment_applied(user:, bid_pack:, purchase:, payment_intent_id: stripe_payment_intent_id)
+        result
       end
 
       def handle_payment_intent_succeeded

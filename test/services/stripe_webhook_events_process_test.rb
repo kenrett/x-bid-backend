@@ -253,4 +253,158 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
   end
+
+  test "creates purchase and credits user on checkout.session.completed" do
+    payload = {
+      id: "evt_cs_123",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_123",
+          payment_status: "paid",
+          payment_intent: "pi_cs_123",
+          metadata: { user_id: @user.id, bid_pack_id: @bid_pack.id },
+          amount_total: 600,
+          currency: "usd"
+        }
+      }
+    }
+
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+
+    assert result.success?, "Expected processing to succeed"
+    purchase = Purchase.find_by(stripe_checkout_session_id: "cs_123")
+    assert_not_nil purchase, "Purchase should be created"
+    assert_equal "completed", purchase.status
+    assert_equal "pi_cs_123", purchase.stripe_payment_intent_id
+    assert_equal 600, purchase.amount_cents
+    assert_equal @bid_pack.id, purchase.bid_pack_id
+    assert_equal @user.id, purchase.user_id
+    assert_equal @bid_pack.bids, @user.reload.bid_credits
+    assert_equal 1, StripeEvent.where(stripe_event_id: "evt_cs_123").count
+    assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+  end
+
+  test "checkout.session.completed duplicate deliveries are idempotent" do
+    payload = {
+      id: "evt_cs_dup",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_dup",
+          payment_status: "paid",
+          payment_intent: "pi_cs_dup",
+          metadata: { user_id: @user.id, bid_pack_id: @bid_pack.id },
+          amount_total: 500,
+          currency: "usd"
+        }
+      }
+    }
+
+    first = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+    assert first.ok?
+    credits_after_first = @user.reload.bid_credits
+
+    second = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+    assert second.ok?
+    assert_equal :duplicate, second.code
+    assert_equal true, second.data[:idempotent]
+    assert_equal credits_after_first, @user.reload.bid_credits
+    assert_equal 1, Purchase.where(stripe_checkout_session_id: "cs_dup").count
+    assert_equal 1, StripeEvent.where(stripe_event_id: "evt_cs_dup").count
+  end
+
+  test "checkout.session.completed fails when metadata is missing" do
+    payload = {
+      id: "evt_cs_missing_meta",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_missing_meta",
+          payment_status: "paid",
+          payment_intent: "pi_missing_meta",
+          metadata: nil,
+          amount_total: 500,
+          currency: "usd"
+        }
+      }
+    }
+
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+
+    refute result.ok?
+    assert_equal :missing_metadata, result.code
+    assert_equal 0, Purchase.where(stripe_checkout_session_id: "cs_missing_meta").count
+    assert_equal 0, @user.reload.bid_credits
+  end
+
+  test "checkout.session.completed fails when user is missing" do
+    payload = {
+      id: "evt_cs_missing_user",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_missing_user",
+          payment_status: "paid",
+          payment_intent: "pi_missing_user",
+          metadata: { user_id: 999_999, bid_pack_id: @bid_pack.id },
+          amount_total: 500,
+          currency: "usd"
+        }
+      }
+    }
+
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+
+    refute result.ok?
+    assert_equal :user_not_found, result.code
+    assert_equal 0, Purchase.where(stripe_checkout_session_id: "cs_missing_user").count
+  end
+
+  test "checkout.session.completed fails when bid pack is missing" do
+    payload = {
+      id: "evt_cs_missing_bid_pack",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_missing_bid_pack",
+          payment_status: "paid",
+          payment_intent: "pi_missing_bid_pack",
+          metadata: { user_id: @user.id, bid_pack_id: 999_999 },
+          amount_total: 500,
+          currency: "usd"
+        }
+      }
+    }
+
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+
+    refute result.ok?
+    assert_equal :bid_pack_not_found, result.code
+    assert_equal 0, Purchase.where(stripe_checkout_session_id: "cs_missing_bid_pack").count
+  end
+
+  test "checkout.session.completed ignores sessions that are not paid" do
+    payload = {
+      id: "evt_cs_unpaid",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_unpaid",
+          payment_status: "unpaid",
+          payment_intent: "pi_unpaid",
+          metadata: { user_id: @user.id, bid_pack_id: @bid_pack.id },
+          amount_total: 500,
+          currency: "usd"
+        }
+      }
+    }
+
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+
+    assert result.ok?
+    assert_equal :ignored, result.code
+    assert_equal 0, Purchase.where(stripe_checkout_session_id: "cs_unpaid").count
+    assert_equal 0, @user.reload.bid_credits
+  end
 end
