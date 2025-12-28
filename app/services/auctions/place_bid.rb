@@ -82,6 +82,7 @@ module Auctions
       @bid = @auction.bids.create!(user: @user, amount: bid_amount)
 
       @auction.update!(current_price: bid_amount, winning_user: @user)
+      record_bid_spent_money_event!
       AppLogger.log(event: "bid.saved", auction_id: @auction.id, bid_id: @bid.id, user_id: @user.id, amount: bid_amount)
     end
 
@@ -91,6 +92,17 @@ module Auctions
         auction: @auction,
         idempotency_key: "bid_debit:user:#{@user.id}:auction:#{@auction.id}:amount:#{bid_amount}",
         locked: true
+      )
+    end
+
+    def record_bid_spent_money_event!
+      MoneyEvents::Record.call(
+        user: @user,
+        event_type: :bid_spent,
+        amount_cents: -1,
+        currency: "usd",
+        source: @bid,
+        occurred_at: Time.current
       )
     end
 

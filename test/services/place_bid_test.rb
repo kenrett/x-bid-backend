@@ -30,6 +30,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal expected_price, @auction.reload.current_price
     assert_equal @user1.id, @auction.reload.winning_user.id
     assert_equal @user1.name, @auction.reload.winning_user.name
+    assert_equal 1, MoneyEvent.where(event_type: :bid_spent, source_type: "Bid", source_id: result.bid.id.to_s).count
   end
 
   test "publishes bid placed domain event" do
@@ -74,6 +75,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     refute result.success?
     assert_equal :auction_not_active, result.code
     assert_equal "Auction is not active", result.error
+    assert_equal 0, MoneyEvent.where(event_type: :bid_spent, user: @user1).count
   end
 
   test "should fail if user has insufficient bid credits" do
@@ -84,6 +86,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     refute result.success?
     assert_equal :insufficient_credits, result.code
     assert_equal "Insufficient bid credits", result.error
+    assert_equal 0, MoneyEvent.where(event_type: :bid_spent, user: @user1).count
   end
 
   test "does not publish event on failure" do
@@ -138,6 +141,7 @@ class PlaceBidTest < ActiveSupport::TestCase
     refute result.success?
     assert_equal :bid_invalid, result.code
     assert_equal "Bid could not be placed: #{error_message}", result.error
+    assert_equal 0, MoneyEvent.where(event_type: :bid_spent, user: @user1).count
   end
 
   test "should extend auction if bid arrives in last 10 seconds" do
@@ -185,6 +189,9 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal winner.bid.amount, @auction.reload.current_price
     assert_equal :bid_race_lost, loser.code
     assert_match /Another bid was placed first/, loser.error
+    assert_equal 1, MoneyEvent.where(event_type: :bid_spent).count
+    assert_equal 1, MoneyEvent.where(event_type: :bid_spent, user_id: winner.bid.user_id).count
+    assert_equal(-1, MoneyEvent.where(event_type: :bid_spent).sum(:amount_cents))
   end
 
   test "only one user wins when bidding concurrently" do
@@ -243,11 +250,40 @@ class PlaceBidTest < ActiveSupport::TestCase
     assert_equal 1, bids.count, "Only one bid should persist"
     assert_equal bids.last.amount, @auction.current_price
     assert_equal 9, @user1.bid_credits + @user2.bid_credits, "Exactly one credit should be consumed"
+    assert_equal 1, MoneyEvent.where(event_type: :bid_spent).count
+    assert_equal(-1, MoneyEvent.where(event_type: :bid_spent).sum(:amount_cents))
 
     winners = results.select(&:success?)
     losers = results.reject(&:success?)
     assert_equal 1, winners.size
     assert_equal 1, losers.size
     assert_equal :bid_race_lost, losers.first.code
+  end
+
+  test "concurrent bids by the same user do not double-spend credits and reconcile with MoneyEvents" do
+    @auction.update!(current_price: 0.0)
+    @user1.update!(bid_credits: 2)
+
+    service1 = Auctions::PlaceBid.new(user: @user1, auction: @auction)
+    service2 = Auctions::PlaceBid.new(user: @user1, auction: @auction)
+
+    queue = Queue.new
+    results = []
+    threads = [
+      Thread.new { ActiveRecord::Base.connection_pool.with_connection { queue.pop; results << service1.call } },
+      Thread.new { ActiveRecord::Base.connection_pool.with_connection { queue.pop; results << service2.call } }
+    ]
+
+    sleep 0.1
+    queue.close
+    threads.each(&:join)
+
+    @user1.reload
+    @auction.reload
+
+    assert_equal 1, @auction.bids.count
+    assert_equal 1, MoneyEvent.where(event_type: :bid_spent, user: @user1).count
+    assert_equal(-1, MoneyEvent.where(event_type: :bid_spent, user: @user1).sum(:amount_cents))
+    assert_equal 1, @user1.bid_credits
   end
 end
