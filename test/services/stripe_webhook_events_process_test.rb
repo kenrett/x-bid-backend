@@ -19,7 +19,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
 
   def setup
     @user = User.create!(name: "Buyer", email_address: "buyer@example.com", password: "password", bid_credits: 0, role: :user)
-    @bid_pack = BidPack.create!(name: "Starter Pack", bids: 10, price: 5.00, active: true, status: :active)
+    @bid_pack = BidPack.create!(name: "Starter Pack", bids: 500, price: 5.00, active: true, status: :active)
     @event_payload = {
       id: "evt_123",
       type: "payment_intent.succeeded",
@@ -50,11 +50,13 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal @bid_pack.bids, @user.reload.bid_credits
     assert_equal 1, StripeEvent.where(stripe_event_id: "evt_123").count
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
   end
 
   test "is idempotent when the same Stripe event is replayed" do
     Stripe::WebhookEvents::Process.call(event: @event)
     credits_after_first = @user.reload.bid_credits
+    money_events_after_first = MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
 
     duplicate_event = FakeStripeEvent.new(@event_payload)
     result = Stripe::WebhookEvents::Process.call(event: duplicate_event)
@@ -63,6 +65,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal :duplicate, result.code
     assert_equal true, result.data[:idempotent]
     assert_equal credits_after_first, @user.reload.bid_credits, "Credits should not change on replay"
+    assert_equal money_events_after_first, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
     assert_equal 1, StripeEvent.where(stripe_event_id: "evt_123").count
   end
@@ -70,6 +73,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
   test "does not double-credit when different Stripe events reference the same payment intent" do
     Stripe::WebhookEvents::Process.call(event: @event)
     credits_after_first = @user.reload.bid_credits
+    money_events_after_first = MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
 
     second_payload = @event_payload.deep_dup
     second_payload[:id] = "evt_124"
@@ -78,6 +82,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
 
     assert result.success?
     assert_equal credits_after_first, @user.reload.bid_credits
+    assert_equal money_events_after_first, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
     assert_equal 2, StripeEvent.where(stripe_event_id: [ "evt_123", "evt_124" ]).count
   end
@@ -94,14 +99,16 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
       source: "checkout_success"
     )
     assert checkout_result.ok?
-    assert_equal 10, @user.reload.bid_credits
+    assert_equal 500, @user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
 
     webhook_payload = @event_payload.deep_dup
     webhook_payload[:id] = "evt_125"
     webhook_event = FakeStripeEvent.new(webhook_payload)
     webhook_result = Stripe::WebhookEvents::Process.call(event: webhook_event)
     assert webhook_result.ok?
-    assert_equal 10, @user.reload.bid_credits
+    assert_equal 500, @user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
 
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
     purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_123")
@@ -110,7 +117,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
 
   test "webhook then checkout success does not double-credit" do
     user = User.create!(name: "Buyer 2", email_address: "buyer2@example.com", password: "password", bid_credits: 0, role: :user)
-    bid_pack = BidPack.create!(name: "Starter Pack 2", bids: 10, price: 5.00, active: true, status: :active)
+    bid_pack = BidPack.create!(name: "Starter Pack 2", bids: 500, price: 5.00, active: true, status: :active)
 
     payload = @event_payload.deep_dup
     payload[:id] = "evt_126"
@@ -119,7 +126,8 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
 
     webhook_result = Stripe::WebhookEvents::Process.call(event: event)
     assert webhook_result.ok?
-    assert_equal 10, user.reload.bid_credits
+    assert_equal 500, user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
 
     checkout_result = Payments::ApplyBidPackPurchase.call!(
       user: user,
@@ -133,7 +141,8 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     )
 
     assert checkout_result.ok?
-    assert_equal 10, user.reload.bid_credits
+    assert_equal 500, user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
   end
 end

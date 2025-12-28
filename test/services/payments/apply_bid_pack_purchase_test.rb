@@ -5,7 +5,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
 
   setup do
     @user = User.create!(email_address: "buyer@example.com", password: "password", role: :user, bid_credits: 0)
-    @bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 10, price: 1.0, active: true)
+    @bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 100, price: 1.0, active: true)
     clear_enqueued_jobs
     clear_performed_jobs
   end
@@ -50,7 +50,8 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
     purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_123")
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
-    assert_equal 10, @user.reload.bid_credits
+    assert_equal 100, @user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
   end
 
   test "repairs when purchase exists but credit grant is missing" do
@@ -85,6 +86,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal false, result.idempotent
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_456").count
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
-    assert_equal 10, @user.reload.bid_credits
+    assert_equal 100, @user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_456").count
   end
 end

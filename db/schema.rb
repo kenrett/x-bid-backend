@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_28_004000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_28_005000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -164,12 +164,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_004000) do
     t.integer "amount_cents", null: false
     t.string "currency", null: false
     t.string "source_type"
-    t.bigint "source_id"
+    t.string "source_id"
     t.jsonb "metadata"
     t.datetime "occurred_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["event_type"], name: "index_money_events_on_event_type"
+    t.index ["source_type", "source_id", "event_type"], name: "uniq_money_events_source_type_source_id_event_type", unique: true
     t.index ["source_type", "source_id"], name: "index_money_events_on_source"
     t.index ["user_id", "occurred_at"], name: "index_money_events_on_user_id_occurred_at"
     t.index ["user_id"], name: "index_money_events_on_user_id"

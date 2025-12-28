@@ -63,6 +63,20 @@ module Payments
               purchase.save!
             end
 
+            record_purchase_money_event!(
+              user: user,
+              amount_cents: amount_cents,
+              currency: currency,
+              stripe_payment_intent_id: stripe_payment_intent_id,
+              occurred_at: Time.current,
+              metadata: {
+                purchase_id: purchase.id,
+                stripe_event_id: stripe_event_id,
+                stripe_checkout_session_id: stripe_checkout_session_id,
+                source: source
+              }
+            )
+
             credit_idempotency_key = "purchase:#{purchase.id}:grant"
             credit_already_exists = CreditTransaction.exists?(idempotency_key: credit_idempotency_key)
 
@@ -182,6 +196,25 @@ module Payments
           error: e,
           stripe_payment_intent_id: payment_intent_id
         )
+        nil
+      end
+
+      def record_purchase_money_event!(user:, amount_cents:, currency:, stripe_payment_intent_id:, occurred_at:, metadata:)
+        return if stripe_payment_intent_id.blank?
+
+        MoneyEvent.transaction(requires_new: true) do
+          MoneyEvent.create!(
+            user: user,
+            event_type: :purchase,
+            amount_cents: amount_cents.to_i,
+            currency: currency.to_s,
+            source_type: "StripePaymentIntent",
+            source_id: stripe_payment_intent_id.to_s,
+            occurred_at: occurred_at,
+            metadata: metadata
+          )
+        end
+      rescue ActiveRecord::RecordNotUnique
         nil
       end
     end
