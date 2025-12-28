@@ -84,7 +84,48 @@ class Api::V1::CheckoutsController < ApplicationController
     end
 
     payment_intent_id = session.payment_intent
-    bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
+    metadata = session.respond_to?(:metadata) ? session.metadata : nil
+    metadata_bid_pack_id = metadata&.respond_to?(:bid_pack_id) ? metadata.bid_pack_id.to_s.presence : nil
+    return render json: { status: "error", error: "Checkout session is missing bid pack metadata." }, status: :unprocessable_content if metadata_bid_pack_id.blank?
+
+    requested_bid_pack_id = params[:bid_pack_id].to_s.presence || metadata_bid_pack_id
+    bid_pack = BidPack.active.find(requested_bid_pack_id)
+
+    if bid_pack.id.to_s != metadata_bid_pack_id
+      AppLogger.log(
+        event: "stripe.checkout.bid_pack_mismatch",
+        level: :error,
+        user_id: @current_user.id,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: payment_intent_id,
+        requested_bid_pack_id: requested_bid_pack_id,
+        metadata_bid_pack_id: metadata_bid_pack_id
+      )
+      return render json: { status: "error", error: "Checkout session bid pack mismatch." }, status: :unprocessable_content
+    end
+
+    expected_amount_cents = (bid_pack.price.to_d * 100).to_i
+    amount_total = session.respond_to?(:amount_total) ? session.amount_total : nil
+    amount_subtotal = session.respond_to?(:amount_subtotal) ? session.amount_subtotal : nil
+    amount_from_session = amount_total || amount_subtotal
+    amount_cents = amount_from_session.present? ? amount_from_session.to_i : expected_amount_cents
+
+    if amount_cents != expected_amount_cents
+      AppLogger.log(
+        event: "stripe.checkout.amount_mismatch",
+        level: :error,
+        user_id: @current_user.id,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: payment_intent_id,
+        bid_pack_id: bid_pack.id,
+        expected_amount_cents: expected_amount_cents,
+        stripe_amount_cents: amount_cents
+      )
+      return render json: { status: "error", error: "Checkout session amount mismatch." }, status: :unprocessable_content
+    end
+
+    currency = session.respond_to?(:currency) ? session.currency.to_s.presence : nil
+    currency ||= "usd"
 
     begin
       result = Payments::ApplyBidPackPurchase.call!(
@@ -93,8 +134,8 @@ class Api::V1::CheckoutsController < ApplicationController
         stripe_checkout_session_id: session.id,
         stripe_payment_intent_id: payment_intent_id,
         stripe_event_id: nil,
-        amount_cents: (bid_pack.price * 100).to_i,
-        currency: "usd",
+        amount_cents: amount_cents,
+        currency: currency,
         source: "checkout_success"
       )
     rescue ActiveRecord::RecordNotUnique
@@ -104,8 +145,8 @@ class Api::V1::CheckoutsController < ApplicationController
         stripe_checkout_session_id: session.id,
         stripe_payment_intent_id: payment_intent_id,
         stripe_event_id: nil,
-        amount_cents: (bid_pack.price * 100).to_i,
-        currency: "usd",
+        amount_cents: amount_cents,
+        currency: currency,
         source: "checkout_success"
       )
     end

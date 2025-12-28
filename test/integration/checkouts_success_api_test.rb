@@ -3,7 +3,17 @@ require "jwt"
 require "ostruct"
 
 class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
-  FakeCheckoutSession = Struct.new(:id, :payment_status, :payment_intent, :customer_email, :metadata, keyword_init: true)
+  FakeCheckoutSession = Struct.new(
+    :id,
+    :payment_status,
+    :payment_intent,
+    :customer_email,
+    :metadata,
+    :amount_total,
+    :amount_subtotal,
+    :currency,
+    keyword_init: true
+  )
 
   def setup
     @user = User.create!(
@@ -34,7 +44,9 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       payment_status: "paid",
       payment_intent: "pi_123",
       customer_email: @user.email_address,
-      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id)
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
     )
 
     Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
@@ -60,7 +72,9 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       payment_status: "paid",
       payment_intent: "pi_456",
       customer_email: @user.email_address,
-      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id)
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
     )
 
     original = Payments::ApplyBidPackPurchase.method(:call!)
@@ -102,7 +116,9 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       payment_status: "paid",
       payment_intent: "pi_789",
       customer_email: @user.email_address,
-      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id)
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
     )
 
     Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
@@ -134,7 +150,9 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       payment_status: "paid",
       payment_intent: "pi_999",
       customer_email: @user.email_address,
-      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id)
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
     )
 
     Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
@@ -155,7 +173,9 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       payment_status: "unpaid",
       payment_intent: "pi_unpaid",
       customer_email: @user.email_address,
-      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id)
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
     )
 
     Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
@@ -166,6 +186,84 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal "error", body["status"]
     assert_equal "Payment not completed.", body["error"]
+  end
+
+  test "uses session.amount_total and session.currency when present" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_amount_total",
+      payment_status: "paid",
+      payment_intent: "pi_amount_total",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "cad"
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_amount_total" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :success
+    purchase = Purchase.find_by!(stripe_checkout_session_id: "cs_amount_total")
+    assert_equal 999, purchase.amount_cents
+    assert_equal "cad", purchase.currency
+  end
+
+  test "rejects checkout sessions with amount mismatch" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_amount_mismatch",
+      payment_status: "paid",
+      payment_intent: "pi_amount_mismatch",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 1000,
+      currency: "usd"
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_amount_mismatch" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "error", body["status"]
+    assert_match(/amount mismatch/i, body["error"])
+    assert_equal 0, @user.reload.bid_credits
+    assert_nil Purchase.find_by(stripe_checkout_session_id: "cs_amount_mismatch")
+  end
+
+  test "rejects when params bid_pack_id differs from session metadata" do
+    other_pack = BidPack.create!(
+      name: "Other Pack",
+      bids: 20,
+      price: BigDecimal("19.99"),
+      highlight: false,
+      description: "other pack",
+      active: true
+    )
+
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_bid_pack_mismatch",
+      payment_status: "paid",
+      payment_intent: "pi_bid_pack_mismatch",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success",
+          params: { session_id: "cs_bid_pack_mismatch", bid_pack_id: other_pack.id },
+          headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "error", body["status"]
+    assert_match(/bid pack mismatch/i, body["error"])
+    assert_equal 0, @user.reload.bid_credits
+    assert_nil Purchase.find_by(stripe_checkout_session_id: "cs_bid_pack_mismatch")
   end
 
   private
