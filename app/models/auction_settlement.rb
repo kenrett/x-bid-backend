@@ -4,6 +4,7 @@ class AuctionSettlement < ApplicationRecord
   belongs_to :auction
   belongs_to :winning_user, class_name: "User", optional: true
   belongs_to :winning_bid, class_name: "Bid", optional: true
+  has_one :auction_fulfillment, dependent: :destroy
 
   enum :status, {
     pending_payment: 0,
