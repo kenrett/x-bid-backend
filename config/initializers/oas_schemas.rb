@@ -1,6 +1,7 @@
 module OasSchemas
   STATUSES = %w[inactive scheduled active complete cancelled].freeze
   BID_PACK_STATUSES = %w[active retired].freeze
+  PURCHASE_STATUSES = %w[pending completed partially_refunded refunded voided failed].freeze
 
   SCHEMAS = {
     "Auction" => {
@@ -145,6 +146,30 @@ module OasSchemas
         updated_bid_credits: { type: "integer", nullable: true }
       },
       required: %w[clientSecret]
+    },
+    "Purchase" => {
+      type: "object",
+      description: "Bid-pack purchase record for the current user.",
+      properties: {
+        id: { type: "integer" },
+        created_at: { type: "string", format: "date-time" },
+        status: { type: "string", enum: PURCHASE_STATUSES },
+        amount_cents: { type: "integer", minimum: 0 },
+        currency: { type: "string" },
+        bid_pack: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            name: { type: "string" },
+            credits: { type: "integer" },
+            price_cents: { type: "integer", minimum: 0 }
+          },
+          required: %w[id name credits price_cents]
+        },
+        stripe_checkout_session_id: { type: "string", nullable: true },
+        stripe_payment_intent_id: { type: "string", nullable: true }
+      },
+      required: %w[id created_at status amount_cents currency bid_pack]
     },
     "Error" => {
       type: "object",
