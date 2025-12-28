@@ -25,7 +25,7 @@ module Auctions
       def scoped_relation
         relation
           .where(winning_user_id: user.id)
-          .includes(:auction, :winning_bid)
+          .includes(:auction, :winning_bid, :auction_fulfillment)
           .order(ended_at: :desc, id: :desc)
       end
     end

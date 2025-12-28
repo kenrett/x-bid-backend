@@ -14,6 +14,22 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
+  create_table "auction_fulfillments", force: :cascade do |t|
+    t.bigint "auction_settlement_id", null: false
+    t.bigint "user_id", null: false
+    t.integer "status", default: 0, null: false
+    t.jsonb "shipping_address"
+    t.integer "shipping_cost_cents"
+    t.string "shipping_carrier"
+    t.string "tracking_number"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["auction_settlement_id"], name: "index_auction_fulfillments_on_auction_settlement_id", unique: true
+    t.index ["status"], name: "index_auction_fulfillments_on_status"
+    t.index ["user_id"], name: "index_auction_fulfillments_on_user_id"
+  end
+
   create_table "auction_settlements", force: :cascade do |t|
     t.bigint "auction_id", null: false
     t.bigint "winning_user_id"
@@ -39,22 +55,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_001000) do
     t.index ["status"], name: "index_auction_settlements_on_status"
     t.index ["winning_bid_id"], name: "index_auction_settlements_on_winning_bid_id"
     t.index ["winning_user_id"], name: "index_auction_settlements_on_winning_user_id"
-  end
-
-  create_table "auction_fulfillments", force: :cascade do |t|
-    t.bigint "auction_settlement_id", null: false
-    t.bigint "user_id", null: false
-    t.integer "status", default: 0, null: false
-    t.jsonb "shipping_address"
-    t.integer "shipping_cost_cents"
-    t.string "shipping_carrier"
-    t.string "tracking_number"
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["auction_settlement_id"], name: "index_auction_fulfillments_on_auction_settlement_id", unique: true
-    t.index ["status"], name: "index_auction_fulfillments_on_status"
-    t.index ["user_id"], name: "index_auction_fulfillments_on_user_id"
   end
 
   create_table "auction_watches", force: :cascade do |t|
@@ -232,11 +232,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_001000) do
     t.check_constraint "bid_credits >= 0", name: "users_bid_credits_non_negative"
   end
 
+  add_foreign_key "auction_fulfillments", "auction_settlements"
+  add_foreign_key "auction_fulfillments", "users"
   add_foreign_key "auction_settlements", "auctions"
   add_foreign_key "auction_settlements", "bids", column: "winning_bid_id"
   add_foreign_key "auction_settlements", "users", column: "winning_user_id"
-  add_foreign_key "auction_fulfillments", "auction_settlements"
-  add_foreign_key "auction_fulfillments", "users"
   add_foreign_key "auction_watches", "auctions"
   add_foreign_key "auction_watches", "users"
   add_foreign_key "auctions", "users", column: "winning_user_id"

@@ -22,7 +22,7 @@ class AuctionFulfillment < ApplicationRecord
 
   validates :auction_settlement_id, uniqueness: true
   validate :user_matches_settlement_winner
-  validate :status_transition_allowed, on: :update
+  validate :status_transition_allowed
 
   def transition_to!(new_status)
     update!(status: new_status)
@@ -43,6 +43,13 @@ class AuctionFulfillment < ApplicationRecord
   end
 
   def status_transition_allowed
+    if new_record?
+      return if status == "pending"
+
+      errors.add(:status, "must start as pending")
+      return
+    end
+
     return unless will_save_change_to_status?
 
     previous_raw, next_raw = status_change_to_be_saved

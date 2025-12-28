@@ -15,7 +15,8 @@ class ServiceResult
     amount_exceeds_charge: :unprocessable_content,
     gateway_error: :unprocessable_content,
     already_refunded: :unprocessable_content,
-    missing_payment_reference: :unprocessable_content
+    missing_payment_reference: :unprocessable_content,
+    invalid_address: :unprocessable_content
   }.freeze
 
   def initialize(success:, code: nil, message: nil, data: {}, record: nil, metadata: {})

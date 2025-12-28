@@ -21,7 +21,7 @@ module Api
       end
 
       def fulfillment_status
-        object.fulfillment_status
+        object.auction_fulfillment&.status || "pending"
       end
     end
   end

@@ -23,7 +23,7 @@ module Api
       end
 
       def fulfillment_status
-        object.fulfillment_status
+        object.auction_fulfillment&.status || "pending"
       end
 
       def winning_bid
@@ -40,11 +40,16 @@ module Api
       end
 
       def fulfillment
+        fulfillment = object.auction_fulfillment
+        return { address: nil, shipping_cost: nil, carrier: nil, tracking_number: nil } unless fulfillment
+
+        shipping_cost = fulfillment.shipping_cost_cents.present? ? (BigDecimal(fulfillment.shipping_cost_cents) / 100) : nil
+
         {
-          address: object.fulfillment_address,
-          shipping_cost: object.shipping_cost,
-          carrier: object.shipping_carrier,
-          tracking_number: object.tracking_number
+          address: fulfillment.shipping_address,
+          shipping_cost: shipping_cost,
+          carrier: fulfillment.shipping_carrier,
+          tracking_number: fulfillment.tracking_number
         }
       end
     end

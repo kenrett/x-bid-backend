@@ -30,9 +30,9 @@ class MeWinsApiTest < ActionDispatch::IntegrationTest
       final_price: BigDecimal("10.00"),
       currency: "usd",
       status: :paid,
-      ended_at: 3.days.ago,
-      fulfillment_status: :pending
+      ended_at: 3.days.ago
     )
+    AuctionFulfillment.create!(auction_settlement: @won_settlement_old, user: @user)
 
     @won_auction_new = Auction.create!(
       title: "New Win",
@@ -51,10 +51,15 @@ class MeWinsApiTest < ActionDispatch::IntegrationTest
       final_price: BigDecimal("25.00"),
       currency: "usd",
       status: :paid,
-      ended_at: 1.day.ago,
-      fulfillment_status: :shipped,
-      fulfillment_address: { "line1" => "123 Main", "city" => "Portland", "region" => "OR", "postal" => "97201" },
-      shipping_cost: BigDecimal("5.00"),
+      ended_at: 1.day.ago
+    )
+    shipped_fulfillment = AuctionFulfillment.create!(auction_settlement: @won_settlement_new, user: @user)
+    shipped_fulfillment.transition_to!(:claimed)
+    shipped_fulfillment.transition_to!(:processing)
+    shipped_fulfillment.transition_to!(:shipped)
+    shipped_fulfillment.update!(
+      shipping_address: { "line1" => "123 Main", "city" => "Portland", "state" => "OR", "postal_code" => "97201", "country" => "US", "name" => "User" },
+      shipping_cost_cents: 500,
       shipping_carrier: "ups",
       tracking_number: "1Z999"
     )
@@ -76,8 +81,7 @@ class MeWinsApiTest < ActionDispatch::IntegrationTest
       final_price: BigDecimal("30.00"),
       currency: "usd",
       status: :paid,
-      ended_at: 2.days.ago,
-      fulfillment_status: :pending
+      ended_at: 2.days.ago
     )
   end
 
