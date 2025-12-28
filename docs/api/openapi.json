@@ -125,6 +125,16 @@
         },
         "style": "simple"
       },
+      "777694c3b434f8ee8851ce24570d1fa4": {
+        "description": "Id of existing fulfillment.",
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "style": "simple"
+      },
       "824c479f1b10dd39acc3ac03aaf34dc6": {
         "description": "Filter payments by user email substring",
         "in": "query",
@@ -2288,6 +2298,99 @@
           }
         ],
         "summary": "Fetch a bid pack for editing",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/admin/fulfillments/{id}/complete": {
+      "post": {
+        "description": "POST /api/v1/admin/fulfillments/:id/complete",
+        "operationId": "POST__api_v1_admin_fulfillments_{id}_complete",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/777694c3b434f8ee8851ce24570d1fa4"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_031"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_036"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_018"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Move fulfillment from shipped -> complete",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/admin/fulfillments/{id}/process": {
+      "post": {
+        "description": "POST /api/v1/admin/fulfillments/:id/process",
+        "operationId": "POST__api_v1_admin_fulfillments_{id}_process",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/777694c3b434f8ee8851ce24570d1fa4"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_031"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_036"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_018"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Move fulfillment from claimed -> processing",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/admin/fulfillments/{id}/ship": {
+      "post": {
+        "description": "POST /api/v1/admin/fulfillments/:id/ship",
+        "operationId": "POST__api_v1_admin_fulfillments_{id}_ship",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/777694c3b434f8ee8851ce24570d1fa4"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_031"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_036"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_018"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Move fulfillment from processing -> shipped",
         "tags": [
           "Api"
         ]
