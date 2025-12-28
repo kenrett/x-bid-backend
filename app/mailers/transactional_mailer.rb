@@ -21,7 +21,7 @@ class TransactionalMailer < ApplicationMailer
 
     mail(
       to: @user.email_address,
-      subject: "Your X-Bid purchase receipt"
+      subject: "Your X-Bid purchase details"
     )
   end
 

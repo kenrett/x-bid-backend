@@ -1,4 +1,4 @@
-X-Bid purchase receipt
+X-Bid purchase details
 
 Hello <%= @user.name.presence || "there" %>,
 
@@ -8,8 +8,10 @@ Bid pack: <%= @bid_pack.name %>
 Credits granted: <%= @bid_pack.bids %>
 Amount paid: <%= @purchase.amount_cents %> <%= @purchase.currency&.upcase %>
 
-Receipt ID: <%= @purchase.id %>
+Purchase ID: <%= @purchase.id %>
+<% if @purchase.receipt_url.present? %>
+Stripe receipt: <%= @purchase.receipt_url %>
+<% end %>
 
 Thanks,
 X-Bid
-

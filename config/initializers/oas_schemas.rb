@@ -156,6 +156,7 @@ module OasSchemas
         status: { type: "string", enum: PURCHASE_STATUSES },
         amount_cents: { type: "integer", minimum: 0 },
         currency: { type: "string" },
+        receipt_url: { type: "string", format: "uri", nullable: true },
         bid_pack: {
           type: "object",
           properties: {

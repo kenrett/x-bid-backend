@@ -23,6 +23,11 @@ module Payments
               raise ArgumentError, "Bid pack mismatch for purchase"
             end
 
+            # Receipt handling decision (Option A — Real receipts):
+            # We persist the Stripe-hosted receipt URL only when Stripe provides it (never synthesized).
+            # This field is intentionally nullable because a receipt URL may not exist for every payment method / flow.
+            receipt_url = purchase.receipt_url.presence || fetch_stripe_receipt_url(payment_intent_id: stripe_payment_intent_id)
+
             purchase.assign_attributes(
               user: user,
               bid_pack: bid_pack,
@@ -31,6 +36,7 @@ module Payments
               stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
               stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
               stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
+              receipt_url: receipt_url,
               status: "completed"
             )
 
@@ -51,6 +57,7 @@ module Payments
                 stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
                 stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
                 stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
+                receipt_url: purchase.receipt_url.presence || receipt_url,
                 status: "completed"
               )
               purchase.save!
@@ -144,6 +151,38 @@ module Payments
         end
 
         [ Purchase.new, true ]
+      end
+
+      def fetch_stripe_receipt_url(payment_intent_id:)
+        return if payment_intent_id.blank?
+        return if Stripe.api_key.blank?
+
+        # Prefer Stripe::Charge.receipt_url when available. As a fallback, expand the PaymentIntent's latest_charge
+        # and use its receipt_url. We never construct a URL ourselves.
+        payment_intent = Stripe::PaymentIntent.retrieve({ id: payment_intent_id, expand: [ "latest_charge" ] })
+
+        latest_charge = payment_intent.respond_to?(:latest_charge) ? payment_intent.latest_charge : nil
+        receipt_url = latest_charge&.respond_to?(:receipt_url) ? latest_charge.receipt_url : nil
+        return receipt_url if receipt_url.present?
+
+        if latest_charge.is_a?(String)
+          charge = Stripe::Charge.retrieve(latest_charge)
+          return charge.receipt_url if charge.respond_to?(:receipt_url) && charge.receipt_url.present?
+        end
+
+        if payment_intent.respond_to?(:charges) && payment_intent.charges.respond_to?(:data)
+          charge = payment_intent.charges.data.first
+          return charge.receipt_url if charge&.respond_to?(:receipt_url) && charge.receipt_url.present?
+        end
+
+        nil
+      rescue Stripe::StripeError => e
+        AppLogger.error(
+          event: "payments.apply_purchase.receipt_url_error",
+          error: e,
+          stripe_payment_intent_id: payment_intent_id
+        )
+        nil
       end
     end
   end
