@@ -2,7 +2,7 @@ module Admin
   module Payments
     class IssueRefund < Admin::BaseCommand
       def initialize(actor:, payment:, amount_cents: nil, reason: nil, request: nil, gateway: ::Payments::Gateway)
-        super(actor: actor, payment: payment, amount_cents: amount_cents&.to_i, reason: reason, request: request, gateway: gateway)
+        super(actor: actor, payment: payment, amount_cents: amount_cents&.to_i, reason: reason, request: request, gateway: gateway, override_spent_credits: false)
       end
 
       private
@@ -11,12 +11,18 @@ module Admin
         return ServiceResult.fail("Payment not provided", code: :invalid_payment) unless @payment
 
         @payment.with_lock do
-          return already_refunded if fully_refunded?
+          return already_refunded if refund_already_recorded? || fully_refunded?
           return invalid_state("Payment is not refundable in its current state") unless refundable_state?
 
           amount = resolve_amount
           return invalid_amount("Refund amount must be positive") if amount <= 0
           return invalid_amount("Refund exceeds remaining balance", code: :amount_exceeds_charge) if amount > @payment.refundable_cents
+
+          credits_to_revoke = credits_to_revoke_for(amount_cents: amount)
+          if credits_to_revoke.positive? && !override_spent_credits? && Credits::Balance.for_user(@payment.user) < credits_to_revoke
+            log_outcome(success: false, amount_cents: amount, errors: [ "Cannot refund: user has spent credits from this purchase" ], credits_to_revoke: credits_to_revoke)
+            return ServiceResult.fail("Cannot refund: user has spent credits from this purchase", code: :cannot_refund_spent_credits, record: @payment)
+          end
 
           response = @gateway.issue_refund(payment: @payment, amount_cents: amount, reason: @reason)
           unless response.success?
@@ -24,14 +30,20 @@ module Admin
             return ServiceResult.fail(response.error_message || "Unable to issue refund", code: :gateway_error, data: { gateway_code: response.error_code }, record: @payment)
           end
 
-          apply_refund(amount_cents: amount, refund_id: response.refund_id)
-          log_outcome(success: true, amount_cents: amount, gateway_response: response)
+          ActiveRecord::Base.transaction do
+            apply_refund(amount_cents: amount, refund_id: response.refund_id)
+
+            record_refund_money_event!(amount_cents: amount, refund_id: response.refund_id)
+            reconcile_credits!(credits_to_revoke: credits_to_revoke, refund_id: response.refund_id, amount_cents: amount) if credits_to_revoke.positive?
+
+            log_outcome(success: true, amount_cents: amount, gateway_response: response, credits_to_revoke: credits_to_revoke)
+          end
 
           ServiceResult.ok(
             code: refund_code,
             message: "Refund issued",
             record: @payment,
-            data: { payment: @payment, refund_id: response.refund_id, refund_amount_cents: amount }
+            data: { payment: @payment, refund_id: response.refund_id, refund_amount_cents: amount, credits_reconciled: credits_to_revoke }
           )
         end
       rescue ActiveRecord::ActiveRecordError => e
@@ -63,12 +75,72 @@ module Admin
         AuditLogger.log(action: "payment.refund", actor: @actor, target: @payment, payload: audit_payload(amount_cents, refund_id), request: @request)
       end
 
+      # Policy (hybrid-safe):
+      # - Credits reversed are proportional to the refund amount.
+      # - If the user has already spent credits (insufficient current balance), block unless override.
+      def credits_to_revoke_for(amount_cents:)
+        total_cents = @payment.amount_cents.to_i
+        credits_granted = @payment.bid_pack&.bids.to_i
+        return 0 if total_cents <= 0 || credits_granted <= 0
+
+        proportional = (credits_granted * amount_cents.to_r / total_cents).round
+        proportional.clamp(0, credits_granted)
+      end
+
+      def reconcile_credits!(credits_to_revoke:, refund_id:, amount_cents:)
+        idempotency_key = "purchase:#{@payment.id}:refund:#{refund_id}:credits_reconcile"
+        Credits::Apply.apply!(
+          user: @payment.user,
+          reason: "purchase_refund_credit_reversal",
+          amount: -credits_to_revoke,
+          idempotency_key: idempotency_key,
+          kind: :debit,
+          purchase: @payment,
+          stripe_payment_intent_id: @payment.stripe_payment_intent_id,
+          metadata: { refund_id: refund_id, refunded_amount_cents: amount_cents, policy: "proportional_safe" }
+        )
+
+        AuditLogger.log(
+          action: "payment.refund_credit_reconcile",
+          actor: @actor,
+          target: @payment,
+          payload: { refund_id: refund_id, credits_debited: credits_to_revoke, refunded_amount_cents: amount_cents, policy: "proportional_safe" },
+          request: @request
+        )
+      end
+
+      def record_refund_money_event!(amount_cents:, refund_id:)
+        MoneyEvent.create!(
+          user: @payment.user,
+          event_type: :refund,
+          amount_cents: -amount_cents,
+          currency: @payment.currency,
+          source_type: "StripePaymentIntent",
+          source_id: @payment.stripe_payment_intent_id.to_s,
+          occurred_at: Time.current,
+          metadata: { purchase_id: @payment.id, refund_id: refund_id, reason: @reason }.compact
+        )
+      rescue ActiveRecord::RecordNotUnique
+        raise ActiveRecord::RecordNotUnique, "Refund already recorded"
+      end
+
       def fully_refunded?
         @payment.refundable_cents <= 0 || @payment.refunded?
       end
 
       def refundable_state?
         !@payment.voided? && !@payment.failed? && %w[completed partially_refunded].include?(@payment.status)
+      end
+
+      def refund_already_recorded?
+        return true if @payment.refunded_cents.to_i.positive? || @payment.refund_id.present? || @payment.refunded_at.present?
+        return false if @payment.stripe_payment_intent_id.blank?
+
+        MoneyEvent.exists?(event_type: :refund, source_type: "StripePaymentIntent", source_id: @payment.stripe_payment_intent_id.to_s)
+      end
+
+      def override_spent_credits?
+        !!@override_spent_credits
       end
 
       def invalid_state(message)
@@ -98,11 +170,12 @@ module Admin
         }.compact
       end
 
-      def log_outcome(success:, amount_cents:, gateway_response: nil, errors: nil)
+      def log_outcome(success:, amount_cents:, gateway_response: nil, errors: nil, credits_to_revoke: nil)
         AppLogger.log(
           **base_log_context.merge(
             success: success,
             amount_cents: amount_cents,
+            credits_to_revoke: credits_to_revoke,
             payment_status: @payment.status,
             refund_id: gateway_response&.refund_id || @payment.refund_id,
             gateway_code: gateway_response&.error_code,
