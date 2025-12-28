@@ -11,7 +11,11 @@ module Admin
         return ServiceResult.fail("Payment not provided", code: :invalid_payment) unless @payment
 
         @payment.with_lock do
-          return already_refunded if refund_already_recorded? || fully_refunded?
+          return already_refunded if fully_refunded?
+          if refund_already_recorded?
+            return refund_exceeds_remaining if refund_request_exceeds_remaining?
+            return already_refunded
+          end
           return invalid_state("Payment is not refundable in its current state") unless refundable_state?
 
           amount = resolve_amount
@@ -149,8 +153,28 @@ module Admin
       end
 
       def already_refunded
-        log_outcome(success: false, amount_cents: 0, errors: [ "Payment already refunded" ])
-        ServiceResult.fail("Payment already refunded", code: :already_refunded, record: @payment)
+        log_outcome(success: true, amount_cents: 0, errors: [ "Payment already refunded" ])
+        ServiceResult.ok(
+          code: :already_refunded,
+          message: "Payment already refunded",
+          record: @payment,
+          data: {
+            idempotent: true,
+            refund_id: @payment.refund_id,
+            refund_amount_cents: 0,
+            credits_reconciled: 0
+          }.compact
+        )
+      end
+
+      def refund_request_exceeds_remaining?
+        return false if @amount_cents.blank?
+
+        @amount_cents.to_i > @payment.refundable_cents.to_i
+      end
+
+      def refund_exceeds_remaining
+        invalid_amount("Refund exceeds remaining balance", code: :amount_exceeds_charge)
       end
 
       def invalid_amount(message, code: :invalid_amount)

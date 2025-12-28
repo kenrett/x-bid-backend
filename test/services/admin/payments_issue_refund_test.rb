@@ -91,32 +91,77 @@ class AdminPaymentsIssueRefundTest < ActiveSupport::TestCase
   test "rejects already refunded payments" do
     @payment.update!(refunded_cents: @payment.amount_cents, status: "refunded")
 
-    result = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100).call
+    gateway = Class.new do
+      def self.issue_refund(**)
+        raise "should not be called"
+      end
+    end
 
-    refute result.ok?
+    result = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100, gateway: gateway).call
+
+    assert result.ok?
     assert_equal :already_refunded, result.code
   end
 
   test "already-refunded is idempotent" do
     response = ::Payments::Gateway::GatewayResponse.new(success?: true, refund_id: "re_abc", raw_response: { id: "re_abc" })
+    calls = 0
+    gateway = Class.new do
+      class << self
+        attr_accessor :calls, :response
+      end
 
-    first = ::Payments::Gateway.stub(:issue_refund, ->(**_) { response }) do
-      Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100, reason: "partial").call
+      def self.issue_refund(**)
+        self.calls += 1
+        response
+      end
     end
+    gateway.calls = calls
+    gateway.response = response
+
+    first = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100, reason: "partial", gateway: gateway).call
     assert first.ok?
     credits_after_first = @user.reload.bid_credits
     assert_equal 1, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, CreditTransaction.where(purchase_id: @payment.id, reason: "purchase_refund_credit_reversal").count
 
-    second = ::Payments::Gateway.stub(:issue_refund, ->(**_) { raise "should not be called" }) do
-      Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 50, reason: "more").call
-    end
+    second = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 50, reason: "more", gateway: gateway).call
 
-    refute second.ok?
+    assert second.ok?
     assert_equal :already_refunded, second.code
+    assert_equal 1, gateway.calls
     assert_equal credits_after_first, @user.reload.bid_credits
     assert_equal 1, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, CreditTransaction.where(purchase_id: @payment.id, reason: "purchase_refund_credit_reversal").count
+  end
+
+  test "partial refund already exists and exceeding remaining is rejected" do
+    response = ::Payments::Gateway::GatewayResponse.new(success?: true, refund_id: "re_partial", raw_response: { id: "re_partial" })
+    gateway = Class.new do
+      class << self
+        attr_accessor :response
+      end
+
+      def self.issue_refund(**)
+        response
+      end
+    end
+    gateway.response = response
+
+    first = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100, reason: "partial", gateway: gateway).call
+    assert first.ok?
+    assert_equal 100, @payment.reload.refunded_cents
+
+    rejecting_gateway = Class.new do
+      def self.issue_refund(**)
+        raise "should not be called"
+      end
+    end
+
+    result = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: @payment.amount_cents, gateway: rejecting_gateway).call
+
+    refute result.ok?
+    assert_equal :amount_exceeds_charge, result.code
   end
 
   test "spent credits policy blocks refund" do
@@ -133,5 +178,49 @@ class AdminPaymentsIssueRefundTest < ActiveSupport::TestCase
     refute result.ok?
     assert_equal :cannot_refund_spent_credits, result.code
     assert_equal 0, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").count
+  end
+
+  test "concurrent refund requests only call gateway once" do
+    response = ::Payments::Gateway::GatewayResponse.new(success?: true, refund_id: "re_concurrent", raw_response: { id: "re_concurrent" })
+
+    calls = 0
+    calls_lock = Mutex.new
+    gateway = Class.new do
+      class << self
+        attr_accessor :calls, :calls_lock, :response
+      end
+
+      def self.issue_refund(**)
+        calls_lock.synchronize { self.calls += 1 }
+        response
+      end
+    end
+    gateway.calls = calls
+    gateway.calls_lock = calls_lock
+    gateway.response = response
+    queue = Queue.new
+    results = []
+
+    threads = [
+      Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do
+          queue.pop
+          results << Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100, reason: "partial", gateway: gateway).call
+        end
+      end,
+      Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do
+          queue.pop
+          results << Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, amount_cents: 100, reason: "partial", gateway: gateway).call
+        end
+      end
+    ]
+
+    sleep 0.1
+    queue.close
+    threads.each(&:join)
+
+    assert results.all?(&:ok?)
+    assert_equal 1, gateway.calls
   end
 end
