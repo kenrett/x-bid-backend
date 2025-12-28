@@ -26,6 +26,12 @@ class AuctionSettlementEmailNotificationsTest < ActiveSupport::TestCase
 
     assert settlement.present?
     assert_enqueued_with(job: AuctionWinEmailJob, args: [ settlement.id ])
+
+    notification = Notification.find_by(user: user, kind: "auction_won")
+    assert notification.present?
+    assert_equal settlement.id, notification.data["settlement_id"]
+    assert_equal auction.id, notification.data["auction_id"]
+    assert_equal auction.title, notification.data["auction_title"]
   end
 
   test "no mail job enqueued for settlement without winner" do

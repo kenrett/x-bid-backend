@@ -45,6 +45,7 @@ Rails.application.routes.draw do
       get "/me/wins", to: "me/wins#index"
       get "/me/wins/:auction_id", to: "me/wins#show"
       post "/me/wins/:auction_id/claim", to: "me/wins#claim"
+      get "/me/notifications", to: "me/notifications#index"
 
       namespace :admin do
         get "/maintenance", to: "maintenance#show"

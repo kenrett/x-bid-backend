@@ -97,7 +97,21 @@ module Payments
           end
         end
 
-        PurchaseReceiptEmailJob.perform_later(result.purchase.id) unless result&.idempotent
+        unless result&.idempotent
+          PurchaseReceiptEmailJob.perform_later(result.purchase.id)
+          Notification.create!(
+            user: user,
+            kind: :purchase_completed,
+            data: {
+              purchase_id: result.purchase.id,
+              bid_pack_id: result.purchase.bid_pack_id,
+              bid_pack_name: bid_pack.name,
+              credits_granted: bid_pack.bids,
+              amount_cents: result.purchase.amount_cents,
+              currency: result.purchase.currency
+            }
+          )
+        end
         result
       rescue ActiveRecord::RecordInvalid => e
         AppLogger.error(event: "payments.apply_purchase.error", error: e, user_id: user&.id, bid_pack_id: bid_pack&.id, source: source)

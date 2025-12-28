@@ -7,6 +7,7 @@ class User < ApplicationRecord
   has_many :won_auctions, class_name: "Auction", foreign_key: "winning_user_id"
   has_many :session_tokens, dependent: :destroy
   has_many :password_reset_tokens, dependent: :destroy
+  has_many :notifications, dependent: :destroy
 
   enum :role, { user: 0, admin: 1, superadmin: 2 }, default: :user
   enum :status, { active: 0, disabled: 1 }, default: :active

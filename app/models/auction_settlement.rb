@@ -61,5 +61,15 @@ class AuctionSettlement < ApplicationRecord
     return unless winning_user_id.present?
 
     AuctionWinEmailJob.perform_later(id)
+    Notification.create!(
+      user_id: winning_user_id,
+      kind: :auction_won,
+      data: {
+        auction_id: auction_id,
+        auction_title: auction&.title,
+        final_price: final_price,
+        settlement_id: id
+      }
+    )
   end
 end

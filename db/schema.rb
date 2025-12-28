@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_28_001000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_28_002000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -158,6 +158,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_001000) do
     t.index ["key"], name: "index_maintenance_settings_on_key", unique: true
   end
 
+  create_table "notifications", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "kind", null: false
+    t.jsonb "data", default: {}, null: false
+    t.datetime "read_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["kind"], name: "index_notifications_on_kind"
+    t.index ["user_id", "created_at"], name: "index_notifications_on_user_id_and_created_at"
+    t.index ["user_id", "read_at"], name: "index_notifications_on_user_id_and_read_at"
+    t.index ["user_id"], name: "index_notifications_on_user_id"
+  end
+
   create_table "password_reset_tokens", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "token_digest", null: false
@@ -248,6 +261,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_001000) do
   add_foreign_key "credit_transactions", "stripe_events"
   add_foreign_key "credit_transactions", "users"
   add_foreign_key "credit_transactions", "users", column: "admin_actor_id"
+  add_foreign_key "notifications", "users"
   add_foreign_key "password_reset_tokens", "users"
   add_foreign_key "purchases", "bid_packs"
   add_foreign_key "purchases", "users"

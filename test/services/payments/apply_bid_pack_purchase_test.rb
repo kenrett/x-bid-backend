@@ -25,6 +25,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
       )
     end
     assert_enqueued_with(job: PurchaseReceiptEmailJob, args: [ result1.purchase.id ])
+    assert_equal 1, Notification.where(user: @user, kind: "purchase_completed").count
 
     result2 = nil
     assert_no_enqueued_jobs only: PurchaseReceiptEmailJob do
@@ -44,6 +45,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal false, result1.idempotent
     assert result2.ok?
     assert_equal true, result2.idempotent
+    assert_equal 1, Notification.where(user: @user, kind: "purchase_completed").count
 
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
     purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_123")
@@ -77,6 +79,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
       )
     end
     assert_enqueued_with(job: PurchaseReceiptEmailJob, args: [ result.purchase.id ])
+    assert_equal 1, Notification.where(user: @user, kind: "purchase_completed").count
 
     assert result.ok?
     assert_equal false, result.idempotent
