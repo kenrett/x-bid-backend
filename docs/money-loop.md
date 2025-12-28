@@ -71,14 +71,23 @@ This happens within the same DB transaction/lock sequence as the credit debit so
 
 ### 5) Refunds (prepared, not yet exposed in UI)
 
-Refund support is prepared via `Payments::IssueRefund`:
-- Calls the payment gateway to issue a Stripe refund.
-- Records a `MoneyEvent`:
+Refunds can be reflected even when triggered outside the app via Stripe webhooks (see `Stripe::WebhookEvents::Process` handling `charge.refunded`):
+
+- Locate the `Purchase` by `stripe_payment_intent_id`.
+- Update `Purchase` refund fields:
+  - `refunded_cents`
+  - `refund_id`
+  - `refunded_at`
+  - `status` transitions to `partially_refunded` or `refunded`
+- Record exactly one `MoneyEvent`:
   - `event_type = refund`
   - `amount_cents = -refund_amount_cents`
   - `source_type = StripePaymentIntent`
-  - `source_id = original stripe_payment_intent_id`
-- **Non-goal:** does not automatically adjust credits yet.
+  - `source_id = stripe_payment_intent_id`
+- Reconcile credits (proportional-safe):
+  - Credits revoked are proportional to the refund amount:
+    - `credits_to_revoke ≈ round(credits_granted * refund_amount / purchase_total)`
+  - Guardrail: do **not** overdraw credits. If the user has already spent credits (current balance < credits_to_revoke), the system logs and skips automatic credit revocation.
 
 ## System Invariants (Guards + Constraints)
 
@@ -153,14 +162,18 @@ flowchart LR
    - `event_type = refund`
    - `source_type = StripePaymentIntent`
    - `source_id = <payment_intent_id>`
-3. Note: credits are not automatically adjusted yet (explicit non-goal).
+3. Verify `Purchase` refund fields (`refunded_cents`, `refund_id`, `refunded_at`, `status`) were updated by the refund webhook.
+4. If credits were reconciled, expect a matching debit `CreditTransaction` (reason `purchase_refund_credit_reversal`) tied to the purchase.
 
 ## Explicit Non‑Goals (for now)
 
-- **Refund UI / automatic credit adjustments on refund**
-  - Refunds are recorded as `MoneyEvent` entries but do not alter credits automatically yet.
+- **Refund UI**
+  - Refund handling exists on the backend; a user-facing refund UI is still out of scope.
 - **Chargebacks / disputes handling**
   - No end-to-end automated support; would require additional `MoneyEvent` types and state transitions on purchases.
 - **Reconstructing Stripe receipt links**
   - We store Stripe-provided `receipt_url` when available and otherwise keep `receipt_status` as `pending`.
 
+## Known Limitations
+
+- If a refund arrives after the user has already spent the credits from that purchase, automatic credit revocation is skipped to avoid overdrawing the user’s credit balance; the system logs this condition for follow-up/manual reconciliation.
