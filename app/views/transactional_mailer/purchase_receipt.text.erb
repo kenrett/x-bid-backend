@@ -9,7 +9,7 @@ Credits granted: <%= @bid_pack.bids %>
 Amount paid: <%= @purchase.amount_cents %> <%= @purchase.currency&.upcase %>
 
 Purchase ID: <%= @purchase.id %>
-<% if @purchase.receipt_url.present? %>
+<% if @purchase.receipt_status == "available" && @purchase.receipt_url.present? %>
 Stripe receipt: <%= @purchase.receipt_url %>
 <% end %>
 

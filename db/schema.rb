@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_28_005000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_28_006000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -219,7 +219,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_005000) do
     t.string "stripe_payment_intent_id"
     t.string "stripe_event_id"
     t.string "receipt_url"
+    t.integer "receipt_status", default: 0, null: false
     t.index ["bid_pack_id"], name: "index_purchases_on_bid_pack_id"
+    t.index ["receipt_status"], name: "index_purchases_on_receipt_status"
     t.index ["stripe_checkout_session_id"], name: "index_purchases_on_stripe_checkout_session_id", unique: true
     t.index ["stripe_event_id"], name: "index_purchases_on_stripe_event_id", unique: true
     t.index ["stripe_payment_intent_id"], name: "index_purchases_on_stripe_payment_intent_id", unique: true

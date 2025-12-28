@@ -156,6 +156,7 @@ module OasSchemas
         status: { type: "string", enum: PURCHASE_STATUSES },
         amount_cents: { type: "integer", minimum: 0 },
         currency: { type: "string" },
+        receipt_status: { type: "string", enum: %w[pending available unavailable] },
         receipt_url: { type: "string", format: "uri", nullable: true },
         bid_pack: {
           type: "object",
@@ -170,7 +171,7 @@ module OasSchemas
         stripe_checkout_session_id: { type: "string", nullable: true },
         stripe_payment_intent_id: { type: "string", nullable: true }
       },
-      required: %w[id created_at status amount_cents currency bid_pack]
+      required: %w[id created_at status amount_cents currency receipt_status bid_pack]
     },
     "Error" => {
       type: "object",

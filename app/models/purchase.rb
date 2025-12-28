@@ -3,6 +3,9 @@ class Purchase < ApplicationRecord
   belongs_to :bid_pack
 
   STATUSES = %w[pending completed partially_refunded refunded voided failed].freeze
+  RECEIPT_STATUSES = { pending: 0, available: 1, unavailable: 2 }.freeze
+
+  enum :receipt_status, RECEIPT_STATUSES, default: :pending
 
   validates :amount_cents, numericality: { greater_than_or_equal_to: 0 }
   validates :currency, presence: true

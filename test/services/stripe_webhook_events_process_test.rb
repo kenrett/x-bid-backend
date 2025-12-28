@@ -51,6 +51,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal 1, StripeEvent.where(stripe_event_id: "evt_123").count
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
+    assert_equal "pending", purchase.receipt_status
   end
 
   test "is idempotent when the same Stripe event is replayed" do

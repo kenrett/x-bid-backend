@@ -52,6 +52,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
     assert_equal 100, @user.reload.bid_credits
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
+    assert_equal "pending", purchase.receipt_status
   end
 
   test "repairs when purchase exists but credit grant is missing" do
@@ -88,5 +89,6 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
     assert_equal 100, @user.reload.bid_credits
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_456").count
+    assert_equal "pending", Purchase.find_by!(stripe_payment_intent_id: "pi_456").receipt_status
   end
 end

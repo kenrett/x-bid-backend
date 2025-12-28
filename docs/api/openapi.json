@@ -1652,6 +1652,14 @@
           "id": {
             "type": "integer"
           },
+          "receipt_status": {
+            "enum": [
+              "pending",
+              "available",
+              "unavailable"
+            ],
+            "type": "string"
+          },
           "receipt_url": {
             "format": "uri",
             "nullable": true,
@@ -1683,6 +1691,7 @@
           "status",
           "amount_cents",
           "currency",
+          "receipt_status",
           "bid_pack"
         ],
         "type": "object"

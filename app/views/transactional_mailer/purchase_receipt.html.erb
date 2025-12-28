@@ -14,7 +14,7 @@
           </td>
         </tr>
       </table>
-      <% if @purchase.receipt_url.present? %>
+      <% if @purchase.receipt_status == "available" && @purchase.receipt_url.present? %>
         <p style="margin:0 0 16px; line-height:1.6; color:#dfe3f0;">
           <a href="<%= @purchase.receipt_url %>" style="color:#93c5fd; text-decoration:none;">View Stripe receipt</a>
         </p>

@@ -27,6 +27,7 @@ module Payments
             # We persist the Stripe-hosted receipt URL only when Stripe provides it (never synthesized).
             # This field is intentionally nullable because a receipt URL may not exist for every payment method / flow.
             receipt_url = purchase.receipt_url.presence || fetch_stripe_receipt_url(payment_intent_id: stripe_payment_intent_id)
+            receipt_status = receipt_status_for(receipt_url:, payment_intent_id: stripe_payment_intent_id)
 
             purchase.assign_attributes(
               user: user,
@@ -37,6 +38,7 @@ module Payments
               stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
               stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
               receipt_url: receipt_url,
+              receipt_status: receipt_url.present? ? :available : receipt_status,
               status: "completed"
             )
 
@@ -58,6 +60,7 @@ module Payments
                 stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
                 stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
                 receipt_url: purchase.receipt_url.presence || receipt_url,
+                receipt_status: (purchase.receipt_url.presence || receipt_url).present? ? :available : receipt_status,
                 status: "completed"
               )
               purchase.save!
@@ -197,6 +200,11 @@ module Payments
           stripe_payment_intent_id: payment_intent_id
         )
         nil
+      end
+
+      def receipt_status_for(receipt_url:, payment_intent_id:)
+        return :available if receipt_url.present?
+        :pending
       end
 
       def record_purchase_money_event!(user:, amount_cents:, currency:, stripe_payment_intent_id:, occurred_at:, metadata:)
