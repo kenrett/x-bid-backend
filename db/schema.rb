@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_28_003000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_28_004000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -158,6 +158,25 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_003000) do
     t.index ["key"], name: "index_maintenance_settings_on_key", unique: true
   end
 
+  create_table "money_events", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "event_type", null: false
+    t.integer "amount_cents", null: false
+    t.string "currency", null: false
+    t.string "source_type"
+    t.bigint "source_id"
+    t.jsonb "metadata"
+    t.datetime "occurred_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_type"], name: "index_money_events_on_event_type"
+    t.index ["source_type", "source_id"], name: "index_money_events_on_source"
+    t.index ["user_id", "occurred_at"], name: "index_money_events_on_user_id_occurred_at"
+    t.index ["user_id"], name: "index_money_events_on_user_id"
+    t.check_constraint "char_length(currency::text) > 0", name: "money_events_currency_non_empty"
+    t.check_constraint "event_type::text = ANY (ARRAY['purchase'::character varying, 'bid_spent'::character varying, 'refund'::character varying, 'admin_adjustment'::character varying]::text[])", name: "money_events_event_type_check"
+  end
+
   create_table "notifications", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "kind", null: false
@@ -262,6 +281,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_003000) do
   add_foreign_key "credit_transactions", "stripe_events"
   add_foreign_key "credit_transactions", "users"
   add_foreign_key "credit_transactions", "users", column: "admin_actor_id"
+  add_foreign_key "money_events", "users"
   add_foreign_key "notifications", "users"
   add_foreign_key "password_reset_tokens", "users"
   add_foreign_key "purchases", "bid_packs"
