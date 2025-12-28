@@ -1,5 +1,6 @@
 require "test_helper"
 require "ostruct"
+require "stringio"
 
 class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
   class FakeStripeEvent
@@ -52,6 +53,23 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal "pending", purchase.receipt_status
+  end
+
+  test "violations are observable in logs when Stripe succeeds without purchase creation" do
+    io = StringIO.new
+    logger = Logger.new(io)
+
+    Rails.stub(:logger, logger) do
+      Payments::ApplyBidPackPurchase.stub(:call!, ServiceResult.ok(data: { purchase: nil })) do
+        result = Stripe::WebhookEvents::Process.call(event: @event)
+        refute result.ok?
+        assert_equal :processing_error, result.code
+      end
+    end
+
+    output = io.string
+    assert_includes output, "\"event\":\"stripe.payment_succeeded.purchase_not_created\""
+    assert_includes output, "\"payment_intent_id\":\"pi_123\""
   end
 
   test "is idempotent when the same Stripe event is replayed" do

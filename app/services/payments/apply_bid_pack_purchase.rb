@@ -66,6 +66,11 @@ module Payments
               purchase.save!
             end
 
+            enforce_one_purchase_per_payment_intent!(
+              purchase: purchase,
+              stripe_payment_intent_id: stripe_payment_intent_id
+            )
+
             record_purchase_money_event!(
               user: user,
               amount_cents: amount_cents,
@@ -224,6 +229,22 @@ module Payments
         end
       rescue ActiveRecord::RecordNotUnique
         nil
+      end
+
+      def enforce_one_purchase_per_payment_intent!(purchase:, stripe_payment_intent_id:)
+        return if stripe_payment_intent_id.blank?
+        return if purchase.blank? || !purchase.persisted?
+
+        if Purchase.where(stripe_payment_intent_id: stripe_payment_intent_id).where.not(id: purchase.id).exists?
+          AppLogger.log(
+            event: "payments.purchase_uniqueness_violation",
+            level: :error,
+            purchase_id: purchase.id,
+            user_id: purchase.user_id,
+            stripe_payment_intent_id: stripe_payment_intent_id
+          )
+          raise "Stripe payment intent maps to multiple purchases"
+        end
       end
     end
   end

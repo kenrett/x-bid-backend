@@ -9,6 +9,20 @@ module Credits
         raise ArgumentError, "User must be provided" unless user
         raise ArgumentError, "Reason must be provided" if reason.blank?
         raise ArgumentError, "Amount must be non-zero" if amount.to_i == 0
+        if reason.to_s == "bid_pack_purchase" && purchase.nil?
+          AppLogger.log(
+            event: "credits.grant_without_purchase",
+            level: :error,
+            user_id: user.id,
+            idempotency_key: idempotency_key,
+            reason: reason,
+            kind: kind,
+            stripe_payment_intent_id: stripe_payment_intent_id,
+            stripe_checkout_session_id: stripe_checkout_session_id,
+            stripe_event_id: stripe_event&.stripe_event_id
+          )
+          raise ArgumentError, "Credits for bid_pack_purchase require a purchase"
+        end
 
         user.with_lock do
           existing = CreditTransaction.find_by(idempotency_key: idempotency_key)

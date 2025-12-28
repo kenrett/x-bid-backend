@@ -31,6 +31,7 @@ module Stripe
 
       attr_reader :event
       attr_reader :persisted_event
+      attr_reader :payment_intent_id
 
       def supported_event?
         SUPPORTED_TYPES.include?(event.type)
@@ -50,10 +51,10 @@ module Stripe
       def handle_payment_intent_succeeded
         data = stripe_object_data
         metadata = (data["metadata"] || data[:metadata] || {}).with_indifferent_access
-        payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
+        @payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
 
         if metadata[:auction_settlement_id].present?
-          return handle_auction_settlement_payment_succeeded(metadata:, payment_intent_id:)
+          return handle_auction_settlement_payment_succeeded(metadata:, payment_intent_id: payment_intent_id)
         end
 
         user = User.find_by(id: metadata[:user_id])
@@ -75,9 +76,28 @@ module Stripe
           currency: currency,
           source: "stripe_webhook"
         )
-        return result unless result.ok?
+        unless result.ok?
+          AppLogger.log(
+            event: "stripe.payment_succeeded.purchase_not_created",
+            level: :error,
+            stripe_event_id: stripe_event_id,
+            payment_intent_id: payment_intent_id,
+            code: result.code,
+            message: result.message
+          )
+          raise "Stripe payment succeeded but purchase was not created"
+        end
 
         purchase = result.purchase
+        unless purchase&.persisted?
+          AppLogger.log(
+            event: "stripe.payment_succeeded.purchase_not_created",
+            level: :error,
+            stripe_event_id: stripe_event_id,
+            payment_intent_id: payment_intent_id
+          )
+          raise "Stripe payment succeeded but purchase was not created"
+        end
         log_payment_applied(user:, bid_pack:, purchase:, payment_intent_id:)
 
         result
@@ -86,9 +106,9 @@ module Stripe
       def handle_payment_intent_failed
         data = stripe_object_data
         metadata = (data["metadata"] || data[:metadata] || {}).with_indifferent_access
-        payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
+        @payment_intent_id = data[:id] || data["id"] || data[:payment_intent] || data["payment_intent"]
 
-        return handle_auction_settlement_payment_failed(metadata:, payment_intent_id:) if metadata[:auction_settlement_id].present?
+        return handle_auction_settlement_payment_failed(metadata:, payment_intent_id: payment_intent_id) if metadata[:auction_settlement_id].present?
 
         ServiceResult.ok(code: :ignored, message: "Payment failure ignored for non-settlement intent")
       end
@@ -169,6 +189,7 @@ module Stripe
         AppLogger.error(
           event: "stripe.webhook.error",
           error: exception,
+          payment_intent_id: payment_intent_id,
           stripe_event_id: event.respond_to?(:id) ? event.id : nil,
           stripe_event_type: event.respond_to?(:type) ? event.type : nil
         )

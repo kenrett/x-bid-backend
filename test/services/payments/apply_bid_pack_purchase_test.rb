@@ -91,4 +91,26 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_456").count
     assert_equal "pending", Purchase.find_by!(stripe_payment_intent_id: "pi_456").receipt_status
   end
+
+  test "partial failure does not apply state" do
+    Credits::Apply.stub(:apply!, ->(**_) { raise "boom" }) do
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_fail",
+        stripe_payment_intent_id: "pi_fail",
+        stripe_event_id: "evt_fail",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      refute result.ok?
+      assert_equal :processing_error, result.code
+    end
+
+    assert_equal 0, Purchase.where(stripe_payment_intent_id: "pi_fail").count
+    assert_equal 0, CreditTransaction.where(stripe_payment_intent_id: "pi_fail").count
+    assert_equal 0, MoneyEvent.where(source_type: "StripePaymentIntent", source_id: "pi_fail").count
+  end
 end
