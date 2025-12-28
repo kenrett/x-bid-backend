@@ -9,6 +9,7 @@ module Payments
         raise ArgumentError, "Amount cents must be non-negative" if amount_cents.to_i.negative?
         raise ArgumentError, "Stripe identifier required" if stripe_payment_intent_id.blank? && stripe_checkout_session_id.blank? && stripe_event_id.blank?
 
+        result = nil
         ActiveRecord::Base.transaction do
           user.with_lock do
             purchase, purchase_was_new = find_or_build_purchase(
@@ -87,7 +88,7 @@ module Payments
               source: source
             )
 
-            ServiceResult.ok(
+            result = ServiceResult.ok(
               code: idempotent ? :already_processed : :processed,
               message: idempotent ? "Payment already applied" : "Payment applied",
               data: { purchase: purchase, credit_transaction: credit_transaction },
@@ -95,6 +96,9 @@ module Payments
             )
           end
         end
+
+        PurchaseReceiptEmailJob.perform_later(result.purchase.id) unless result&.idempotent
+        result
       rescue ActiveRecord::RecordInvalid => e
         AppLogger.error(event: "payments.apply_purchase.error", error: e, user_id: user&.id, bid_pack_id: bid_pack&.id, source: source)
         ServiceResult.fail("Validation error: #{e.message}", code: :validation_error, record: e.record)

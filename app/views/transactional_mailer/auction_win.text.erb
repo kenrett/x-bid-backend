@@ -1,0 +1,13 @@
+You won an auction on X-Bid
+
+Hello <%= @user.name.presence || "there" %>,
+
+You won: <%= @auction.title %>
+Final price: <%= @settlement.final_price %> <%= @settlement.currency&.upcase %>
+
+View your won auctions:
+<%= @wins_url %>
+
+Thanks,
+X-Bid
+

@@ -6,6 +6,8 @@ class AuctionSettlement < ApplicationRecord
   belongs_to :winning_bid, class_name: "Bid", optional: true
   has_one :auction_fulfillment, dependent: :destroy
 
+  after_create :enqueue_win_email
+
   enum :status, {
     pending_payment: 0,
     payment_failed: 1,
@@ -51,5 +53,13 @@ class AuctionSettlement < ApplicationRecord
 
   def cancel_for_non_payment!(reason: "payment_window_expired")
     update!(status: :cancelled, failure_reason: reason, failed_at: Time.current)
+  end
+
+  private
+
+  def enqueue_win_email
+    return unless winning_user_id.present?
+
+    AuctionWinEmailJob.perform_later(id)
   end
 end

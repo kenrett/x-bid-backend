@@ -1,0 +1,15 @@
+X-Bid purchase receipt
+
+Hello <%= @user.name.presence || "there" %>,
+
+Thanks for your purchase!
+
+Bid pack: <%= @bid_pack.name %>
+Credits granted: <%= @bid_pack.bids %>
+Amount paid: <%= @purchase.amount_cents %> <%= @purchase.currency&.upcase %>
+
+Receipt ID: <%= @purchase.id %>
+
+Thanks,
+X-Bid
+

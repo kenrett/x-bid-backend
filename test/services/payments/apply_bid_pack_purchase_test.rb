@@ -1,32 +1,44 @@
 require "test_helper"
 
 class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   setup do
     @user = User.create!(email_address: "buyer@example.com", password: "password", role: :user, bid_credits: 0)
     @bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 10, price: 1.0, active: true)
+    clear_enqueued_jobs
+    clear_performed_jobs
   end
 
   test "calling twice does not double-credit and creates purchase once" do
-    result1 = Payments::ApplyBidPackPurchase.call!(
-      user: @user,
-      bid_pack: @bid_pack,
-      stripe_checkout_session_id: "cs_123",
-      stripe_payment_intent_id: "pi_123",
-      stripe_event_id: "evt_123",
-      amount_cents: 100,
-      currency: "usd",
-      source: "test"
-    )
-    result2 = Payments::ApplyBidPackPurchase.call!(
-      user: @user,
-      bid_pack: @bid_pack,
-      stripe_checkout_session_id: "cs_123",
-      stripe_payment_intent_id: "pi_123",
-      stripe_event_id: "evt_123",
-      amount_cents: 100,
-      currency: "usd",
-      source: "test"
-    )
+    result1 = nil
+    assert_enqueued_jobs 1, only: PurchaseReceiptEmailJob do
+      result1 = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_123",
+        stripe_payment_intent_id: "pi_123",
+        stripe_event_id: "evt_123",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+    end
+    assert_enqueued_with(job: PurchaseReceiptEmailJob, args: [ result1.purchase.id ])
+
+    result2 = nil
+    assert_no_enqueued_jobs only: PurchaseReceiptEmailJob do
+      result2 = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_123",
+        stripe_payment_intent_id: "pi_123",
+        stripe_event_id: "evt_123",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+    end
 
     assert result1.ok?
     assert_equal false, result1.idempotent
@@ -51,16 +63,20 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
 
     assert_equal 0, CreditTransaction.where(purchase_id: purchase.id).count
 
-    result = Payments::ApplyBidPackPurchase.call!(
-      user: @user,
-      bid_pack: @bid_pack,
-      stripe_checkout_session_id: nil,
-      stripe_payment_intent_id: "pi_456",
-      stripe_event_id: nil,
-      amount_cents: 100,
-      currency: "usd",
-      source: "test"
-    )
+    result = nil
+    assert_enqueued_jobs 1, only: PurchaseReceiptEmailJob do
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: nil,
+        stripe_payment_intent_id: "pi_456",
+        stripe_event_id: nil,
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+    end
+    assert_enqueued_with(job: PurchaseReceiptEmailJob, args: [ result.purchase.id ])
 
     assert result.ok?
     assert_equal false, result.idempotent

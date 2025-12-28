@@ -1,0 +1,24 @@
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td style="padding:0; color:#f8fafc; font-size:16px;">
+      <h1 style="margin:0 0 12px; font-size:24px; font-weight:700; color:#ffffff;">Purchase receipt</h1>
+      <p style="margin:0 0 16px; line-height:1.6; color:#dfe3f0;">
+        Hello <%= @user.name.presence || "there" %>, thanks for your purchase!
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px; border:1px solid #1f1f33; border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px; color:#dfe3f0;">
+            <div style="margin:0 0 6px;"><strong>Bid pack</strong>: <%= @bid_pack.name %></div>
+            <div style="margin:0 0 6px;"><strong>Credits granted</strong>: <%= @bid_pack.bids %></div>
+            <div style="margin:0;"><strong>Amount paid</strong>: <%= @purchase.amount_cents %> <%= @purchase.currency&.upcase %></div>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0; line-height:1.6; color:#9ca3af; font-size:13px;">
+        Receipt ID: <%= @purchase.id %><br>
+        Thanks,<br>X‑Bid
+      </p>
+    </td>
+  </tr>
+</table>
+
