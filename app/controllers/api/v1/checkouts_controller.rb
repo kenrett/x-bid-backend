@@ -76,6 +76,11 @@ class Api::V1::CheckoutsController < ApplicationController
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
     return render json: { status: "error", error: "Payment was not successful." }, status: :unprocessable_content unless session.payment_status == "paid"
 
+    ownership_error = validate_checkout_session_ownership(session)
+    if ownership_error
+      return render json: { status: "error", error: ownership_error }, status: :forbidden
+    end
+
     payment_intent_id = session.payment_intent
     bid_pack = BidPack.active.find(session.metadata.bid_pack_id)
 
@@ -117,6 +122,27 @@ class Api::V1::CheckoutsController < ApplicationController
     render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
   rescue ActiveRecord::RecordNotFound
     render json: { status: "error", error: "Bid pack not found or inactive." }, status: :not_found
+  end
+
+  def validate_checkout_session_ownership(session)
+    metadata = session.respond_to?(:metadata) ? session.metadata : nil
+    metadata_user_id = metadata&.respond_to?(:user_id) ? metadata.user_id : nil
+    metadata_user_id = metadata_user_id.to_s.presence
+
+    if metadata_user_id.blank?
+      return "Forbidden: checkout session is missing ownership metadata."
+    end
+
+    if metadata_user_id != @current_user.id.to_s
+      return "Forbidden: checkout session does not belong to the current user."
+    end
+
+    customer_email = session.respond_to?(:customer_email) ? session.customer_email.to_s.presence : nil
+    if customer_email.present? && customer_email.downcase != @current_user.email_address.to_s.downcase
+      return "Forbidden: checkout session email does not match the current user."
+    end
+
+    nil
   end
 
   def resolve_frontend_origin
