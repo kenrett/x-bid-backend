@@ -26,8 +26,7 @@ module Payments
             # Receipt handling decision (Option A — Real receipts):
             # We persist the Stripe-hosted receipt URL only when Stripe provides it (never synthesized).
             # This field is intentionally nullable because a receipt URL may not exist for every payment method / flow.
-            receipt_url = purchase.receipt_url.presence || fetch_stripe_receipt_url(payment_intent_id: stripe_payment_intent_id)
-            receipt_status = receipt_status_for(receipt_url:, payment_intent_id: stripe_payment_intent_id)
+            receipt_url, receipt_status = receipt_lookup_for(purchase:, stripe_payment_intent_id:)
 
             purchase.assign_attributes(
               user: user,
@@ -38,7 +37,7 @@ module Payments
               stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
               stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
               receipt_url: receipt_url,
-              receipt_status: receipt_url.present? ? :available : receipt_status,
+              receipt_status: receipt_status,
               status: "completed"
             )
 
@@ -59,8 +58,8 @@ module Payments
                 stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
                 stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
                 stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
-                receipt_url: purchase.receipt_url.presence || receipt_url,
-                receipt_status: (purchase.receipt_url.presence || receipt_url).present? ? :available : receipt_status,
+                receipt_url: receipt_url,
+                receipt_status: receipt_status,
                 status: "completed"
               )
               purchase.save!
@@ -198,18 +197,32 @@ module Payments
         end
 
         nil
+      end
+
+      def receipt_lookup_for(purchase:, stripe_payment_intent_id:)
+        return [ purchase.receipt_url, :available ] if purchase.receipt_url.present?
+        return [ nil, purchase.receipt_status.to_sym ] if purchase.receipt_status != "pending"
+
+        status, url = fetch_stripe_receipt_lookup(payment_intent_id: stripe_payment_intent_id)
+        [ url, status ]
+      end
+
+      def fetch_stripe_receipt_lookup(payment_intent_id:)
+        return [ :pending, nil ] if payment_intent_id.blank?
+        return [ :pending, nil ] if Stripe.api_key.blank?
+
+        url = fetch_stripe_receipt_url(payment_intent_id: payment_intent_id)
+        return [ :available, url ] if url.present?
+
+        # If Stripe responded successfully but no receipt URL exists, we treat this as final.
+        [ :unavailable, nil ]
       rescue Stripe::StripeError => e
         AppLogger.error(
           event: "payments.apply_purchase.receipt_url_error",
           error: e,
           stripe_payment_intent_id: payment_intent_id
         )
-        nil
-      end
-
-      def receipt_status_for(receipt_url:, payment_intent_id:)
-        return :available if receipt_url.present?
-        :pending
+        [ :pending, nil ]
       end
 
       def record_purchase_money_event!(user:, amount_cents:, currency:, stripe_payment_intent_id:, occurred_at:, metadata:)

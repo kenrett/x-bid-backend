@@ -1,4 +1,5 @@
 require "test_helper"
+require "ostruct"
 
 class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
@@ -112,5 +113,53 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 0, Purchase.where(stripe_payment_intent_id: "pi_fail").count
     assert_equal 0, CreditTransaction.where(stripe_payment_intent_id: "pi_fail").count
     assert_equal 0, MoneyEvent.where(source_type: "StripePaymentIntent", source_id: "pi_fail").count
+  end
+
+  test "sets receipt_status unavailable when Stripe returns no receipt URL" do
+    fake_payment_intent = OpenStruct.new(latest_charge: nil, charges: OpenStruct.new(data: []))
+
+    Stripe.stub(:api_key, "sk_test") do
+      Stripe::PaymentIntent.stub(:retrieve, ->(*_) { fake_payment_intent }) do
+        result = Payments::ApplyBidPackPurchase.call!(
+          user: @user,
+          bid_pack: @bid_pack,
+          stripe_checkout_session_id: "cs_999",
+          stripe_payment_intent_id: "pi_999",
+          stripe_event_id: nil,
+          amount_cents: 100,
+          currency: "usd",
+          source: "test"
+        )
+
+        assert result.ok?
+      end
+    end
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_999")
+    assert_equal "unavailable", purchase.receipt_status
+    assert_nil purchase.receipt_url
+  end
+
+  test "keeps receipt_status pending when Stripe receipt lookup fails transiently" do
+    Stripe.stub(:api_key, "sk_test") do
+      Stripe::PaymentIntent.stub(:retrieve, ->(*_) { raise Stripe::StripeError, "timeout" }) do
+        result = Payments::ApplyBidPackPurchase.call!(
+          user: @user,
+          bid_pack: @bid_pack,
+          stripe_checkout_session_id: "cs_timeout",
+          stripe_payment_intent_id: "pi_timeout",
+          stripe_event_id: nil,
+          amount_cents: 100,
+          currency: "usd",
+          source: "test"
+        )
+
+        assert result.ok?
+      end
+    end
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_timeout")
+    assert_equal "pending", purchase.receipt_status
+    assert_nil purchase.receipt_url
   end
 end
