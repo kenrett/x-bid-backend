@@ -42,6 +42,8 @@ Rails.application.routes.draw do
 
       resources :purchases, only: [ :index, :show ]
       get "/me/activity", to: "me/activity#index"
+      get "/me/wins", to: "me/wins#index"
+      get "/me/wins/:auction_id", to: "me/wins#show"
 
       namespace :admin do
         get "/maintenance", to: "maintenance#show"

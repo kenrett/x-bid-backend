@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_27_195500) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_28_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -28,7 +28,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_27_195500) do
     t.string "failure_reason"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "fulfillment_status", default: 0, null: false
+    t.jsonb "fulfillment_address"
+    t.decimal "shipping_cost", precision: 6, scale: 2, default: "0.0", null: false
+    t.string "shipping_carrier"
+    t.string "tracking_number"
     t.index ["auction_id"], name: "index_auction_settlements_on_auction_id", unique: true
+    t.index ["fulfillment_status"], name: "index_auction_settlements_on_fulfillment_status"
     t.index ["payment_intent_id"], name: "index_auction_settlements_on_payment_intent_id", unique: true
     t.index ["status"], name: "index_auction_settlements_on_status"
     t.index ["winning_bid_id"], name: "index_auction_settlements_on_winning_bid_id"

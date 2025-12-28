@@ -13,7 +13,16 @@ class AuctionSettlement < ApplicationRecord
     cancelled: 4
   }
 
+  enum :fulfillment_status, {
+    pending: 0,
+    claimed: 1,
+    processing: 2,
+    shipped: 3,
+    complete: 4
+  }, default: :pending
+
   validates :final_price, numericality: { greater_than_or_equal_to: 0 }
+  validates :shipping_cost, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :currency, presence: true
   validates :ended_at, presence: true
   validates :auction_id, uniqueness: true

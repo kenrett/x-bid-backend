@@ -105,6 +105,16 @@
         },
         "style": "simple"
       },
+      "6d2922b757358bf49bc76b1d1dbd2d51": {
+        "description": "Id of existing win.",
+        "in": "path",
+        "name": "auction_id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "style": "simple"
+      },
       "6e0158f0b618754c963898ab74806752": {
         "description": "ID of the auction",
         "in": "path",
@@ -401,13 +411,23 @@
         "content": {
           "application/json": {
             "schema": {
+              "$ref": "#/components/schemas/a077befc92201cc9817e570d6ae70b40"
+            }
+          }
+        },
+        "description": "Wins"
+      },
+      "resp_010": {
+        "content": {
+          "application/json": {
+            "schema": {
               "$ref": "#/components/schemas/fc208d7705ebd47b7b4f9cba41ec4d24"
             }
           }
         },
         "description": "Purchases"
       },
-      "resp_010": {
+      "resp_011": {
         "content": {
           "application/json": {
             "schema": {
@@ -417,7 +437,7 @@
         },
         "description": "Auction extended"
       },
-      "resp_011": {
+      "resp_012": {
         "content": {
           "application/json": {
             "schema": {
@@ -427,7 +447,7 @@
         },
         "description": "Bid history"
       },
-      "resp_012": {
+      "resp_013": {
         "content": {
           "application/json": {
             "schema": {
@@ -437,7 +457,7 @@
         },
         "description": "Session refreshed"
       },
-      "resp_013": {
+      "resp_014": {
         "content": {
           "application/json": {
             "schema": {
@@ -447,7 +467,7 @@
         },
         "description": "Admin auctions"
       },
-      "resp_014": {
+      "resp_015": {
         "content": {
           "application/json": {
             "schema": {
@@ -457,7 +477,7 @@
         },
         "description": "Bid packs"
       },
-      "resp_015": {
+      "resp_016": {
         "content": {
           "application/json": {
             "schema": {
@@ -467,7 +487,7 @@
         },
         "description": "Payments"
       },
-      "resp_016": {
+      "resp_017": {
         "content": {
           "application/json": {
             "schema": {
@@ -477,7 +497,7 @@
         },
         "description": "Bad request"
       },
-      "resp_017": {
+      "resp_018": {
         "content": {
           "application/json": {
             "schema": {
@@ -487,7 +507,7 @@
         },
         "description": "An unexpected error occurred on the server. The server was unable to process the request."
       },
-      "resp_018": {
+      "resp_019": {
         "content": {
           "application/json": {
             "schema": {
@@ -497,7 +517,7 @@
         },
         "description": "Auctions"
       },
-      "resp_019": {
+      "resp_020": {
         "content": {
           "application/json": {
             "schema": {
@@ -507,7 +527,7 @@
         },
         "description": "Wallet balance"
       },
-      "resp_020": {
+      "resp_021": {
         "content": {
           "application/json": {
             "schema": {
@@ -517,7 +537,7 @@
         },
         "description": "Role updated"
       },
-      "resp_021": {
+      "resp_022": {
         "content": {
           "application/json": {
             "schema": {
@@ -527,7 +547,7 @@
         },
         "description": "Auction updated"
       },
-      "resp_022": {
+      "resp_023": {
         "content": {
           "application/json": {
             "schema": {
@@ -537,7 +557,7 @@
         },
         "description": "User updated"
       },
-      "resp_023": {
+      "resp_024": {
         "content": {
           "application/json": {
             "schema": {
@@ -547,7 +567,7 @@
         },
         "description": "Wallet transactions"
       },
-      "resp_024": {
+      "resp_025": {
         "content": {
           "application/json": {
             "schema": {
@@ -557,7 +577,7 @@
         },
         "description": "Already processed"
       },
-      "resp_025": {
+      "resp_026": {
         "content": {
           "application/json": {
             "schema": {
@@ -567,7 +587,7 @@
         },
         "description": "Session timing"
       },
-      "resp_026": {
+      "resp_027": {
         "content": {
           "application/json": {
             "schema": {
@@ -577,7 +597,7 @@
         },
         "description": "Template"
       },
-      "resp_027": {
+      "resp_028": {
         "content": {
           "application/json": {
             "schema": {
@@ -587,25 +607,15 @@
         },
         "description": "Maintenance updated"
       },
-      "resp_028": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
-            }
-          }
-        },
-        "description": "You are not authorized to access this resource. You need to authenticate yourself first."
-      },
       "resp_029": {
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+              "$ref": "#/components/schemas/701cfa5771768716c533d79a64c9de4e"
             }
           }
         },
-        "description": "Bid pack"
+        "description": "Win"
       },
       "resp_030": {
         "content": {
@@ -615,9 +625,29 @@
             }
           }
         },
-        "description": "The requested resource could not be found."
+        "description": "You are not authorized to access this resource. You need to authenticate yourself first."
       },
       "resp_031": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/f009e6be2776100ca0e0a85b276069e1"
+            }
+          }
+        },
+        "description": "Bid pack"
+      },
+      "resp_032": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/d79407304a1f91dbdcfa03f0d06dc75e"
+            }
+          }
+        },
+        "description": "The requested resource could not be found."
+      },
+      "resp_033": {
         "content": {
           "application/json": {
             "schema": {
@@ -627,7 +657,7 @@
         },
         "description": "Validation error"
       },
-      "resp_032": {
+      "resp_034": {
         "content": {
           "application/json": {
             "schema": {
@@ -637,7 +667,7 @@
         },
         "description": "Bid pack retired"
       },
-      "resp_033": {
+      "resp_035": {
         "content": {
           "application/json": {
             "schema": {
@@ -647,7 +677,7 @@
         },
         "description": "You are not allowed to access this resource. You do not have the necessary permissions."
       },
-      "resp_034": {
+      "resp_036": {
         "content": {
           "application/json": {
             "schema": {
@@ -657,7 +687,7 @@
         },
         "description": "Purchase"
       },
-      "resp_035": {
+      "resp_037": {
         "content": {
           "application/json": {
             "schema": {
@@ -667,7 +697,7 @@
         },
         "description": "The server could not process the request due to semantic errors. Please check your input and try again."
       },
-      "resp_036": {
+      "resp_038": {
         "content": {
           "application/json": {
             "schema": {
@@ -677,7 +707,7 @@
         },
         "description": "Logged out"
       },
-      "resp_037": {
+      "resp_039": {
         "content": {
           "application/json": {
             "schema": {
@@ -687,7 +717,7 @@
         },
         "description": "Forbidden"
       },
-      "resp_038": {
+      "resp_040": {
         "content": {
           "application/json": {
             "schema": {
@@ -697,7 +727,7 @@
         },
         "description": "Checkout session created"
       },
-      "resp_039": {
+      "resp_041": {
         "content": {
           "application/json": {
             "schema": {
@@ -707,7 +737,7 @@
         },
         "description": "User banned"
       },
-      "resp_040": {
+      "resp_042": {
         "content": {
           "application/json": {
             "schema": {
@@ -717,7 +747,7 @@
         },
         "description": "Checkout status"
       },
-      "resp_041": {
+      "resp_043": {
         "content": {
           "application/json": {
             "schema": {
@@ -727,7 +757,7 @@
         },
         "description": "Purchase applied"
       },
-      "resp_042": {
+      "resp_044": {
         "content": {
           "application/json": {
             "schema": {
@@ -737,7 +767,7 @@
         },
         "description": "Bid placed"
       },
-      "resp_043": {
+      "resp_045": {
         "content": {
           "application/json": {
             "schema": {
@@ -747,7 +777,7 @@
         },
         "description": "Auction retired"
       },
-      "resp_044": {
+      "resp_046": {
         "content": {
           "application/json": {
             "schema": {
@@ -757,7 +787,7 @@
         },
         "description": "Admin users"
       },
-      "resp_045": {
+      "resp_047": {
         "content": {
           "application/json": {
             "schema": {
@@ -767,7 +797,7 @@
         },
         "description": "Auction created"
       },
-      "resp_046": {
+      "resp_048": {
         "content": {
           "application/json": {
             "schema": {
@@ -777,7 +807,7 @@
         },
         "description": "Accepted"
       },
-      "resp_047": {
+      "resp_049": {
         "content": {
           "application/json": {
             "schema": {
@@ -787,7 +817,7 @@
         },
         "description": "Unauthorized"
       },
-      "resp_048": {
+      "resp_050": {
         "content": {
           "application/json": {
             "schema": {
@@ -797,7 +827,7 @@
         },
         "description": "Maintenance status"
       },
-      "resp_049": {
+      "resp_051": {
         "content": {
           "application/json": {
             "schema": {
@@ -907,6 +937,7 @@
         },
         "type": "array"
       },
+      "701cfa5771768716c533d79a64c9de4e": "wonauctiondetail",
       "73af65de8790c9f1d83ff0685c870a18": {
         "properties": {
           "seconds_remaining": {
@@ -1723,6 +1754,10 @@
         ],
         "type": "object"
       },
+      "a077befc92201cc9817e570d6ae70b40": {
+        "items": "wonauction",
+        "type": "array"
+      },
       "a5a373a545e3cb0ecbc6b5a1ef83a993": {
         "properties": {
           "maintenance": {
@@ -1827,10 +1862,10 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_018"
+            "$ref": "#/components/responses/resp_019"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           }
         },
         "summary": "List all auctions"
@@ -1868,16 +1903,16 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_013"
+            "$ref": "#/components/responses/resp_014"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -1905,16 +1940,16 @@
             "$ref": "#/components/responses/resp_006"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -1940,16 +1975,16 @@
             "$ref": "#/components/responses/resp_005"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -1969,16 +2004,16 @@
         "operationId": "GET__api_v1_admin_bid-packs",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_014"
+            "$ref": "#/components/responses/resp_015"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2002,16 +2037,16 @@
             "$ref": "#/components/responses/resp_008"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2031,16 +2066,16 @@
         "operationId": "GET__api_v1_admin_bid-packs_new",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_026"
+            "$ref": "#/components/responses/resp_027"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2065,22 +2100,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_032"
+            "$ref": "#/components/responses/resp_034"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2103,19 +2138,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_029"
+            "$ref": "#/components/responses/resp_031"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2144,19 +2179,19 @@
             "$ref": "#/components/responses/resp_001"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2185,19 +2220,19 @@
             "$ref": "#/components/responses/resp_001"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2222,19 +2257,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_029"
+            "$ref": "#/components/responses/resp_031"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2254,19 +2289,19 @@
         "operationId": "GET__api_v1_admin_maintenance",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_048"
+            "$ref": "#/components/responses/resp_050"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_032"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2292,25 +2327,25 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_027"
+            "$ref": "#/components/responses/resp_028"
           },
           "400": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_032"
           },
           "422": {
-            "$ref": "#/components/responses/resp_035"
+            "$ref": "#/components/responses/resp_037"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2335,16 +2370,16 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_015"
+            "$ref": "#/components/responses/resp_016"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2369,16 +2404,16 @@
         ],
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_028"
-          },
-          "403": {
-            "$ref": "#/components/responses/resp_033"
-          },
-          "404": {
             "$ref": "#/components/responses/resp_030"
           },
+          "403": {
+            "$ref": "#/components/responses/resp_035"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_032"
+          },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2406,22 +2441,22 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_049"
+            "$ref": "#/components/responses/resp_051"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2446,13 +2481,13 @@
         ],
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_028"
+            "$ref": "#/components/responses/resp_030"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2472,16 +2507,16 @@
         "operationId": "GET__api_v1_admin_users",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_044"
+            "$ref": "#/components/responses/resp_046"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2509,22 +2544,22 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_022"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2550,22 +2585,22 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_022"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2590,22 +2625,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_039"
+            "$ref": "#/components/responses/resp_041"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2630,22 +2665,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2670,22 +2705,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2710,22 +2745,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2750,22 +2785,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2790,10 +2825,10 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_018"
+            "$ref": "#/components/responses/resp_019"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           }
         },
         "summary": "List all auctions",
@@ -2809,19 +2844,19 @@
         },
         "responses": {
           "201": {
-            "$ref": "#/components/responses/resp_045"
-          },
-          "401": {
             "$ref": "#/components/responses/resp_047"
           },
+          "401": {
+            "$ref": "#/components/responses/resp_049"
+          },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2846,7 +2881,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_011"
+            "$ref": "#/components/responses/resp_012"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
@@ -2869,22 +2904,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_042"
+            "$ref": "#/components/responses/resp_044"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2909,22 +2944,22 @@
         ],
         "responses": {
           "204": {
-            "$ref": "#/components/responses/resp_043"
+            "$ref": "#/components/responses/resp_045"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -2971,22 +3006,22 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_022"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3012,22 +3047,22 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_022"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3052,22 +3087,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_010"
+            "$ref": "#/components/responses/resp_011"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3092,16 +3127,16 @@
         ],
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_028"
-          },
-          "403": {
-            "$ref": "#/components/responses/resp_033"
-          },
-          "404": {
             "$ref": "#/components/responses/resp_030"
           },
+          "403": {
+            "$ref": "#/components/responses/resp_035"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_032"
+          },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3124,16 +3159,16 @@
         ],
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_028"
+            "$ref": "#/components/responses/resp_030"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
-          },
-          "422": {
             "$ref": "#/components/responses/resp_035"
           },
+          "422": {
+            "$ref": "#/components/responses/resp_037"
+          },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3153,7 +3188,7 @@
         "operationId": "GET__api_v1_bid_packs",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_014"
+            "$ref": "#/components/responses/resp_015"
           }
         },
         "summary": "List available bid packs",
@@ -3173,19 +3208,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_040"
+            "$ref": "#/components/responses/resp_042"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3210,25 +3245,25 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_041"
+            "$ref": "#/components/responses/resp_043"
           },
           "208": {
-            "$ref": "#/components/responses/resp_024"
+            "$ref": "#/components/responses/resp_025"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3253,22 +3288,22 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_038"
+            "$ref": "#/components/responses/resp_040"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3291,13 +3326,13 @@
             "$ref": "#/components/responses/resp_007"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3323,16 +3358,16 @@
             "$ref": "#/components/responses/resp_004"
           },
           "400": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "422": {
-            "$ref": "#/components/responses/resp_035"
+            "$ref": "#/components/responses/resp_037"
           }
         },
         "summary": "Log in and create a session",
@@ -3347,19 +3382,19 @@
         "operationId": "DELETE__api_v1_logout",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_036"
+            "$ref": "#/components/responses/resp_038"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_032"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3379,10 +3414,10 @@
         "operationId": "GET__api_v1_maintenance",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_048"
+            "$ref": "#/components/responses/resp_050"
           },
           "404": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_032"
           }
         },
         "summary": "Show public maintenance mode state",
@@ -3397,13 +3432,13 @@
         "operationId": "GET__api_v1_me_activity",
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_028"
+            "$ref": "#/components/responses/resp_030"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3417,19 +3452,85 @@
         ]
       }
     },
+    "/api/v1/me/wins": {
+      "get": {
+        "description": "GET /api/v1/me/wins",
+        "operationId": "GET__api_v1_me_wins",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_009"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_049"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_035"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_018"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "List current user's auction wins (newest first)",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/me/wins/{auction_id}": {
+      "get": {
+        "description": "GET /api/v1/me/wins/:auction_id",
+        "operationId": "GET__api_v1_me_wins_{auction_id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/6d2922b757358bf49bc76b1d1dbd2d51"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_029"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_049"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_035"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_002"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_018"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Show win details for current user",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
     "/api/v1/password/forgot": {
       "post": {
         "description": "",
         "operationId": "POST__api_v1_password_forgot",
         "responses": {
           "202": {
-            "$ref": "#/components/responses/resp_046"
+            "$ref": "#/components/responses/resp_048"
           },
           "400": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_017"
           },
           "422": {
-            "$ref": "#/components/responses/resp_035"
+            "$ref": "#/components/responses/resp_037"
           }
         },
         "summary": "Request a password reset email",
@@ -3447,19 +3548,19 @@
             "$ref": "#/components/responses/resp_003"
           },
           "400": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           },
           "404": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_032"
           },
           "422": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_033"
           }
         },
         "summary": "Reset a password using a token",
@@ -3474,16 +3575,16 @@
         "operationId": "GET__api_v1_purchases",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_009"
+            "$ref": "#/components/responses/resp_010"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3508,19 +3609,19 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_034"
+            "$ref": "#/components/responses/resp_036"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3543,16 +3644,16 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_012"
+            "$ref": "#/components/responses/resp_013"
           },
           "400": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_037"
+            "$ref": "#/components/responses/resp_039"
           }
         },
         "summary": "Refresh the current session using a refresh token",
@@ -3567,16 +3668,16 @@
         "operationId": "GET__api_v1_session_remaining",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_025"
+            "$ref": "#/components/responses/resp_026"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3596,16 +3697,16 @@
         "operationId": "POST__api_v1_stripe_webhooks",
         "responses": {
           "401": {
-            "$ref": "#/components/responses/resp_028"
+            "$ref": "#/components/responses/resp_030"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
-          },
-          "422": {
             "$ref": "#/components/responses/resp_035"
           },
+          "422": {
+            "$ref": "#/components/responses/resp_037"
+          },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3625,7 +3726,7 @@
         "operationId": "POST__api_v1_users",
         "responses": {
           "422": {
-            "$ref": "#/components/responses/resp_035"
+            "$ref": "#/components/responses/resp_037"
           }
         },
         "summary": "Register a new user account",
@@ -3640,19 +3741,19 @@
         "operationId": "GET__api_v1_wallet",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_019"
+            "$ref": "#/components/responses/resp_020"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "404": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_032"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
@@ -3680,16 +3781,16 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_023"
+            "$ref": "#/components/responses/resp_024"
           },
           "401": {
-            "$ref": "#/components/responses/resp_047"
+            "$ref": "#/components/responses/resp_049"
           },
           "403": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_035"
           },
           "500": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_018"
           }
         },
         "security": [
