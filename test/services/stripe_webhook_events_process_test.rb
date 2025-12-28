@@ -55,6 +55,95 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal "pending", purchase.receipt_status
   end
 
+  test "applies charge.refunded to purchase and reconciles credits" do
+    purchase = Purchase.create!(
+      user: @user,
+      bid_pack: @bid_pack,
+      amount_cents: 500,
+      currency: "usd",
+      stripe_payment_intent_id: "pi_123",
+      status: "completed"
+    )
+
+    Credits::Apply.apply!(
+      user: @user,
+      reason: "bid_pack_purchase",
+      amount: @bid_pack.bids,
+      idempotency_key: "purchase:#{purchase.id}:grant",
+      kind: :grant,
+      purchase: purchase,
+      stripe_payment_intent_id: "pi_123",
+      metadata: { source: "test" }
+    )
+    assert_equal 500, @user.reload.bid_credits
+
+    refund_payload = {
+      id: "evt_refund_1",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_123",
+          payment_intent: "pi_123",
+          amount_refunded: 500,
+          refunds: {
+            data: [
+              { id: "re_1" }
+            ]
+          }
+        }
+      }
+    }
+
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(refund_payload))
+
+    assert result.ok?
+    assert_equal "refunded", purchase.reload.status
+    assert_equal 500, purchase.refunded_cents
+    assert_equal "re_1", purchase.refund_id
+    assert_equal 1, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").count
+    assert_equal(-500, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").sum(:amount_cents))
+    assert_equal 0, @user.reload.bid_credits
+    assert_equal 1, CreditTransaction.where(purchase_id: purchase.id, reason: "purchase_refund_credit_reversal").count
+  end
+
+  test "duplicate refund webhook deliveries are harmless" do
+    purchase = Purchase.create!(
+      user: @user,
+      bid_pack: @bid_pack,
+      amount_cents: 500,
+      currency: "usd",
+      stripe_payment_intent_id: "pi_123",
+      status: "completed"
+    )
+
+    Credits::Apply.apply!(
+      user: @user,
+      reason: "bid_pack_purchase",
+      amount: @bid_pack.bids,
+      idempotency_key: "purchase:#{purchase.id}:grant",
+      kind: :grant,
+      purchase: purchase,
+      stripe_payment_intent_id: "pi_123",
+      metadata: { source: "test" }
+    )
+
+    refund_object = {
+      id: "ch_123",
+      payment_intent: "pi_123",
+      amount_refunded: 500,
+      refunds: { data: [ { id: "re_1" } ] }
+    }
+
+    first = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(id: "evt_refund_a", type: "charge.refunded", data: { object: refund_object }))
+    assert first.ok?
+
+    second = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(id: "evt_refund_b", type: "charge.refunded", data: { object: refund_object }))
+    assert second.ok?
+
+    assert_equal 1, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").count
+    assert_equal 1, CreditTransaction.where(purchase_id: purchase.id, reason: "purchase_refund_credit_reversal").count
+  end
+
   test "violations are observable in logs when Stripe succeeds without purchase creation" do
     io = StringIO.new
     logger = Logger.new(io)

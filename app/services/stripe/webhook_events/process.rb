@@ -1,7 +1,11 @@
 module Stripe
   module WebhookEvents
     class Process
-      SUPPORTED_TYPES = [ "payment_intent.succeeded", "payment_intent.payment_failed" ].freeze
+      SUPPORTED_TYPES = [
+        "payment_intent.succeeded",
+        "payment_intent.payment_failed",
+        "charge.refunded"
+      ].freeze
 
       def self.call(event:)
         new(event: event).call
@@ -43,6 +47,8 @@ module Stripe
           handle_payment_intent_succeeded
         when "payment_intent.payment_failed"
           handle_payment_intent_failed
+        when "charge.refunded"
+          handle_charge_refunded
         else
           ServiceResult.ok(code: :ignored, message: "Unhandled event type: #{event.type}")
         end
@@ -111,6 +117,49 @@ module Stripe
         return handle_auction_settlement_payment_failed(metadata:, payment_intent_id: payment_intent_id) if metadata[:auction_settlement_id].present?
 
         ServiceResult.ok(code: :ignored, message: "Payment failure ignored for non-settlement intent")
+      end
+
+      def handle_charge_refunded
+        charge = stripe_object_data
+        @payment_intent_id = charge[:payment_intent] || charge["payment_intent"]
+        return ServiceResult.fail("Missing payment intent on charge refund event", code: :missing_payment_intent) if payment_intent_id.blank?
+
+        purchase = Purchase.find_by(stripe_payment_intent_id: payment_intent_id)
+        unless purchase
+          AppLogger.log(event: "stripe.refund.purchase_not_found", level: :error, payment_intent_id: payment_intent_id, stripe_event_id: event.id)
+          return ServiceResult.fail("Purchase not found for Stripe refund", code: :not_found)
+        end
+
+        refund_total_cents = (charge[:amount_refunded] || charge["amount_refunded"] || 0).to_i
+        return ServiceResult.ok(code: :ignored, message: "Refund amount is zero", data: { purchase_id: purchase.id }) if refund_total_cents <= 0
+
+        if refund_total_cents > purchase.amount_cents.to_i
+          AppLogger.log(
+            event: "stripe.refund.amount_exceeds_purchase",
+            level: :error,
+            payment_intent_id: payment_intent_id,
+            stripe_event_id: event.id,
+            purchase_id: purchase.id,
+            refund_total_cents: refund_total_cents,
+            purchase_amount_cents: purchase.amount_cents.to_i
+          )
+          refund_total_cents = purchase.amount_cents.to_i
+        end
+
+        return ServiceResult.ok(code: :already_processed, message: "Purchase already refunded", data: { purchase_id: purchase.id }) if purchase.refunded_cents.to_i.positive?
+        return ServiceResult.ok(code: :already_processed, message: "Refund already recorded", data: { purchase_id: purchase.id }) if refund_money_event_exists?(purchase)
+
+        refund_id = extract_refund_id_from_charge(charge)
+
+        ActiveRecord::Base.transaction do
+          apply_refund_to_purchase!(purchase: purchase, refund_total_cents: refund_total_cents, refund_id: refund_id)
+          record_refund_money_event!(purchase: purchase, amount_cents: refund_total_cents, refund_id: refund_id)
+          reconcile_refund_credits!(purchase: purchase, refund_amount_cents: refund_total_cents, refund_id: refund_id)
+        end
+
+        ServiceResult.ok(code: :refunded, message: "Refund applied", data: { purchase: purchase })
+      rescue ActiveRecord::RecordNotUnique
+        ServiceResult.ok(code: :already_processed, message: "Refund already applied", data: { purchase_id: purchase&.id, idempotent: true })
       end
 
       def persist_event!
@@ -202,6 +251,82 @@ module Stripe
       def duplicate_event_error?(error)
         record = error.record
         record.is_a?(StripeEvent)
+      end
+
+      def extract_refund_id_from_charge(charge)
+        refunds = charge[:refunds] || charge["refunds"] || {}
+        refunds_data = refunds[:data] || refunds["data"] || []
+        last = refunds_data.last
+        last[:id] || last["id"]
+      rescue
+        nil
+      end
+
+      def apply_refund_to_purchase!(purchase:, refund_total_cents:, refund_id:)
+        new_status = refund_total_cents >= purchase.amount_cents.to_i ? "refunded" : "partially_refunded"
+        purchase.update!(
+          refunded_cents: refund_total_cents,
+          refund_id: refund_id.presence || purchase.refund_id,
+          refunded_at: Time.current,
+          status: new_status
+        )
+      end
+
+      def record_refund_money_event!(purchase:, amount_cents:, refund_id:)
+        MoneyEvent.create!(
+          user: purchase.user,
+          event_type: :refund,
+          amount_cents: -amount_cents.to_i,
+          currency: purchase.currency,
+          source_type: "StripePaymentIntent",
+          source_id: purchase.stripe_payment_intent_id.to_s,
+          occurred_at: Time.current,
+          metadata: { purchase_id: purchase.id, refund_id: refund_id, source: "stripe_webhook" }.compact
+        )
+      end
+
+      def reconcile_refund_credits!(purchase:, refund_amount_cents:, refund_id:)
+        credits_granted = purchase.bid_pack&.bids.to_i
+        total_cents = purchase.amount_cents.to_i
+        return if credits_granted <= 0 || total_cents <= 0
+
+        credits_to_revoke = (credits_granted * refund_amount_cents.to_r / total_cents).round.clamp(0, credits_granted)
+        return if credits_to_revoke <= 0
+
+        current_balance = Credits::Balance.for_user(purchase.user)
+        if current_balance < credits_to_revoke
+          AppLogger.log(
+            event: "stripe.refund.spent_credits_blocked",
+            level: :error,
+            payment_intent_id: purchase.stripe_payment_intent_id,
+            purchase_id: purchase.id,
+            user_id: purchase.user_id,
+            credits_to_revoke: credits_to_revoke,
+            current_balance: current_balance
+          )
+          return
+        end
+
+        key = "purchase:#{purchase.id}:refund:#{refund_id.presence || purchase.stripe_payment_intent_id}:credits_reconcile"
+        Credits::Apply.apply!(
+          user: purchase.user,
+          reason: "purchase_refund_credit_reversal",
+          amount: -credits_to_revoke,
+          idempotency_key: key,
+          kind: :debit,
+          purchase: purchase,
+          stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+          stripe_checkout_session_id: purchase.stripe_checkout_session_id,
+          metadata: { source: "stripe_webhook", refund_id: refund_id, refunded_amount_cents: refund_amount_cents, policy: "proportional_safe" }
+        )
+      end
+
+      def refund_money_event_exists?(purchase)
+        MoneyEvent.exists?(
+          event_type: :refund,
+          source_type: "StripePaymentIntent",
+          source_id: purchase.stripe_payment_intent_id.to_s
+        )
       end
     end
   end
