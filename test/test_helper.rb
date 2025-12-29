@@ -3,6 +3,8 @@ require_relative "../config/environment"
 require "minitest/mock"
 require "rails/test_help"
 
+require_relative "support/auth_helpers"
+
 class ActiveSupport::TestCase
   # Use the test adapter for Action Cable to avoid external Redis during tests.
   ActionCable.server.config.cable = { adapter: "test" }
@@ -15,4 +17,5 @@ class ActiveSupport::TestCase
   # fixtures :all
 
   # Add more helper methods to be used by all tests here...
+  include AuthHelpers
 end
