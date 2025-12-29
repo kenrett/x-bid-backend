@@ -23,6 +23,7 @@ module Admin
           return invalid_amount("Refund exceeds remaining balance", code: :amount_exceeds_charge) if amount > @payment.refundable_cents
 
           credits_to_revoke = credits_to_revoke_for(amount_cents: amount)
+          balance_before_refund = Credits::Balance.for_user(@payment.user)
           if credits_to_revoke.positive? && !override_spent_credits? && Credits::Balance.for_user(@payment.user) < credits_to_revoke
             log_outcome(success: false, amount_cents: amount, errors: [ "Cannot refund: user has spent credits from this purchase" ], credits_to_revoke: credits_to_revoke)
             return ServiceResult.fail("Cannot refund: user has spent credits from this purchase", code: :cannot_refund_spent_credits, record: @payment)
@@ -34,14 +35,31 @@ module Admin
             return ServiceResult.fail(response.error_message || "Unable to issue refund", code: :gateway_error, data: { gateway_code: response.error_code }, record: @payment)
           end
 
-          ActiveRecord::Base.transaction do
-            apply_refund(amount_cents: amount, refund_id: response.refund_id)
-
-            record_refund_money_event!(amount_cents: amount, refund_id: response.refund_id)
-            reconcile_credits!(credits_to_revoke: credits_to_revoke, refund_id: response.refund_id, amount_cents: amount) if credits_to_revoke.positive?
-
-            log_outcome(success: true, amount_cents: amount, gateway_response: response, credits_to_revoke: credits_to_revoke)
+          refund_total_cents = @payment.refunded_cents.to_i + amount
+          result = ::Payments::ApplyPurchaseRefund.call!(
+            purchase: @payment,
+            refunded_total_cents: refund_total_cents,
+            refund_id: response.refund_id,
+            reason: @reason,
+            source: "admin_issue_refund"
+          )
+          unless result.ok?
+            log_outcome(success: false, amount_cents: amount, gateway_response: response, errors: [ result.message ], credits_to_revoke: credits_to_revoke)
+            return result
           end
+
+          AuditLogger.log(action: "payment.refund", actor: @actor, target: @payment, payload: audit_payload(amount, response.refund_id), request: @request)
+          if credits_to_revoke.positive? && balance_before_refund >= credits_to_revoke
+            AuditLogger.log(
+              action: "payment.refund_credit_reconcile",
+              actor: @actor,
+              target: @payment,
+              payload: { refund_id: response.refund_id, credits_debited: credits_to_revoke, refunded_amount_cents: amount, policy: "proportional_safe" },
+              request: @request
+            )
+          end
+
+          log_outcome(success: true, amount_cents: amount, gateway_response: response, credits_to_revoke: credits_to_revoke)
 
           ServiceResult.ok(
             code: refund_code,
@@ -64,68 +82,11 @@ module Admin
         @payment.refundable_cents
       end
 
-      def apply_refund(amount_cents:, refund_id:)
-        new_total_refunded = @payment.refunded_cents.to_i + amount_cents
-        new_status = new_total_refunded >= @payment.amount_cents ? "refunded" : "partially_refunded"
-
-        @payment.update!(
-          refunded_cents: new_total_refunded,
-          refund_id: refund_id,
-          refund_reason: @reason.presence || @payment.refund_reason,
-          refunded_at: Time.current,
-          status: new_status
-        )
-
-        AuditLogger.log(action: "payment.refund", actor: @actor, target: @payment, payload: audit_payload(amount_cents, refund_id), request: @request)
-      end
-
       # Policy (hybrid-safe):
       # - Credits reversed are proportional to the refund amount.
       # - If the user has already spent credits (insufficient current balance), block unless override.
       def credits_to_revoke_for(amount_cents:)
-        total_cents = @payment.amount_cents.to_i
-        credits_granted = @payment.bid_pack&.bids.to_i
-        return 0 if total_cents <= 0 || credits_granted <= 0
-
-        proportional = (credits_granted * amount_cents.to_r / total_cents).round
-        proportional.clamp(0, credits_granted)
-      end
-
-      def reconcile_credits!(credits_to_revoke:, refund_id:, amount_cents:)
-        idempotency_key = "purchase:#{@payment.id}:refund:#{refund_id}:credits_reconcile"
-        Credits::Apply.apply!(
-          user: @payment.user,
-          reason: "purchase_refund_credit_reversal",
-          amount: -credits_to_revoke,
-          idempotency_key: idempotency_key,
-          kind: :debit,
-          purchase: @payment,
-          stripe_payment_intent_id: @payment.stripe_payment_intent_id,
-          metadata: { refund_id: refund_id, refunded_amount_cents: amount_cents, policy: "proportional_safe" }
-        )
-
-        AuditLogger.log(
-          action: "payment.refund_credit_reconcile",
-          actor: @actor,
-          target: @payment,
-          payload: { refund_id: refund_id, credits_debited: credits_to_revoke, refunded_amount_cents: amount_cents, policy: "proportional_safe" },
-          request: @request
-        )
-      end
-
-      def record_refund_money_event!(amount_cents:, refund_id:)
-        MoneyEvent.create!(
-          user: @payment.user,
-          event_type: :refund,
-          amount_cents: -amount_cents,
-          currency: @payment.currency,
-          source_type: "StripePaymentIntent",
-          source_id: @payment.stripe_payment_intent_id.to_s,
-          occurred_at: Time.current,
-          metadata: { purchase_id: @payment.id, refund_id: refund_id, reason: @reason }.compact
-        )
-      rescue ActiveRecord::RecordNotUnique
-        raise ActiveRecord::RecordNotUnique, "Refund already recorded"
+        ::Payments::RefundPolicy.credits_to_revoke(purchase: @payment, refund_amount_cents: amount_cents)
       end
 
       def fully_refunded?

@@ -30,20 +30,14 @@ module Payments
           return ServiceResult.fail(response.error_message || "Unable to issue refund", code: :gateway_error, record: @purchase)
         end
 
-        money_event = MoneyEvent.create!(
-          user: @purchase.user,
-          event_type: :refund,
-          amount_cents: -@amount_cents,
-          currency: @purchase.currency,
-          source_type: "StripePaymentIntent",
-          source_id: payment_intent_id,
-          occurred_at: Time.current,
-          metadata: {
-            purchase_id: @purchase.id,
-            refund_id: response.refund_id,
-            reason: @reason
-          }.compact
+        apply_result = Payments::ApplyPurchaseRefund.call!(
+          purchase: @purchase,
+          refunded_total_cents: @amount_cents,
+          refund_id: response.refund_id,
+          reason: @reason,
+          source: "payments_issue_refund"
         )
+        return apply_result unless apply_result.ok?
 
         AppLogger.log(
           event: "payments.issue_refund.recorded",
@@ -51,15 +45,10 @@ module Payments
           user_id: @purchase.user_id,
           payment_intent_id: payment_intent_id,
           refund_id: response.refund_id,
-          amount_cents: @amount_cents,
-          money_event_id: money_event.id
+          amount_cents: @amount_cents
         )
 
-        ServiceResult.ok(
-          code: :refunded,
-          message: "Refund recorded",
-          data: { purchase: @purchase, refund_id: response.refund_id, money_event: money_event }
-        )
+        ServiceResult.ok(code: :refunded, message: "Refund recorded", data: { purchase: @purchase, refund_id: response.refund_id })
       end
     rescue ActiveRecord::RecordNotUnique
       ServiceResult.fail("Refund already recorded", code: :already_refunded, record: @purchase)
