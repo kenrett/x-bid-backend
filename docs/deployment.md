@@ -128,6 +128,9 @@ Background jobs should run in a separate worker process (or processes), not insi
 - Migrations that change job behavior should be backward compatible across deploy boundaries
 - If you change job queues or schedules, document it here
 
+### Scheduled jobs (Render Cron)
+- Daily Stripe receipt backfill (recommended): `bin/rails purchases:receipts:backfill`
+
 ## 🔁 Rollback Strategy
 
 Rollbacks are part of normal operations. Plan for them.
