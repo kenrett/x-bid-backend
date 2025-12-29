@@ -162,4 +162,60 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal "pending", purchase.receipt_status
     assert_nil purchase.receipt_url
   end
+
+  test "captures stripe_charge_id when Stripe provides latest_charge" do
+    fake_charge = OpenStruct.new(id: "ch_123", receipt_url: "https://stripe.com/receipt/ch_123")
+    fake_payment_intent = OpenStruct.new(latest_charge: fake_charge)
+
+    Stripe.stub(:api_key, "sk_test") do
+      Stripe::PaymentIntent.stub(:retrieve, ->(*_) { fake_payment_intent }) do
+        result = Payments::ApplyBidPackPurchase.call!(
+          user: @user,
+          bid_pack: @bid_pack,
+          stripe_checkout_session_id: "cs_charge",
+          stripe_payment_intent_id: "pi_charge",
+          stripe_event_id: nil,
+          amount_cents: 100,
+          currency: "usd",
+          source: "test"
+        )
+
+        assert result.ok?
+      end
+    end
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_charge")
+    assert_equal "ch_123", purchase.stripe_charge_id
+    assert_equal "available", purchase.receipt_status
+    assert_equal "https://stripe.com/receipt/ch_123", purchase.receipt_url
+  end
+
+  test "captures stripe_charge_id when Stripe returns latest_charge id string" do
+    fake_payment_intent = OpenStruct.new(latest_charge: "ch_string")
+    fake_charge = OpenStruct.new(id: "ch_string", receipt_url: nil)
+
+    Stripe.stub(:api_key, "sk_test") do
+      Stripe::PaymentIntent.stub(:retrieve, ->(*_) { fake_payment_intent }) do
+        Stripe::Charge.stub(:retrieve, ->(*_) { fake_charge }) do
+          result = Payments::ApplyBidPackPurchase.call!(
+            user: @user,
+            bid_pack: @bid_pack,
+            stripe_checkout_session_id: "cs_charge_string",
+            stripe_payment_intent_id: "pi_charge_string",
+            stripe_event_id: nil,
+            amount_cents: 100,
+            currency: "usd",
+            source: "test"
+          )
+
+          assert result.ok?
+        end
+      end
+    end
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_charge_string")
+    assert_equal "ch_string", purchase.stripe_charge_id
+    assert_equal "unavailable", purchase.receipt_status
+    assert_nil purchase.receipt_url
+  end
 end

@@ -10,6 +10,8 @@ module Api
                  :receipt_url,
                  :stripe_checkout_session_id,
                  :stripe_payment_intent_id,
+                 :stripe_charge_id,
+                 :stripe_event_id,
                  :bid_pack
 
       def receipt_url
