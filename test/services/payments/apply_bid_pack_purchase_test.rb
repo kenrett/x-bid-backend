@@ -11,6 +11,38 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     clear_performed_jobs
   end
 
+  test "happy path applies credits and completes purchase" do
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :available, "https://stripe.example/receipts/rcpt_1", "ch_1" ] }) do
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_happy",
+        stripe_payment_intent_id: "pi_happy",
+        stripe_event_id: "evt_happy",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      assert result.ok?
+      assert_equal false, result.idempotent
+    end
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_happy")
+    assert_equal "completed", purchase.status
+    assert_equal @bid_pack.id, purchase.bid_pack_id
+    assert_equal 100, purchase.amount_cents
+    assert_equal "usd", purchase.currency
+    assert_equal "available", purchase.receipt_status
+    assert_equal "https://stripe.example/receipts/rcpt_1", purchase.receipt_url
+    assert_equal "ch_1", purchase.stripe_charge_id
+
+    credit = CreditTransaction.find_by!(idempotency_key: "purchase:#{purchase.id}:grant")
+    assert_equal "grant", credit.kind
+    assert_equal @bid_pack.bids, credit.amount
+    assert_equal @bid_pack.bids, @user.reload.bid_credits
+  end
+
   test "calling twice does not double-credit and creates purchase once" do
     result1 = nil
     assert_enqueued_jobs 1, only: PurchaseReceiptEmailJob do
@@ -54,6 +86,32 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 100, @user.reload.bid_credits
     assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal "pending", purchase.receipt_status
+  end
+
+  test "writes a purchase money event for reconciliation" do
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :pending, nil, nil ] }) do
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_ledger",
+        stripe_payment_intent_id: "pi_ledger",
+        stripe_event_id: "evt_ledger",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      assert result.ok?
+    end
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_ledger")
+    money_event = MoneyEvent.find_by!(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_ledger")
+    assert_equal 100, money_event.amount_cents
+    assert_equal "usd", money_event.currency
+    assert_equal purchase.id, money_event.metadata["purchase_id"]
+    assert_equal "evt_ledger", money_event.metadata["stripe_event_id"]
+    assert_equal "cs_ledger", money_event.metadata["stripe_checkout_session_id"]
+    assert_equal "test", money_event.metadata["source"]
   end
 
   test "repairs when purchase exists but credit grant is missing" do
