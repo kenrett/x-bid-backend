@@ -1,11 +1,12 @@
 module Admin
   module Users
     class GrantRole
-      def initialize(actor:, user:, role:, request: nil)
+      def initialize(actor:, user:, role:, request: nil, allow_superadmin_demotion: false)
         @actor = actor
         @user = user
         @role = role.to_sym
         @request = request
+        @allow_superadmin_demotion = !!allow_superadmin_demotion
       end
 
       def call
@@ -23,7 +24,10 @@ module Admin
       private
 
       def superadmin_conflict?
-        (@role == :admin && @user.superadmin?) || (@role == :superadmin && @user.superadmin?)
+        return true if @role == :superadmin && @user.superadmin?
+        return false unless @role == :admin && @user.superadmin?
+
+        !@allow_superadmin_demotion
       end
 
       def admin_conflict?
@@ -32,7 +36,7 @@ module Admin
 
       def action_name
         case @role
-        when :admin then "user.grant_admin"
+        when :admin then @user.superadmin? ? "user.revoke_superadmin" : "user.grant_admin"
         when :superadmin then "user.grant_superadmin"
         when :user then @user.superadmin? ? "user.revoke_superadmin" : "user.revoke_admin"
         else "user.update"

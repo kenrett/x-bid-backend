@@ -70,7 +70,13 @@ module Api
         def revoke_superadmin
           return render_error(code: :invalid_user, message: "User is not a superadmin", status: :unprocessable_entity) unless @user.superadmin?
 
-          result = ::Admin::Users::GrantRole.new(actor: @current_user, user: @user, role: :admin, request: request).call
+          result = ::Admin::Users::GrantRole.new(
+            actor: @current_user,
+            user: @user,
+            role: :admin,
+            allow_superadmin_demotion: true,
+            request: request
+          ).call
           return render_error(code: :invalid_user, message: result.error, status: :unprocessable_entity) if result.error
           render_admin_user(result.user)
         end

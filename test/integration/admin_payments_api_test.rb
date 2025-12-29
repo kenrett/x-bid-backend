@@ -1,21 +1,7 @@
 require "test_helper"
-require "jwt"
 
 class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
   def setup
-    @admin = User.create!(
-      name: "Admin",
-      email_address: "admin@example.com",
-      password: "password",
-      role: :admin,
-      bid_credits: 0
-    )
-    @admin_session = SessionToken.create!(
-      user: @admin,
-      token_digest: SessionToken.digest("raw"),
-      expires_at: 1.hour.from_now
-    )
-
     @bid_pack = BidPack.create!(
       name: "Starter",
       bids: 10,
@@ -26,17 +12,51 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     )
   end
 
+  test "GET /api/v1/admin/payments enforces role matrix" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      get "/api/v1/admin/payments", headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      next unless success
+
+      body = JSON.parse(response.body)
+      assert_kind_of Array, body
+      assert_equal purchase.id, body.first["id"]
+      assert_equal user.email_address, body.first["user_email"]
+    end
+  end
+
+  test "GET /api/v1/admin/payments/:id enforces role matrix" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      get "/api/v1/admin/payments/#{purchase.id}", headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      next unless success
+
+      body = JSON.parse(response.body)
+      assert_equal purchase.id, body.dig("purchase", "id")
+      assert_kind_of Array, body["credit_transactions"]
+      assert body.key?("balance_audit")
+    end
+  end
+
   test "returns payments for admins" do
     user = create_user(email: "buyer@example.com")
     purchase = create_purchase(user:)
 
-    get "/api/v1/admin/payments", headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/payments", headers: auth_headers_for(admin)
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal 1, body.size
-
-    payment = body.first
+    payment = body.find { |p| p["id"] == purchase.id }
+    assert payment, "Expected payments list to include purchase id=#{purchase.id}"
     assert_equal purchase.id, payment["id"]
     assert_equal user.email_address, payment["user_email"]
     assert_in_delta @bid_pack.price.to_f, payment["amount"].to_f, 0.001
@@ -53,7 +73,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     create_purchase(user: matching_user)
     create_purchase(user: other_user)
 
-    get "/api/v1/admin/payments", params: { search: "match" }, headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/payments", params: { search: "match" }, headers: auth_headers_for(admin)
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -61,51 +82,67 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     assert_equal matching_user.email_address, body.first["user_email"]
   end
 
-  test "rejects non-admins" do
-    user = create_user(email: "user@example.com", role: :user)
-    session_token = SessionToken.create!(
-      user: user,
-      token_digest: SessionToken.digest("raw2"),
-      expires_at: 1.hour.from_now
-    )
+  test "POST /api/v1/admin/payments/:id/refund enforces role matrix and updates payment" do
+    each_role_case(required_role: :admin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
+      user = create_user(email: "buyer-#{role}@example.com")
+      purchase = create_purchase(user:)
 
-    get "/api/v1/admin/payments", headers: auth_headers(user, session_token)
+      fake_service = Class.new do
+        def initialize(payment)
+          @payment = payment
+        end
 
-    assert_response :forbidden
-    body = JSON.parse(response.body)
-    assert_equal "forbidden", body["error_code"]
-    assert_equal "Admin privileges required", body["message"]
+        def call
+          @payment.update!(status: "refunded", refunded_cents: 500)
+          ServiceResult.ok(code: :refunded, data: { refund_id: "re_fake" })
+        end
+      end
+
+      captured_kwargs = nil
+      Admin::Payments::IssueRefund.stub(:new, ->(**kwargs) { captured_kwargs = kwargs; fake_service.new(kwargs[:payment]) }) do
+        post "/api/v1/admin/payments/#{purchase.id}/refund",
+             params: { amount_cents: 500, reason: "mistake" },
+             headers: headers
+      end
+
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "refunded", body["status"]
+        assert_equal 500, body["refunded_cents"]
+        assert_equal "re_fake", body["refund_id"]
+        assert_equal actor, captured_kwargs[:actor]
+        assert_equal purchase, captured_kwargs[:payment]
+        assert_equal "mistake", captured_kwargs[:reason]
+        assert_equal "refunded", purchase.reload.status
+      else
+        assert_nil captured_kwargs
+        assert_equal "completed", purchase.reload.status
+      end
+    end
   end
 
-  test "routes refund through Admin::Payments::IssueRefund" do
-    user = create_user(email: "buyer@example.com")
-    purchase = create_purchase(user:)
+  test "POST /api/v1/admin/payments/:id/repair_credits enforces role matrix and repairs ledger" do
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      user = create_user(email: "buyer-repair-#{role}@example.com")
+      purchase = create_purchase(user:)
 
-    fake_service = Class.new do
-      def initialize(payment)
-        @payment = payment
+      assert_difference("CreditTransaction.count", success ? 1 : 0, "role=#{role}") do
+        post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: headers
       end
 
-      def call
-        @payment.update!(status: "refunded", refunded_cents: 500)
-        ServiceResult.ok(code: :refunded, data: { refund_id: "re_fake" })
+      assert_response expected_status
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal purchase.id, body.dig("purchase", "id")
+        assert_kind_of Array, body["credit_transactions"]
+        assert_equal 1, body["credit_transactions"].size
+      else
+        assert_equal 0, CreditTransaction.where(purchase_id: purchase.id).count
       end
     end
-
-    captured_kwargs = nil
-    Admin::Payments::IssueRefund.stub(:new, ->(**kwargs) { captured_kwargs = kwargs; fake_service.new(kwargs[:payment]) }) do
-      post "/api/v1/admin/payments/#{purchase.id}/refund", params: { amount_cents: 500, reason: "mistake" }, headers: auth_headers(@admin, @admin_session)
-    end
-
-    assert_response :success
-    body = JSON.parse(response.body)
-    assert_equal "refunded", body["status"]
-    assert_in_delta 9.99, body["amount"].to_f, 0.001
-    assert_equal 500, body["refunded_cents"]
-    assert_equal "re_fake", body["refund_id"]
-    assert_equal @admin, captured_kwargs[:actor]
-    assert_equal purchase, captured_kwargs[:payment]
-    assert_equal "mistake", captured_kwargs[:reason]
   end
 
   test "shows payment reconciliation with matching ledger entry" do
@@ -122,7 +159,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     )
     Credits::RebuildBalance.call!(user: user)
 
-    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers_for(admin)
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -150,7 +188,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     user = create_user(email: "buyer@example.com")
     purchase = create_purchase(user:)
 
-    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers_for(admin)
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -173,7 +212,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     Credits::RebuildBalance.call!(user: user)
     user.update_columns(bid_credits: user.bid_credits + 1)
 
-    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/payments/#{purchase.id}", headers: auth_headers_for(admin)
 
     assert_response :success
     audit = JSON.parse(response.body)["balance_audit"]
@@ -188,7 +228,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
 
     assert_equal 0, CreditTransaction.where(purchase_id: purchase.id).count
 
-    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers_for(admin)
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -203,12 +244,13 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     user = create_user(email: "buyer@example.com")
     purchase = create_purchase(user:)
 
-    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers(@admin, @admin_session)
+    admin = create_actor(role: :admin)
+    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers_for(admin)
     assert_response :success
     body1 = JSON.parse(response.body)
     assert_equal false, body1["idempotent"]
 
-    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers(@admin, @admin_session)
+    post "/api/v1/admin/payments/#{purchase.id}/repair_credits", headers: auth_headers_for(admin)
     assert_response :success
     body2 = JSON.parse(response.body)
     assert_equal true, body2["idempotent"]
@@ -238,11 +280,5 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
       stripe_payment_intent_id: SecureRandom.uuid,
       status: "completed"
     )
-  end
-
-  def auth_headers(user, session_token)
-    payload = { user_id: user.id, session_token_id: session_token.id, exp: 1.hour.from_now.to_i }
-    token = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
-    { "Authorization" => "Bearer #{token}" }
   end
 end

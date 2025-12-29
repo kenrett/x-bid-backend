@@ -4,6 +4,7 @@ require "minitest/mock"
 require "rails/test_help"
 
 require_relative "support/auth_helpers"
+require_relative "support/role_matrix_helpers"
 
 class ActiveSupport::TestCase
   # Use the test adapter for Action Cable to avoid external Redis during tests.
@@ -18,4 +19,5 @@ class ActiveSupport::TestCase
 
   # Add more helper methods to be used by all tests here...
   include AuthHelpers
+  include RoleMatrixHelpers
 end

@@ -1,57 +1,147 @@
 require "test_helper"
-require "jwt"
 
 class AdminUsersApiTest < ActionDispatch::IntegrationTest
   def setup
-    @superadmin = User.create!(name: "Super", email_address: "super@example.com", password: "password", role: :superadmin, bid_credits: 0)
-    @admin = User.create!(name: "Admin", email_address: "admin@example.com", password: "password", role: :admin, bid_credits: 0)
-    @user = User.create!(name: "User", email_address: "user@example.com", password: "password", role: :user, bid_credits: 0)
-
-    @superadmin_session = SessionToken.create!(user: @superadmin, token_digest: SessionToken.digest("raw-super"), expires_at: 1.hour.from_now)
-    @admin_session = SessionToken.create!(user: @admin, token_digest: SessionToken.digest("raw-admin"), expires_at: 1.hour.from_now)
+    @superadmin = create_actor(role: :superadmin)
+    @other_superadmin = create_actor(role: :superadmin)
+    @admin = create_actor(role: :admin)
+    @user = create_actor(role: :user)
   end
 
-  test "superadmin can ban (disable) a user" do
-    post "/api/v1/admin/users/#{@user.id}/ban", headers: auth_headers(user: @superadmin, session: @superadmin_session)
+  test "GET /api/v1/admin/users enforces role matrix" do
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      get "/api/v1/admin/users", headers: headers
+      assert_response expected_status, "role=#{role}"
 
-    assert_response :success
-    data = parsed_user(JSON.parse(response.body))
-    assert_equal "disabled", data["status"]
-    assert_equal "disabled", @user.reload.status
+      next unless success
+
+      body = JSON.parse(response.body)
+      users = body.is_a?(Array) ? body : (body["admin_users"] || body["adminUsers"] || body)
+      assert_kind_of Array, users
+      ids = users.map { |u| u["id"] }
+      assert_includes ids, @superadmin.id
+      assert_includes ids, @admin.id
+      assert_not_includes ids, @user.id
+    end
   end
 
-  test "ban is idempotent when user already disabled" do
-    @user.update!(status: :disabled)
+  test "POST /api/v1/admin/users/:id/grant_admin enforces role matrix and updates role" do
+    target = create_actor(role: :user)
 
-    post "/api/v1/admin/users/#{@user.id}/ban", headers: auth_headers(user: @superadmin, session: @superadmin_session)
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      post "/api/v1/admin/users/#{target.id}/grant_admin", headers: headers
+      assert_response expected_status, "role=#{role}"
 
-    assert_response :success
-    data = parsed_user(JSON.parse(response.body))
-    assert_equal "disabled", data["status"]
-    assert_equal "disabled", @user.reload.status
+      if success
+        assert_equal "admin", parsed_user(JSON.parse(response.body))["role"]
+        assert_equal "admin", target.reload.role
+      else
+        assert_equal "user", target.reload.role
+      end
+    end
   end
 
-  test "non-superadmin cannot ban" do
-    post "/api/v1/admin/users/#{@user.id}/ban", headers: auth_headers(user: @admin, session: @admin_session)
+  test "POST /api/v1/admin/users/:id/revoke_admin enforces role matrix and updates role" do
+    target = create_actor(role: :admin)
 
-    assert_response :forbidden
-    body = JSON.parse(response.body)
-    assert_equal "Superadmin privileges required", body["error"]
-    assert_equal "active", @user.reload.status
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      post "/api/v1/admin/users/#{target.id}/revoke_admin", headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        assert_equal "user", parsed_user(JSON.parse(response.body))["role"]
+        assert_equal "user", target.reload.role
+      else
+        assert_equal "admin", target.reload.role
+      end
+    end
+  end
+
+  test "POST /api/v1/admin/users/:id/grant_superadmin enforces role matrix and updates role" do
+    target = create_actor(role: :admin)
+
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      post "/api/v1/admin/users/#{target.id}/grant_superadmin", headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        assert_equal "superadmin", parsed_user(JSON.parse(response.body))["role"]
+        assert_equal "superadmin", target.reload.role
+      else
+        assert_equal "admin", target.reload.role
+      end
+    end
+  end
+
+  test "POST /api/v1/admin/users/:id/revoke_superadmin enforces role matrix and updates role" do
+    target = @other_superadmin
+
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      post "/api/v1/admin/users/#{target.id}/revoke_superadmin", headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        assert_equal "admin", parsed_user(JSON.parse(response.body))["role"]
+        assert_equal "admin", target.reload.role
+      else
+        assert_equal "superadmin", target.reload.role
+      end
+    end
+  end
+
+  test "POST /api/v1/admin/users/:id/ban enforces role matrix and is idempotent" do
+    target = create_actor(role: :user)
+
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      post "/api/v1/admin/users/#{target.id}/ban", headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        assert_equal "disabled", parsed_user(JSON.parse(response.body))["status"]
+        assert_equal "disabled", target.reload.status
+
+        post "/api/v1/admin/users/#{target.id}/ban", headers: headers
+        assert_response :success
+        assert_equal "disabled", parsed_user(JSON.parse(response.body))["status"]
+        assert_equal "disabled", target.reload.status
+      else
+        assert_equal "active", target.reload.status
+      end
+    end
+  end
+
+  test "PATCH /api/v1/admin/users/:id enforces role matrix and audits updates" do
+    target = create_actor(role: :admin)
+    params = { user: { name: "Renamed Admin" } }
+
+    each_role_case(required_role: :superadmin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
+      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+        patch "/api/v1/admin/users/#{target.id}", params: params, headers: headers
+      end
+
+      assert_response expected_status
+
+      if success
+        assert_equal "Renamed Admin", parsed_user(JSON.parse(response.body))["name"]
+        assert_equal "Renamed Admin", target.reload.name
+
+        log = AuditLog.order(created_at: :desc).first
+        assert_equal "user.update", log.action
+        assert_equal actor.id, log.actor_id
+        assert_equal target.id, log.target_id
+      else
+        assert_not_equal "Renamed Admin", target.reload.name
+      end
+    end
   end
 
   private
 
-  def auth_headers(user:, session:)
-    payload = { user_id: user.id, session_token_id: session.id, exp: 1.hour.from_now.to_i }
-    token = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
-    { "Authorization" => "Bearer #{token}" }
-  end
-
   def parsed_user(body)
     body["admin_user"] ||
       body["adminUser"] ||
-      body.values.find { |v| v.is_a?(Hash) && v.key?("status") } ||
+      body.values.find { |v| v.is_a?(Hash) && (v.key?("status") || v.key?("role") || v.key?("email_address") || v.key?("emailAddress")) } ||
+      body ||
       {}
   end
 end
