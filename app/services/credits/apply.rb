@@ -9,6 +9,15 @@ module Credits
         raise ArgumentError, "User must be provided" unless user
         raise ArgumentError, "Reason must be provided" if reason.blank?
         raise ArgumentError, "Amount must be non-zero" if amount.to_i == 0
+
+        normalized_kind = kind.to_s
+        normalized_amount = amount.to_i
+        if normalized_kind == "grant" || normalized_kind == "refund"
+          raise ArgumentError, "#{normalized_kind} amount must be positive" unless normalized_amount.positive?
+        end
+        if normalized_kind == "debit"
+          raise ArgumentError, "debit amount must be negative" unless normalized_amount.negative?
+        end
         if reason.to_s == "bid_pack_purchase" && purchase.nil?
           AppLogger.log(
             event: "credits.grant_without_purchase",

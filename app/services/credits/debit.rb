@@ -39,7 +39,7 @@ module Credits
             auction: auction,
             kind: :debit,
             amount: -1,
-            reason: "auction bid debit",
+            reason: "bid_placed",
             idempotency_key: idempotency_key,
             metadata: {}
           )

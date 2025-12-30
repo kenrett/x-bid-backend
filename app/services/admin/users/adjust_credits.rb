@@ -19,7 +19,7 @@ module Admin
 
           Credits::Apply.apply!(
             user: @user,
-            reason: @reason.presence || "admin adjustment",
+            reason: @reason.presence || "admin_adjustment",
             amount: @delta,
             kind: :adjustment,
             idempotency_key: "admin_adjustment:#{@actor.id}:#{@user.id}:#{SecureRandom.uuid}",

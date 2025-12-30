@@ -14,7 +14,7 @@ class WalletApiTest < ActionDispatch::IntegrationTest
       user: @user,
       kind: :grant,
       amount: 10,
-      reason: "seed",
+      reason: "seed_grant",
       idempotency_key: "test:wallet:grant",
       metadata: {}
     )
@@ -22,7 +22,7 @@ class WalletApiTest < ActionDispatch::IntegrationTest
       user: @user,
       kind: :debit,
       amount: -2,
-      reason: "bid",
+      reason: "bid_placed",
       idempotency_key: "test:wallet:debit",
       metadata: {}
     )
@@ -65,9 +65,13 @@ class WalletApiTest < ActionDispatch::IntegrationTest
 
     assert_equal 1, body["transactions"].length
     assert_equal mine.id, body["transactions"][0]["id"]
-    assert_equal "grant", body["transactions"][0]["kind"]
+    assert_equal "credit", body["transactions"][0]["kind"]
     assert_equal 5, body["transactions"][0]["amount"]
-    assert_equal "mine", body["transactions"][0]["reason"]
+    assert_equal "Mine", body["transactions"][0]["reason"]
+    assert_equal "mine", body["transactions"][0]["reason_code"]
+    assert_nil body["transactions"][0]["reference_type"]
+    assert_nil body["transactions"][0]["reference_id"]
+    assert body["transactions"][0]["occurred_at"].present?
     assert_equal "test:wallet:mine", body["transactions"][0]["idempotency_key"]
     assert_equal({ "a" => 1 }, body["transactions"][0]["metadata"])
   end
@@ -92,7 +96,7 @@ class WalletApiTest < ActionDispatch::IntegrationTest
     assert_equal 1, body["page"]
     assert_equal 25, body["per_page"]
     assert_equal true, body["has_more"]
-    assert_equal "t0", body["transactions"][0]["reason"]
+    assert_equal "T0", body["transactions"][0]["reason"]
 
     get "/api/v1/wallet/transactions", params: { page: 2 }, headers: auth_headers(@user, @session_token)
 
@@ -102,7 +106,88 @@ class WalletApiTest < ActionDispatch::IntegrationTest
     assert_equal 2, body["page"]
     assert_equal 25, body["per_page"]
     assert_equal false, body["has_more"]
-    assert_equal "t25", body["transactions"][0]["reason"]
+    assert_equal "T25", body["transactions"][0]["reason"]
+  end
+
+  test "wallet transactions use canonical kind/amount and include reason_code + references" do
+    auction = Auction.create!(
+      title: "A",
+      description: "desc",
+      start_date: 2.days.ago,
+      end_time: 1.day.from_now,
+      current_price: BigDecimal("1.00"),
+      status: :active
+    )
+
+    bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 100, price: 1.0, active: true)
+    purchase = Purchase.create!(user: @user, bid_pack: bid_pack, status: "completed", amount_cents: 100, currency: "usd")
+
+    admin = User.create!(name: "Admin", email_address: "admin_wallet@example.com", password: "password", role: :admin, bid_credits: 0)
+
+    # Newest first
+    CreditTransaction.create!(
+      user: @user,
+      kind: :adjustment,
+      amount: -7,
+      reason: "admin_adjustment",
+      idempotency_key: "test:wallet:adj",
+      admin_actor: admin,
+      created_at: 1.hour.ago,
+      metadata: {}
+    )
+    CreditTransaction.create!(
+      user: @user,
+      kind: :debit,
+      amount: -1,
+      reason: "bid_placed",
+      idempotency_key: "test:wallet:bid",
+      auction: auction,
+      created_at: 2.hours.ago,
+      metadata: {}
+    )
+    CreditTransaction.create!(
+      user: @user,
+      kind: :grant,
+      amount: 100,
+      reason: "bid_pack_purchase",
+      idempotency_key: "test:wallet:purchase_grant",
+      purchase: purchase,
+      created_at: 3.hours.ago,
+      metadata: {}
+    )
+    CreditTransaction.create!(
+      user: @user,
+      kind: :debit,
+      amount: -25,
+      reason: "purchase_refund_credit_reversal",
+      idempotency_key: "test:wallet:refund_reversal",
+      purchase: purchase,
+      created_at: 4.hours.ago,
+      metadata: {}
+    )
+
+    get "/api/v1/wallet/transactions", headers: auth_headers(@user, @session_token)
+    assert_response :success
+    rows = JSON.parse(response.body).fetch("transactions")
+
+    assert_equal %w[admin_adjustment bid_placed bid_pack_purchase purchase_refund_credit_reversal], rows.map { |row| row.fetch("reason_code") }
+    assert_equal %w[debit debit credit debit], rows.map { |row| row.fetch("kind") }
+    assert_equal [ 7, 1, 100, 25 ], rows.map { |row| row.fetch("amount") }
+
+    assert_equal "Admin adjustment", rows[0].fetch("reason")
+    assert_equal admin.id, rows[0].fetch("admin_actor_id")
+
+    assert_equal "Bid placed", rows[1].fetch("reason")
+    assert_equal "Auction", rows[1].fetch("reference_type")
+    assert_equal auction.id, rows[1].fetch("reference_id")
+
+    assert_equal "Bid pack purchase", rows[2].fetch("reason")
+    assert_equal "Purchase", rows[2].fetch("reference_type")
+    assert_equal purchase.id, rows[2].fetch("reference_id")
+
+    assert_equal "Refund", rows[3].fetch("reason")
+    assert_equal "Purchase", rows[3].fetch("reference_type")
+    assert_equal purchase.id, rows[3].fetch("reference_id")
   end
 
   private

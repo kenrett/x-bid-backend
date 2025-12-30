@@ -41,4 +41,17 @@ class CreditTransactionTest < ActiveSupport::TestCase
     assert_includes entry.errors[:amount], "must be other than 0"
     assert_includes entry.errors[:reason], "can't be blank"
   end
+
+  test "enforces amount direction by kind" do
+    grant = build_transaction(kind: :grant, amount: -5)
+    refute grant.valid?
+    assert_includes grant.errors[:amount], "must be positive for grant"
+
+    debit = build_transaction(kind: :debit, amount: 1)
+    refute debit.valid?
+    assert_includes debit.errors[:amount], "must be negative for debit"
+
+    adjustment = build_transaction(kind: :adjustment, amount: -3)
+    assert adjustment.valid?
+  end
 end

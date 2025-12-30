@@ -12,12 +12,26 @@ class CreditTransaction < ApplicationRecord
   validates :kind, :reason, :idempotency_key, presence: true
   validates :idempotency_key, uniqueness: true
   validates :amount, numericality: { only_integer: true, other_than: 0 }
+  validate :amount_direction_is_consistent
 
   # Append-only ledger: entries must never be changed or removed.
   before_update :prevent_mutation
   before_destroy :prevent_mutation
 
   private
+
+  def amount_direction_is_consistent
+    return if amount.to_i == 0
+
+    case kind
+    when "grant", "refund"
+      errors.add(:amount, "must be positive for #{kind}") unless amount.to_i.positive?
+    when "debit"
+      errors.add(:amount, "must be negative for debit") unless amount.to_i.negative?
+    when "adjustment"
+      # adjustment may be positive or negative
+    end
+  end
 
   def prevent_mutation
     raise ActiveRecord::ReadOnlyRecord, "Credit transactions are append-only"
