@@ -95,7 +95,8 @@ class ApplicationController < ActionController::API
     false
   end
 
-  def encode_jwt(payload, expires_at: nil)
+  def encode_jwt(payload = {}, expires_at: nil, **kwargs)
+    payload = (payload || {}).to_h.merge(kwargs)
     expiration_time = (expires_at || 24.hours.from_now).to_i
     payload_with_exp = payload.merge(exp: expiration_time)
     # Explicitly set the algorithm for better security. HS256 is the default, but it's best practice to be explicit.
