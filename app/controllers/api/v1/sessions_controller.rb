@@ -23,7 +23,7 @@ module Api
 
         if user&.authenticate(login_params[:password])
           session_token, refresh_token = SessionToken.generate_for(user:)
-          render json: build_session_response(user:, session_token:, refresh_token:)
+          render json: Auth::SessionResponseBuilder.build(user:, session_token:, refresh_token:, jwt_encoder: method(:encode_jwt))
         else
           render_error(code: :invalid_credentials, message: "Invalid credentials", status: :unauthorized)
         end
@@ -50,7 +50,12 @@ module Api
         SessionEventBroadcaster.session_invalidated(session_token, reason: "refresh_replaced")
 
         new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
-        render json: build_session_response(user: session_token.user, session_token: new_session_token, refresh_token: refresh_token)
+        render json: Auth::SessionResponseBuilder.build(
+          user: session_token.user,
+          session_token: new_session_token,
+          refresh_token: refresh_token,
+          jwt_encoder: method(:encode_jwt)
+        )
       end
 
       # GET /api/v1/logged_in
@@ -71,12 +76,7 @@ module Api
       # @response Session timing (200) [Hash{ session_expires_at: String, session_token_id: Integer, seconds_remaining: Integer }]
       # @response Unauthorized (401) [Error]
       def remaining
-        expires_at = @current_session_token.expires_at
-        render json: {
-          session_expires_at: expires_at.iso8601,
-          session_token_id: @current_session_token.id,
-          seconds_remaining: seconds_remaining_for(@current_session_token)
-        }
+        render json: Auth::SessionResponseBuilder.session_data(@current_session_token)
       end
 
       # DELETE /api/v1/logout
@@ -103,61 +103,21 @@ module Api
         params.require(:session).permit(:refresh_token)
       end
 
-      def build_session_response(user:, session_token:, refresh_token:)
-        jwt_payload = {
-          user_id: user.id,
-          session_token_id: session_token.id,
-          is_admin: user.admin? || user.superadmin?,
-          is_superuser: user.superadmin?
-        }
-
-        {
-          token: encode_jwt(jwt_payload, expires_at: session_token.expires_at),
-          refresh_token: refresh_token,
-          session: session_data(session_token),
-          is_admin: user.admin? || user.superadmin?,
-          is_superuser: user.superadmin?,
-          redirect_path: redirect_path_for(user),
-          user: user_data(user)
-        }
-      end
-
       def build_logged_in_response(user, session_token)
+        flags = Auth::SessionResponseBuilder.flags_for(user)
+        session = Auth::SessionResponseBuilder.session_data(session_token)
+
         {
           logged_in: true,
-          user: user_data(user),
-          is_admin: user.admin? || user.superadmin?,
-          is_superuser: user.superadmin?,
-          redirect_path: redirect_path_for(user),
-          session_token_id: session_token.id,
-          session_expires_at: session_token.expires_at.iso8601,
-          seconds_remaining: seconds_remaining_for(session_token),
-          session: session_data(session_token)
+          user: Auth::SessionResponseBuilder.user_data(user, flags: flags),
+          is_admin: flags[:is_admin],
+          is_superuser: flags[:is_superuser],
+          redirect_path: Auth::SessionResponseBuilder.redirect_path_for(user),
+          session_token_id: session[:session_token_id],
+          session_expires_at: session[:session_expires_at],
+          seconds_remaining: session[:seconds_remaining],
+          session: session
         }
-      end
-
-      def user_data(user)
-        UserSerializer.new(user).as_json.merge(
-          is_admin: user.admin? || user.superadmin?,
-          is_superuser: user.superadmin?
-        )
-      end
-
-      def session_data(session_token)
-        {
-          session_token_id: session_token.id,
-          session_expires_at: session_token.expires_at.iso8601,
-          seconds_remaining: seconds_remaining_for(session_token)
-        }
-      end
-
-      def redirect_path_for(user)
-        return "/admin/auctions" if user.superadmin?
-        nil
-      end
-
-      def seconds_remaining_for(session_token)
-        [ (session_token.expires_at - Time.current).to_i, 0 ].max
       end
 
       def handle_parameter_missing(exception)

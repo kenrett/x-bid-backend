@@ -69,8 +69,11 @@ module RackAttackRules
   end
 
   def self.normalized_email(req)
+    password_params = req.params["password"]
+    password_email = password_params["email_address"] if password_params.is_a?(Hash)
+
     email = req.params.dig("session", "email_address") ||
-      req.params.dig("password", "email_address") ||
+      password_email ||
       req.params["email_address"] ||
       req.params["email"]
     trimmed = email.to_s.strip

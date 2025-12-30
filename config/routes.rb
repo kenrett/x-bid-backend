@@ -21,12 +21,12 @@ Rails.application.routes.draw do
         end
       end
 
-        # Routes for user registration
-        resources :users, only: [ :create ]
-        post "/signup", to: "registrations#create"
+      # Routes for user registration
+      resources :users, only: [ :create ]
+      post "/signup", to: "registrations#create"
 
-        # Routes for sessions (login/logout)
-        post "/login", to: "sessions#create"
+      # Routes for sessions (login/logout)
+      post "/login", to: "sessions#create"
       post "/session/refresh", to: "sessions#refresh"
       get "/session/remaining", to: "sessions#remaining"
       delete "/logout", to: "sessions#destroy"
