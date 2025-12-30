@@ -87,6 +87,7 @@ class ApplicationController < ActionController::API
   def path_allowed_during_maintenance?
     return true if request.path == "/up"
     return true if request.path == "/api/v1/login"
+    return true if request.path == "/api/v1/signup"
     return true if request.path == "/api/v1/admin/maintenance"
     return true if request.path == "/api/v1/maintenance"
     return true if request.path == "/api/v1/stripe/webhooks"
