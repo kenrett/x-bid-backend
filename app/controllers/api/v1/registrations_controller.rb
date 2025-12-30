@@ -16,7 +16,7 @@ module Api
           session_token: session_token,
           refresh_token: refresh_token,
           jwt_encoder: method(:encode_jwt)
-        ), status: :ok
+        ), status: :created
       end
 
       private

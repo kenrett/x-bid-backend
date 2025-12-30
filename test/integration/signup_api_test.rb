@@ -16,7 +16,7 @@ class SignupApiTest < ActionDispatch::IntegrationTest
       end
     end
 
-    assert_response :success
+    assert_response :created
     body = JSON.parse(response.body)
 
     assert body["token"].present?
@@ -55,7 +55,7 @@ class SignupApiTest < ActionDispatch::IntegrationTest
       end
     end
 
-    assert_response :success
+    assert_response :created
     body = JSON.parse(response.body)
 
     assert body["token"].present?
