@@ -3934,6 +3934,21 @@
         ]
       }
     },
+    "/api/v1/signup": {
+      "post": {
+        "description": "POST /api/v1/signup",
+        "operationId": "POST__api_v1_signup",
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/resp_039"
+          }
+        },
+        "summary": "Register a new user account and create a session (login-equivalent contract)",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
     "/api/v1/stripe/webhooks": {
       "post": {
         "description": "",
