@@ -1,5 +1,6 @@
 require "test_helper"
 require "jwt"
+require "securerandom"
 
 class MeActivityApiTest < ActionDispatch::IntegrationTest
   def setup
@@ -85,6 +86,72 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
     types = body.fetch("items").map { |item| item["type"] }
     assert_includes types, "auction_lost"
     assert_includes types, "auction_won"
+  end
+
+  test "activity includes purchase_completed items (for current user only) with expected shape" do
+    bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 100, price: 1.0, active: true)
+
+    stripe_payment_intent_id = "pi_activity_api_#{SecureRandom.hex(8)}"
+    other_stripe_payment_intent_id = "pi_activity_api_other_#{SecureRandom.hex(8)}"
+
+    purchase = Purchase.create!(
+      user: @user,
+      bid_pack: bid_pack,
+      status: "completed",
+      amount_cents: 123,
+      currency: "usd",
+      stripe_payment_intent_id: stripe_payment_intent_id,
+      receipt_status: :available,
+      receipt_url: "https://stripe.example/receipts/rcpt_api_1",
+      stripe_charge_id: "ch_api_1",
+      created_at: 10.days.ago
+    )
+    MoneyEvent.create!(
+      user: @user,
+      event_type: :purchase,
+      amount_cents: purchase.amount_cents,
+      currency: purchase.currency,
+      source_type: "StripePaymentIntent",
+      source_id: stripe_payment_intent_id,
+      occurred_at: 2.days.ago,
+      metadata: { purchase_id: purchase.id }
+    )
+
+    other_purchase = Purchase.create!(
+      user: @other_user,
+      bid_pack: bid_pack,
+      status: "completed",
+      amount_cents: 999,
+      currency: "usd",
+      stripe_payment_intent_id: other_stripe_payment_intent_id
+    )
+
+    get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    item = body.fetch("items").find { |row| row.fetch("type") == "purchase_completed" }
+    assert item.present?
+
+    assert item["created_at"].present?
+    assert item["occurred_at"].present?
+    assert_nil item["auction"]
+
+    data = item.fetch("data")
+    assert_equal purchase.id, data.fetch("purchase_id")
+    assert_equal bid_pack.id, data.fetch("bid_pack_id")
+    assert_equal bid_pack.name, data.fetch("bid_pack_name")
+    assert_equal bid_pack.bids, data.fetch("credits_added")
+    assert_equal 123, data.fetch("amount_cents")
+    assert_equal "usd", data.fetch("currency")
+    assert_equal "completed", data.fetch("payment_status")
+    assert_equal "available", data.fetch("receipt_status")
+    assert_equal "https://stripe.example/receipts/rcpt_api_1", data.fetch("receipt_url")
+    assert_equal stripe_payment_intent_id, data.fetch("stripe_payment_intent_id")
+    assert_equal "ch_api_1", data.fetch("stripe_charge_id")
+
+    purchase_items = body.fetch("items").select { |row| row.fetch("type") == "purchase_completed" }
+    assert_equal [ purchase.id ], purchase_items.map { |row| row.dig("data", "purchase_id") }
   end
 
   private

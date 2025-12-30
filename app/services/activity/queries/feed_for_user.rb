@@ -32,6 +32,7 @@ module Activity
       # - "auction_watched" (AuctionWatch create only; no "watch_removed" history, data: { watch_id })
       # - "auction_won"     (computed from ended auctions where winning_user_id=user.id)
       # - "auction_lost"    (computed from ended auctions where user bid but did not win)
+      # - "purchase_completed" (completed Purchase, data includes bid pack and payment details)
       #
       # Sorting: newest-first by created_at; ties broken by type then auction.id.
       # Pagination: page/per_page with a lookahead item to compute has_more; no total count.
@@ -61,8 +62,9 @@ module Activity
         items.concat(bid_items)
         items.concat(watch_items)
         items.concat(outcome_items)
+        items.concat(purchase_items)
 
-        items.sort_by! { |item| [ item.fetch(:created_at).to_i, item.fetch(:type), item.dig(:auction, :id).to_i ] }
+        items.sort_by! { |item| [ item_time(item).to_i, item.fetch(:type), item.dig(:auction, :id).to_i ] }
         items.reverse!
 
         page_records = paginated(items)
@@ -89,9 +91,11 @@ module Activity
 
       def bid_items
         Bids::Queries::ForUser.call(user: user).records.map do |bid|
+          occurred_at = bid.created_at
           {
             type: "bid_placed",
-            created_at: bid.created_at,
+            occurred_at: occurred_at,
+            created_at: occurred_at,
             auction: serialize_auction(bid.auction),
             data: {
               bid_id: bid.id,
@@ -103,9 +107,11 @@ module Activity
 
       def watch_items
         Auctions::Queries::WatchedByUser.call(user: user).records.map do |watch|
+          occurred_at = watch.created_at
           {
             type: "auction_watched",
-            created_at: watch.created_at,
+            occurred_at: occurred_at,
+            created_at: occurred_at,
             auction: serialize_auction(watch.auction),
             data: {
               watch_id: watch.id
@@ -117,12 +123,44 @@ module Activity
       def outcome_items
         Auctions::Queries::OutcomesForUser.call(user: user).records.map do |outcome|
           auction = outcome.auction
+          occurred_at = outcome.created_at
           {
             type: outcome.type,
-            created_at: outcome.created_at,
+            occurred_at: occurred_at,
+            created_at: occurred_at,
             auction: serialize_auction(auction),
             data: {
               winning_user_id: auction.winning_user_id
+            }
+          }
+        end
+      end
+
+      def purchase_items
+        Activity::Queries::PurchasesForUser.call(user: user).records.filter_map do |record|
+          purchase = record.purchase
+          next unless purchase.user_id == user.id
+
+          bid_pack = purchase.bid_pack
+          occurred_at = record.occurred_at
+
+          {
+            type: "purchase_completed",
+            occurred_at: occurred_at,
+            created_at: occurred_at,
+            auction: nil,
+            data: {
+              purchase_id: purchase.id,
+              bid_pack_id: purchase.bid_pack_id,
+              bid_pack_name: bid_pack&.name,
+              credits_added: bid_pack&.bids,
+              amount_cents: purchase.amount_cents,
+              currency: purchase.currency,
+              payment_status: purchase.status,
+              receipt_url: purchase.receipt_url,
+              receipt_status: purchase.receipt_status,
+              stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+              stripe_charge_id: purchase.stripe_charge_id
             }
           }
         end
@@ -143,6 +181,10 @@ module Activity
       def page_number
         value = params[:page].to_i
         value.positive? ? value : 1
+      end
+
+      def item_time(item)
+        item[:occurred_at] || item[:created_at]
       end
 
       def per_page
