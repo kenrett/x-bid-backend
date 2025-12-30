@@ -197,6 +197,33 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
     assert_equal "claimed", data.fetch("to_status")
   end
 
+  test "removing a watch emits watch_removed and it appears in activity" do
+    watched_auction = Auction.create!(
+      title: "Watched",
+      description: "desc",
+      start_date: 2.days.ago,
+      end_time: 1.day.from_now,
+      current_price: BigDecimal("1.00"),
+      status: :active
+    )
+
+    watch = AuctionWatch.create!(user: @user, auction: watched_auction)
+
+    delete "/api/v1/auctions/#{watched_auction.id}/watch", headers: auth_headers(@user, @session_token)
+    assert_response :no_content
+    assert_nil AuctionWatch.find_by(id: watch.id)
+
+    get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    item = body.fetch("items").find { |row| row.fetch("type") == "watch_removed" && row.dig("data", "watch_id") == watch.id }
+    assert item.present?
+    assert item["occurred_at"].present?
+    assert_equal watched_auction.id, item.dig("data", "auction_id")
+    assert_equal watched_auction.id, item.dig("auction", "id")
+  end
+
   private
 
   def auth_headers(user, session_token)

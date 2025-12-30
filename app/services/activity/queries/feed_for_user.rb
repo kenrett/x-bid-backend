@@ -34,6 +34,7 @@ module Activity
       # - "auction_lost"    (computed from ended auctions where user bid but did not win)
       # - "purchase_completed" (completed Purchase, data includes bid pack and payment details)
       # - "fulfillment_status_changed" (persisted ActivityEvent emitted on AuctionFulfillment transitions)
+      # - "watch_removed" (persisted ActivityEvent emitted when a watch is removed)
       #
       # Sorting: newest-first by occurred_at/created_at; ties broken by type then auction.id.
       # Pagination: page/per_page with a lookahead item to compute has_more; no total count.
