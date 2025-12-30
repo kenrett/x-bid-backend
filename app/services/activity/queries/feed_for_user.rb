@@ -33,8 +33,9 @@ module Activity
       # - "auction_won"     (computed from ended auctions where winning_user_id=user.id)
       # - "auction_lost"    (computed from ended auctions where user bid but did not win)
       # - "purchase_completed" (completed Purchase, data includes bid pack and payment details)
+      # - "fulfillment_status_changed" (persisted ActivityEvent emitted on AuctionFulfillment transitions)
       #
-      # Sorting: newest-first by created_at; ties broken by type then auction.id.
+      # Sorting: newest-first by occurred_at/created_at; ties broken by type then auction.id.
       # Pagination: page/per_page with a lookahead item to compute has_more; no total count.
       #
       # NOTE: Notifications are a separate API (`/api/v1/me/notifications`) and use `kind` as their client mapping key.
@@ -63,6 +64,7 @@ module Activity
         items.concat(watch_items)
         items.concat(outcome_items)
         items.concat(purchase_items)
+        items.concat(activity_event_items)
 
         items.sort_by! { |item| [ item_time(item).to_i, item.fetch(:type), item.dig(:auction, :id).to_i ] }
         items.reverse!
@@ -162,6 +164,26 @@ module Activity
               stripe_payment_intent_id: purchase.stripe_payment_intent_id,
               stripe_charge_id: purchase.stripe_charge_id
             }
+          }
+        end
+      end
+
+      def activity_event_items
+        events = Activity::Queries::EventsForUser.call(user: user).records
+
+        auction_ids = events.map { |event| event.data.is_a?(Hash) ? event.data["auction_id"] : nil }.compact.uniq
+        auctions_by_id = auction_ids.empty? ? {} : Auction.where(id: auction_ids).index_by(&:id)
+
+        events.map do |event|
+          data = event.data.is_a?(Hash) ? event.data : {}
+          auction = auctions_by_id[data["auction_id"]]
+
+          {
+            type: event.event_type,
+            occurred_at: event.occurred_at,
+            created_at: event.occurred_at,
+            auction: serialize_auction(auction),
+            data: data
           }
         end
       end

@@ -154,6 +154,49 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
     assert_equal [ purchase.id ], purchase_items.map { |row| row.dig("data", "purchase_id") }
   end
 
+  test "activity includes fulfillment_status_changed items for fulfillment transitions" do
+    ended_auction = Auction.create!(
+      title: "Ended",
+      description: "desc",
+      start_date: 3.days.ago,
+      end_time: 2.days.ago,
+      current_price: BigDecimal("1.00"),
+      status: :ended,
+      winning_user: @user
+    )
+    bid = Bid.create!(user: @user, auction: ended_auction, amount: BigDecimal("2.00"))
+    settlement = AuctionSettlement.create!(
+      auction: ended_auction,
+      winning_user: @user,
+      winning_bid: bid,
+      final_price: BigDecimal("2.00"),
+      currency: "usd",
+      status: :paid,
+      ended_at: ended_auction.end_time
+    )
+
+    fulfillment = AuctionFulfillment.create!(auction_settlement: settlement, user: @user)
+    fulfillment.transition_to!(:claimed, occurred_at: 1.day.ago)
+
+    get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+
+    item = body.fetch("items").find { |row| row.fetch("type") == "fulfillment_status_changed" }
+    assert item.present?
+    assert item["occurred_at"].present?
+    assert item["created_at"].present?
+    assert_equal ended_auction.id, item.dig("auction", "id")
+
+    data = item.fetch("data")
+    assert_equal ended_auction.id, data.fetch("auction_id")
+    assert_equal settlement.id, data.fetch("settlement_id")
+    assert_equal fulfillment.id, data.fetch("fulfillment_id")
+    assert_equal "pending", data.fetch("from_status")
+    assert_equal "claimed", data.fetch("to_status")
+  end
+
   private
 
   def auth_headers(user, session_token)

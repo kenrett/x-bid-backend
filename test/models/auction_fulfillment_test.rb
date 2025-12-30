@@ -53,4 +53,35 @@ class AuctionFulfillmentTest < ActiveSupport::TestCase
     fulfillment.transition_to!(:complete)
     assert_equal "complete", fulfillment.reload.status
   end
+
+  test "status transitions emit activity events and shipped creates a notification" do
+    fulfillment = AuctionFulfillment.create!(auction_settlement: @settlement, user: @winner)
+
+    assert_equal 0, ActivityEvent.count
+    assert_equal 0, Notification.where(user: @winner, kind: :fulfillment_shipped).count
+
+    fulfillment.transition_to!(:claimed, occurred_at: 3.days.ago)
+    event = ActivityEvent.order(:id).last
+    assert_equal @winner.id, event.user_id
+    assert_equal "fulfillment_status_changed", event.event_type
+    assert_equal "pending", event.data["from_status"]
+    assert_equal "claimed", event.data["to_status"]
+    assert_equal @settlement.id, event.data["settlement_id"]
+    assert_equal fulfillment.id, event.data["fulfillment_id"]
+    assert_equal @auction.id, event.data["auction_id"]
+
+    fulfillment.transition_to!(:processing, occurred_at: 2.days.ago)
+    fulfillment.update!(shipping_carrier: "UPS", tracking_number: "1Z999")
+    fulfillment.transition_to!(:shipped, occurred_at: 1.day.ago)
+
+    assert_equal 3, ActivityEvent.where(user: @winner, event_type: "fulfillment_status_changed").count
+
+    notification = Notification.find_by(user: @winner, kind: :fulfillment_shipped)
+    assert notification.present?
+    assert_equal fulfillment.id, notification.data["fulfillment_id"]
+    assert_equal @settlement.id, notification.data["settlement_id"]
+    assert_equal @auction.id, notification.data["auction_id"]
+    assert_equal "UPS", notification.data["shipping_carrier"]
+    assert_equal "1Z999", notification.data["tracking_number"]
+  end
 end

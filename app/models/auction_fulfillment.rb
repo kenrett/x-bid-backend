@@ -24,8 +24,43 @@ class AuctionFulfillment < ApplicationRecord
   validate :user_matches_settlement_winner
   validate :status_transition_allowed
 
-  def transition_to!(new_status)
+  def transition_to!(new_status, occurred_at: Time.current)
+    from_status = status
+    to_status = new_status.to_s
+    return self if from_status == to_status
+
     update!(status: new_status)
+
+    ActivityEvent.create!(
+      user_id: user_id,
+      event_type: "fulfillment_status_changed",
+      occurred_at: occurred_at,
+      data: {
+        auction_id: auction_settlement&.auction_id,
+        settlement_id: auction_settlement_id,
+        fulfillment_id: id,
+        from_status: from_status,
+        to_status: status,
+        shipping_carrier: shipping_carrier,
+        tracking_number: tracking_number
+      }
+    )
+
+    if status == "shipped"
+      Notification.create!(
+        user_id: user_id,
+        kind: :fulfillment_shipped,
+        data: {
+          auction_id: auction_settlement&.auction_id,
+          settlement_id: auction_settlement_id,
+          fulfillment_id: id,
+          shipping_carrier: shipping_carrier,
+          tracking_number: tracking_number
+        }
+      )
+    end
+
+    self
   end
 
   private

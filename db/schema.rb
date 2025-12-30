@@ -10,9 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_28_007000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_30_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "activity_events", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "event_type", null: false
+    t.datetime "occurred_at", null: false
+    t.jsonb "data", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_type"], name: "index_activity_events_on_event_type"
+    t.index ["user_id", "occurred_at"], name: "index_activity_events_on_user_id_and_occurred_at"
+    t.index ["user_id"], name: "index_activity_events_on_user_id"
+  end
 
   create_table "auction_fulfillments", force: :cascade do |t|
     t.bigint "auction_settlement_id", null: false
@@ -270,6 +282,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_28_007000) do
     t.check_constraint "bid_credits >= 0", name: "users_bid_credits_non_negative"
   end
 
+  add_foreign_key "activity_events", "users"
   add_foreign_key "auction_fulfillments", "auction_settlements"
   add_foreign_key "auction_fulfillments", "users"
   add_foreign_key "auction_settlements", "auctions"
