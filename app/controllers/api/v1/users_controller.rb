@@ -2,7 +2,10 @@ module Api
   module V1
     class UsersController < ApplicationController
       # POST /api/v1/users
-      # @summary Register a new user account
+      # @summary Register a new user account (legacy alias of /api/v1/signup)
+      # @request_body Signup payload (application/json) [!SignupRequest]
+      # @response Session created (201) [UserSession]
+      # @response Unprocessable content (422) [ValidationErrors]
       # @no_auth
       def create
         user = User.new(user_params)

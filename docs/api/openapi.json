@@ -334,6 +334,17 @@
         },
         "description": "Maintenance toggle",
         "required": false
+      },
+      "req_009": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/fca7ae9c5b5a5fdbca32473db8333bdf"
+            }
+          }
+        },
+        "description": "Signup payload",
+        "required": true
       }
     },
     "responses": {
@@ -821,13 +832,23 @@
         "content": {
           "application/json": {
             "schema": {
+              "$ref": "#/components/schemas/0c805fddae341e8fec983e81eca5ba05"
+            }
+          }
+        },
+        "description": "Unprocessable content"
+      },
+      "resp_050": {
+        "content": {
+          "application/json": {
+            "schema": {
               "$ref": "#/components/schemas/0c90018525308fa74a5c4563f158a360"
             }
           }
         },
         "description": "Admin users"
       },
-      "resp_050": {
+      "resp_051": {
         "content": {
           "application/json": {
             "schema": {
@@ -837,7 +858,7 @@
         },
         "description": "Auction created"
       },
-      "resp_051": {
+      "resp_052": {
         "content": {
           "application/json": {
             "schema": {
@@ -847,7 +868,7 @@
         },
         "description": "Accepted"
       },
-      "resp_052": {
+      "resp_053": {
         "content": {
           "application/json": {
             "schema": {
@@ -857,7 +878,7 @@
         },
         "description": "Unauthorized"
       },
-      "resp_053": {
+      "resp_054": {
         "content": {
           "application/json": {
             "schema": {
@@ -908,6 +929,9 @@
         "$ref": "#/components/schemas/UserSession"
       },
       "0b27bc2d4f067d7b4e46fc6fbfbaf4c2": "wallettransactions",
+      "0c805fddae341e8fec983e81eca5ba05": {
+        "$ref": "#/components/schemas/ValidationErrors"
+      },
       "0c90018525308fa74a5c4563f158a360": {
         "items": {
           "properties": {
@@ -1722,6 +1746,67 @@
         ],
         "type": "object"
       },
+      "SignupRequest": {
+        "description": "User registration payload accepted by /api/v1/signup (and legacy /api/v1/users).",
+        "oneOf": [
+          {
+            "properties": {
+              "user": {
+                "properties": {
+                  "email_address": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "password_confirmation": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "email_address",
+                  "password",
+                  "password_confirmation"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "user"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "email_address": {
+                "format": "email",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              },
+              "password_confirmation": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "email_address",
+              "password",
+              "password_confirmation"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "UserSession": {
         "description": "Session details and tokens returned after login/refresh.",
         "properties": {
@@ -1757,6 +1842,9 @@
               "seconds_remaining"
             ],
             "type": "object"
+          },
+          "session_token_id": {
+            "type": "integer"
           },
           "token": {
             "description": "JWT used for authenticated requests.",
@@ -1800,8 +1888,27 @@
         "required": [
           "token",
           "refresh_token",
+          "session_token_id",
           "session",
+          "is_admin",
+          "is_superuser",
+          "redirect_path",
           "user"
+        ],
+        "type": "object"
+      },
+      "ValidationErrors": {
+        "description": "Validation error payload returned when user input is invalid.",
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "errors"
         ],
         "type": "object"
       },
@@ -1901,6 +2008,9 @@
         },
         "type": "array"
       },
+      "fca7ae9c5b5a5fdbca32473db8333bdf": {
+        "$ref": "#/components/schemas/SignupRequest"
+      },
       "feca50860d589971172a2b752bbc787f": {
         "$ref": "#/components/schemas/BidHistoryResponse"
       }
@@ -1987,7 +2097,7 @@
             "$ref": "#/components/responses/resp_014"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2021,7 +2131,7 @@
             "$ref": "#/components/responses/resp_006"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2056,7 +2166,7 @@
             "$ref": "#/components/responses/resp_005"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2088,7 +2198,7 @@
             "$ref": "#/components/responses/resp_015"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2118,7 +2228,7 @@
             "$ref": "#/components/responses/resp_008"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2150,7 +2260,7 @@
             "$ref": "#/components/responses/resp_029"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2184,7 +2294,7 @@
             "$ref": "#/components/responses/resp_036"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2222,7 +2332,7 @@
             "$ref": "#/components/responses/resp_033"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2260,7 +2370,7 @@
             "$ref": "#/components/responses/resp_001"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2301,7 +2411,7 @@
             "$ref": "#/components/responses/resp_001"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2341,7 +2451,7 @@
             "$ref": "#/components/responses/resp_033"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2463,10 +2573,10 @@
         "operationId": "GET__api_v1_admin_maintenance",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_053"
+            "$ref": "#/components/responses/resp_054"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2507,7 +2617,7 @@
             "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2547,7 +2657,7 @@
             "$ref": "#/components/responses/resp_016"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2618,7 +2728,7 @@
             "$ref": "#/components/responses/resp_024"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2681,10 +2791,10 @@
         "operationId": "GET__api_v1_admin_users",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_049"
+            "$ref": "#/components/responses/resp_050"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2721,7 +2831,7 @@
             "$ref": "#/components/responses/resp_023"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2762,7 +2872,7 @@
             "$ref": "#/components/responses/resp_023"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2802,7 +2912,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2842,7 +2952,7 @@
             "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2882,7 +2992,7 @@
             "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2922,7 +3032,7 @@
             "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -2962,7 +3072,7 @@
             "$ref": "#/components/responses/resp_021"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3018,10 +3128,10 @@
         },
         "responses": {
           "201": {
-            "$ref": "#/components/responses/resp_050"
+            "$ref": "#/components/responses/resp_051"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3081,7 +3191,7 @@
             "$ref": "#/components/responses/resp_047"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3121,7 +3231,7 @@
             "$ref": "#/components/responses/resp_048"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3183,7 +3293,7 @@
             "$ref": "#/components/responses/resp_022"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3224,7 +3334,7 @@
             "$ref": "#/components/responses/resp_022"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3264,7 +3374,7 @@
             "$ref": "#/components/responses/resp_011"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3385,7 +3495,7 @@
             "$ref": "#/components/responses/resp_044"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3425,7 +3535,7 @@
             "$ref": "#/components/responses/resp_027"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3465,7 +3575,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3500,7 +3610,7 @@
             "$ref": "#/components/responses/resp_007"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3535,7 +3645,7 @@
             "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3559,7 +3669,7 @@
             "$ref": "#/components/responses/resp_040"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3588,7 +3698,7 @@
         "operationId": "GET__api_v1_maintenance",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_053"
+            "$ref": "#/components/responses/resp_054"
           },
           "404": {
             "$ref": "#/components/responses/resp_034"
@@ -3635,7 +3745,7 @@
             "$ref": "#/components/responses/resp_045"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3664,7 +3774,7 @@
             "$ref": "#/components/responses/resp_010"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3698,7 +3808,7 @@
             "$ref": "#/components/responses/resp_038"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3730,7 +3840,7 @@
             "$ref": "#/components/responses/resp_009"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3764,7 +3874,7 @@
             "$ref": "#/components/responses/resp_031"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3801,7 +3911,7 @@
             "$ref": "#/components/responses/resp_026"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3833,7 +3943,7 @@
         "operationId": "POST__api_v1_password_forgot",
         "responses": {
           "202": {
-            "$ref": "#/components/responses/resp_051"
+            "$ref": "#/components/responses/resp_052"
           },
           "400": {
             "$ref": "#/components/responses/resp_017"
@@ -3860,7 +3970,7 @@
             "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3893,7 +4003,7 @@
             "$ref": "#/components/responses/resp_017"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_041"
@@ -3914,7 +4024,7 @@
             "$ref": "#/components/responses/resp_028"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -3938,9 +4048,15 @@
       "post": {
         "description": "POST /api/v1/signup",
         "operationId": "POST__api_v1_signup",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_009"
+        },
         "responses": {
+          "201": {
+            "$ref": "#/components/responses/resp_004"
+          },
           "422": {
-            "$ref": "#/components/responses/resp_039"
+            "$ref": "#/components/responses/resp_049"
           }
         },
         "summary": "Register a new user account and create a session (login-equivalent contract)",
@@ -3982,12 +4098,18 @@
       "post": {
         "description": "POST /api/v1/users",
         "operationId": "POST__api_v1_users",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_009"
+        },
         "responses": {
+          "201": {
+            "$ref": "#/components/responses/resp_004"
+          },
           "422": {
-            "$ref": "#/components/responses/resp_039"
+            "$ref": "#/components/responses/resp_049"
           }
         },
-        "summary": "Register a new user account",
+        "summary": "Register a new user account (legacy alias of /api/v1/signup)",
         "tags": [
           "Api"
         ]
@@ -4002,7 +4124,7 @@
             "$ref": "#/components/responses/resp_020"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"
@@ -4042,7 +4164,7 @@
             "$ref": "#/components/responses/resp_025"
           },
           "401": {
-            "$ref": "#/components/responses/resp_052"
+            "$ref": "#/components/responses/resp_053"
           },
           "403": {
             "$ref": "#/components/responses/resp_037"

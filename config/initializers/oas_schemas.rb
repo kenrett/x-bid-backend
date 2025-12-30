@@ -107,6 +107,7 @@ module OasSchemas
       properties: {
         token: { type: "string", description: "JWT used for authenticated requests." },
         refresh_token: { type: "string" },
+        session_token_id: { type: "integer" },
         session: {
           type: "object",
           properties: {
@@ -133,7 +134,7 @@ module OasSchemas
           required: %w[id name role emailAddress bidCredits]
         }
       },
-      required: %w[token refresh_token session user]
+      required: %w[token refresh_token session_token_id session is_admin is_superuser redirect_path user]
     },
     "CheckoutSession" => {
       type: "object",
@@ -224,7 +225,49 @@ module OasSchemas
       },
       required: %w[error_code message]
     },
+    "ValidationErrors" => {
+      type: "object",
+      description: "Validation error payload returned when user input is invalid.",
+      properties: {
+        errors: {
+          type: "array",
+          items: { type: "string" }
+        }
+      },
+      required: %w[errors]
+    },
     # Request payloads
+    "SignupRequest" => {
+      description: "User registration payload accepted by /api/v1/signup (and legacy /api/v1/users).",
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            user: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                email_address: { type: "string", format: "email" },
+                password: { type: "string" },
+                password_confirmation: { type: "string" }
+              },
+              required: %w[name email_address password password_confirmation]
+            }
+          },
+          required: %w[user]
+        },
+        {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            email_address: { type: "string", format: "email" },
+            password: { type: "string" },
+            password_confirmation: { type: "string" }
+          },
+          required: %w[name email_address password password_confirmation]
+        }
+      ]
+    },
     "LoginRequest" => {
       type: "object",
       properties: {
