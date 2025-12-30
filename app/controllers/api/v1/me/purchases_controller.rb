@@ -24,6 +24,11 @@ module Api
           purchase = Purchase.includes(:bid_pack).find_by(id: params[:id], user_id: @current_user.id)
           return render_error(code: :not_found, message: "Purchase not found", status: :not_found) unless purchase
 
+          if purchase.ledger_grant_credit_transaction_id.nil?
+            grant = CreditTransaction.find_by(purchase_id: purchase.id, kind: "grant", reason: "bid_pack_purchase")
+            purchase.update!(ledger_grant_credit_transaction_id: grant.id) if grant
+          end
+
           render json: Api::V1::PurchaseSerializer.new(purchase).as_json
         end
       end

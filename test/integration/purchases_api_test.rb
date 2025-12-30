@@ -66,10 +66,14 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = JSON.parse(response.body)
     assert_equal purchase.id, body["id"]
+    assert_equal "failed", body["payment_status"]
     assert_equal "failed", body["status"]
+    assert_equal @bid_pack.bids, body["credits_added"]
+    assert_nil body["ledger_grant_entry_id"]
     assert_equal purchase.stripe_checkout_session_id, body["stripe_checkout_session_id"]
     assert_equal purchase.stripe_payment_intent_id, body["stripe_payment_intent_id"]
     assert_equal @bid_pack.id, body.dig("bid_pack", "id")
+    assert_nil body.dig("bid_pack", "sku")
   end
 
   private

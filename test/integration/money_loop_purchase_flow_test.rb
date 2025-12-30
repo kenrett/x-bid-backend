@@ -75,6 +75,7 @@ class MoneyLoopPurchaseFlowTest < ActionDispatch::IntegrationTest
     assert_equal "grant", credit.kind
     assert_equal bid_pack.bids, credit.amount
     assert_equal "purchase:#{purchase.id}:grant", credit.idempotency_key
+    assert_equal credit.id, purchase.reload.ledger_grant_credit_transaction_id
 
     event = MoneyEvent.find_by!(event_type: "purchase", source_type: "StripePaymentIntent", source_id: payment_intent_id)
     assert_equal 999, event.amount_cents
@@ -85,9 +86,13 @@ class MoneyLoopPurchaseFlowTest < ActionDispatch::IntegrationTest
     assert_response :success
     purchase_body = JSON.parse(response.body)
     assert_equal purchase.id, purchase_body["id"]
+    assert_equal "completed", purchase_body["payment_status"]
     assert_equal "completed", purchase_body["status"]
+    assert_equal bid_pack.bids, purchase_body["credits_added"]
+    assert_equal credit.id, purchase_body["ledger_grant_entry_id"]
     assert_equal "available", purchase_body["receipt_status"]
     assert_equal receipt_url, purchase_body["receipt_url"]
+    assert_nil purchase_body.dig("bid_pack", "sku")
 
     Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :available, receipt_url, "ch_123" ] }) do
       Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do

@@ -103,12 +103,16 @@ module Payments
               metadata: { source: source }
             )
 
-            credit_transaction = CreditTransaction.find_by!(idempotency_key: credit_idempotency_key)
-            idempotent = !purchase_was_new && credit_already_exists
+              credit_transaction = CreditTransaction.find_by!(idempotency_key: credit_idempotency_key)
+              idempotent = !purchase_was_new && credit_already_exists
 
-            AppLogger.log(
-              event: "payments.apply_purchase",
-              user_id: user.id,
+              if purchase.ledger_grant_credit_transaction_id.nil?
+                purchase.update!(ledger_grant_credit_transaction_id: credit_transaction.id)
+              end
+
+              AppLogger.log(
+                event: "payments.apply_purchase",
+                user_id: user.id,
               purchase_id: purchase.id,
               bid_pack_id: bid_pack.id,
               stripe_payment_intent_id: stripe_payment_intent_id,

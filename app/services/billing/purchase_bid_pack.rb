@@ -40,6 +40,11 @@ module Billing
           idempotency_key: idempotency_key,
           metadata: { source: "billing_purchase_bid_pack" }
         )
+
+        if purchase.ledger_grant_credit_transaction_id.nil?
+          grant = CreditTransaction.find_by!(idempotency_key: idempotency_key)
+          purchase.update!(ledger_grant_credit_transaction_id: grant.id)
+        end
         AppLogger.log(
           event: "billing.purchase_bid_pack",
           user_id: @user.id,

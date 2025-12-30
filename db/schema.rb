@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_30_001000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_30_003000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -120,7 +120,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_30_001000) do
     t.datetime "updated_at", null: false
     t.boolean "active", default: true, null: false
     t.integer "status", default: 0, null: false
+    t.string "sku"
     t.index ["active"], name: "index_bid_packs_on_active"
+    t.index ["sku"], name: "index_bid_packs_on_sku", unique: true
     t.index ["status"], name: "index_bid_packs_on_status"
   end
 
@@ -233,7 +235,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_30_001000) do
     t.string "receipt_url"
     t.integer "receipt_status", default: 0, null: false
     t.string "stripe_charge_id"
+    t.bigint "ledger_grant_credit_transaction_id"
     t.index ["bid_pack_id"], name: "index_purchases_on_bid_pack_id"
+    t.index ["ledger_grant_credit_transaction_id"], name: "index_purchases_on_ledger_grant_credit_transaction_id"
     t.index ["receipt_status"], name: "index_purchases_on_receipt_status"
     t.index ["stripe_charge_id"], name: "index_purchases_on_stripe_charge_id"
     t.index ["stripe_checkout_session_id"], name: "index_purchases_on_stripe_checkout_session_id", unique: true
@@ -303,6 +307,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_30_001000) do
   add_foreign_key "notifications", "users"
   add_foreign_key "password_reset_tokens", "users"
   add_foreign_key "purchases", "bid_packs"
+  add_foreign_key "purchases", "credit_transactions", column: "ledger_grant_credit_transaction_id"
   add_foreign_key "purchases", "users"
   add_foreign_key "session_tokens", "users"
 end
