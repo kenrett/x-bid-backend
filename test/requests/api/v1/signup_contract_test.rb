@@ -1,7 +1,7 @@
 require "test_helper"
 
 class SignupContractTest < ActionDispatch::IntegrationTest
-  test "POST /api/v1/users returns the legacy signup contract (token + user)" do
+  test "POST /api/v1/users returns the session-based signup contract (legacy alias)" do
     post "/api/v1/users", params: {
       user: {
         name: "User",
@@ -16,7 +16,7 @@ class SignupContractTest < ActionDispatch::IntegrationTest
 
     assert_exact_keys!(
       body,
-      %w[token user],
+      %w[token refresh_token session session_token_id is_admin is_superuser redirect_path user],
       label: "POST /api/v1/users response"
     )
   end
