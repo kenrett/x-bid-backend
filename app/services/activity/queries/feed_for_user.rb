@@ -1,6 +1,42 @@
 module Activity
   module Queries
     class FeedForUser
+      # Activity feed contract (current behavior).
+      #
+      # Endpoint: GET /api/v1/me/activity (Api::V1::Me::ActivityController#index)
+      #
+      # Response shape:
+      #   {
+      #     items: [ActivityItem...],
+      #     page: Integer,
+      #     per_page: Integer,
+      #     has_more: Boolean
+      #   }
+      #
+      # ActivityItem shape (Hash):
+      #   {
+      #     type: String,            # client mapping key
+      #     created_at: Time,        # serialized to JSON datetime
+      #     auction: {
+      #       id: Integer,
+      #       title: String,
+      #       status: String,        # Auction#external_status
+      #       ends_at: Time,
+      #       current_price: Decimal
+      #     } | nil,
+      #     data: Hash               # type-specific payload
+      #   }
+      #
+      # Current activity `type` values emitted by this query:
+      # - "bid_placed"      (Bid, data: { bid_id, amount })
+      # - "auction_watched" (AuctionWatch create only; no "watch_removed" history, data: { watch_id })
+      # - "auction_won"     (computed from ended auctions where winning_user_id=user.id)
+      # - "auction_lost"    (computed from ended auctions where user bid but did not win)
+      #
+      # Sorting: newest-first by created_at; ties broken by type then auction.id.
+      # Pagination: page/per_page with a lookahead item to compute has_more; no total count.
+      #
+      # NOTE: Notifications are a separate API (`/api/v1/me/notifications`) and use `kind` as their client mapping key.
       DEFAULT_PER_PAGE = 25
       MAX_PER_PAGE = 100
 
