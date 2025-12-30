@@ -2,10 +2,9 @@
 
 ## Summary
 
-- There is **no** `POST /api/v1/signup` route in this Rails API.
-- “Signup” (user registration) is implemented as **`POST /api/v1/users`** (`Api::V1::UsersController#create`).
-- The signup endpoint returns `{ token, user }`, but **does not create a `SessionToken` row** and **does not return a `refresh_token`**.
-- The returned signup `token` payload is **not compatible with `authenticate_request!`** (it lacks `session_token_id`), so it will not authenticate against endpoints protected by `authenticate_request!`.
+- `POST /api/v1/signup` (`Api::V1::RegistrationsController#create`) is the canonical signup endpoint and returns a **login-equivalent, session-bound** auth payload.
+- `POST /api/v1/users` (`Api::V1::UsersController#create`) is a **legacy alias** of `/api/v1/signup` and returns the same session-bound contract.
+- Signup now **creates a persisted `SessionToken` row**, returns a `refresh_token`, and issues a JWT containing `session_token_id` so it is compatible with `authenticate_request!`.
 
 ## Routes
 
@@ -14,6 +13,7 @@ From `config/routes.rb:24`:
 ```rb
 # Routes for user registration
 resources :users, only: [ :create ]
+post "/signup", to: "registrations#create"
 
 # Routes for sessions (login/logout)
 post "/login", to: "sessions#create"
@@ -31,18 +31,25 @@ Notes:
 
 ### Implementation facts
 
-- Creates a `User` via `User.new(user_params)` and `user.save` (`app/controllers/api/v1/users_controller.rb:8`).
-- On success, returns a JWT created via `encode_jwt(user_id: user.id)` (`app/controllers/api/v1/users_controller.rb:10`).
-- Serializes the user via `UserSerializer.new(user).as_json` (`app/controllers/api/v1/users_controller.rb:11`).
-- **Does not create a `SessionToken` row** (no call to `SessionToken.generate_for` or `SessionToken.create!` in this action).
+- Creates a `User` and returns the **same session-bound payload** as `/api/v1/signup` using `SessionToken.generate_for` + `Auth::SessionResponseBuilder`.
 
 ### JSON returned (exact shape)
 
-Success (`201 Created`) (`app/controllers/api/v1/users_controller.rb:12`):
+Success (`201 Created`):
 
 ```json
 {
-  "token": "<jwt>",
+  "token": "<jwt (includes session_token_id)>",
+  "refresh_token": "<raw refresh token>",
+  "session_token_id": 123,
+  "session": {
+    "session_token_id": 123,
+    "session_expires_at": "2025-01-01T00:00:00Z",
+    "seconds_remaining": 1800
+  },
+  "is_admin": false,
+  "is_superuser": false,
+  "redirect_path": null,
   "user": {
     "id": 123,
     "name": "Example User",
@@ -99,7 +106,6 @@ These are separate from signup:
 
 ## Required Yes/No Answers
 
-- Does this create `SessionToken` on signup (`POST /api/v1/users`)? **N**
-- Does this return `refresh_token` on signup (`POST /api/v1/users`)? **N**
-- Does this align with FE contract? **N (signup returns a JWT that is not usable with `authenticate_request!` because it lacks `session_token_id`; login/refresh use a different contract)**
-
+- Does this create `SessionToken` on signup (`POST /api/v1/users`)? **Y**
+- Does this return `refresh_token` on signup (`POST /api/v1/users`)? **Y**
+- Does this align with FE contract? **Y (signup issues a session-bound JWT containing `session_token_id` and matches login/refresh contract)**
