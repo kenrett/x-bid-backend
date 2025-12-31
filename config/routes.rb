@@ -25,6 +25,25 @@ Rails.application.routes.draw do
       resources :users, only: [ :create ]
       post "/signup", to: "registrations#create"
 
+      # Account management
+      resource :account, only: [ :show, :update ], controller: :account
+      post "/account/password", to: "account_passwords#create"
+      post "/account/email/change", to: "account_emails#change"
+      post "/account/delete", to: "account_deletions#create"
+
+      get "/account/notifications", to: "account_notifications#show"
+      patch "/account/notifications", to: "account_notifications#update"
+
+      get "/account/sessions", to: "account_sessions#index"
+      delete "/account/sessions/:id", to: "account_sessions#destroy"
+      post "/account/sessions/revoke_others", to: "account_sessions#revoke_others"
+
+      post "/account/exports", to: "account_exports#create"
+      get "/account/exports/latest", to: "account_exports#latest"
+
+      post "/email_verifications/resend", to: "email_verifications#resend"
+      get "/email_verifications/verify", to: "email_verifications#verify"
+
       # Routes for sessions (login/logout)
       post "/login", to: "sessions#create"
       post "/session/refresh", to: "sessions#refresh"
