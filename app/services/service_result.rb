@@ -4,6 +4,7 @@ class ServiceResult
   HTTP_STATUS_BY_CODE = {
     forbidden: :forbidden,
     not_found: :not_found,
+    rate_limited: :too_many_requests,
     invalid_state: :unprocessable_content,
     invalid_status: :unprocessable_content,
     invalid_auction: :unprocessable_content,

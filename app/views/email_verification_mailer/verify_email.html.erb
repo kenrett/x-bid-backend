@@ -1,0 +1,4 @@
+<p>Hello <%= @user.name.presence || "there" %>,</p>
+<p>Verify your email by visiting:</p>
+<p><a href="<%= @verification_url %>"><%= @verification_url %></a></p>
+
