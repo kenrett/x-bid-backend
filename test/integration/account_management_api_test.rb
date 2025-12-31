@@ -60,7 +60,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     session_token = create_session_token_for(@user)
 
     perform_enqueued_jobs do
-      post "/api/v1/account/email/change",
+      post "/api/v1/account/email-change",
         params: { new_email_address: "new@example.com", current_password: "password" },
         headers: auth_headers(@user, session_token)
     end
@@ -105,7 +105,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     session_token = create_session_token_for(@user)
 
     perform_enqueued_jobs do
-      post "/api/v1/account/email/change",
+      post "/api/v1/account/email-change",
         params: { new_email_address: "cooldown@example.com", current_password: "password" },
         headers: auth_headers(@user, session_token)
     end
@@ -124,10 +124,10 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "PATCH /api/v1/account/notifications validates allowed keys and boolean values" do
+  test "PUT /api/v1/account/notifications validates allowed keys and boolean values" do
     session_token = create_session_token_for(@user)
 
-    patch "/api/v1/account/notifications",
+    put "/api/v1/account/notifications",
       params: { account: { notification_preferences: { "unknown" => true } } },
       headers: auth_headers(@user, session_token)
     assert_response :unprocessable_content
@@ -135,7 +135,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal "validation_error", body["error_code"]
     assert body.dig("details", "allowed_keys").is_a?(Array)
 
-    patch "/api/v1/account/notifications",
+    put "/api/v1/account/notifications",
       params: { account: { notification_preferences: { marketing_emails: true } } },
       headers: auth_headers(@user, session_token)
     assert_response :success
@@ -176,11 +176,11 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_nil current_session.reload.revoked_at
   end
 
-  test "POST /api/v1/account/delete disables user, revokes sessions, and blocks login" do
+  test "DELETE /api/v1/account disables user, revokes sessions, and blocks login" do
     session_token = create_session_token_for(@user)
     other_session = create_session_token_for(@user)
 
-    post "/api/v1/account/delete",
+    delete "/api/v1/account",
       params: { current_password: "password", confirmation: "DELETE" },
       headers: auth_headers(@user, session_token)
     assert_response :success
@@ -197,19 +197,31 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal "account_disabled", JSON.parse(response.body)["error_code"]
   end
 
-  test "POST/GET /api/v1/account/exports creates and returns latest export" do
+  test "POST/GET /api/v1/account/data/export creates and returns latest export" do
     session_token = create_session_token_for(@user)
 
-    post "/api/v1/account/exports", headers: auth_headers(@user, session_token)
+    post "/api/v1/account/data/export", headers: auth_headers(@user, session_token)
     assert_response :accepted
     export = JSON.parse(response.body).fetch("export")
     assert_equal "ready", export["status"]
     assert export["data"].is_a?(Hash)
 
-    get "/api/v1/account/exports/latest", headers: auth_headers(@user, session_token)
+    get "/api/v1/account/data/export", headers: auth_headers(@user, session_token)
     assert_response :success
     latest = JSON.parse(response.body).fetch("export")
     assert_equal export["id"], latest["id"]
+  end
+
+  test "GET /api/v1/account/security returns email verification security fields" do
+    session_token = create_session_token_for(@user)
+
+    get "/api/v1/account/security", headers: auth_headers(@user, session_token)
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    assert_equal @user.email_address, body.dig("security", "email_address")
+    assert_equal false, body.dig("security", "email_verified")
+    assert_nil body.dig("security", "email_verified_at")
   end
 
   private

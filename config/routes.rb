@@ -28,18 +28,19 @@ Rails.application.routes.draw do
       # Account management
       resource :account, only: [ :show, :update ], controller: :account
       post "/account/password", to: "account_passwords#create"
-      post "/account/email/change", to: "account_emails#change"
-      post "/account/delete", to: "account_deletions#create"
+      get "/account/security", to: "account_security#show"
+      post "/account/email-change", to: "account_emails#change"
+      delete "/account", to: "account_deletions#destroy"
 
       get "/account/notifications", to: "account_notifications#show"
-      patch "/account/notifications", to: "account_notifications#update"
+      put "/account/notifications", to: "account_notifications#update"
 
       get "/account/sessions", to: "account_sessions#index"
       delete "/account/sessions/:id", to: "account_sessions#destroy"
       post "/account/sessions/revoke_others", to: "account_sessions#revoke_others"
 
-      post "/account/exports", to: "account_exports#create"
-      get "/account/exports/latest", to: "account_exports#latest"
+      get "/account/data/export", to: "account_exports#show"
+      post "/account/data/export", to: "account_exports#create"
 
       post "/email_verifications/resend", to: "email_verifications#resend"
       get "/email_verifications/verify", to: "email_verifications#verify"

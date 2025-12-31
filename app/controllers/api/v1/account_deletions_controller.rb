@@ -4,7 +4,7 @@ module Api
       before_action :authenticate_request!
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
-      # POST /api/v1/account/delete
+      # DELETE /api/v1/account
       # @summary Disable (soft delete) the current account and revoke sessions
       # @request_body Delete account payload (application/json) [!AccountDeleteRequest]
       # @response Success (200) [Hash{ status: String }]
@@ -20,6 +20,7 @@ module Api
 
         render json: { status: "deleted" }, status: :ok
       end
+      alias_method :destroy, :create
 
       private
 

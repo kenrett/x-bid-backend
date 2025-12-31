@@ -12,7 +12,7 @@ module Api
         render json: { notification_preferences: @current_user.notification_preferences_with_defaults }, status: :ok
       end
 
-      # PATCH /api/v1/account/notifications
+      # PUT /api/v1/account/notifications
       # @summary Update notification preferences for the current user
       # @request_body Update preferences payload (application/json) [!NotificationPreferencesUpdateRequest]
       # @response Success (200) [NotificationPreferencesResponse]

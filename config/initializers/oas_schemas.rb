@@ -271,6 +271,23 @@ module OasSchemas
       },
       required: %w[user]
     },
+    "AccountSecurity" => {
+      type: "object",
+      properties: {
+        security: {
+          type: "object",
+          properties: {
+            email_address: { type: "string", format: "email" },
+            unverified_email_address: { type: "string", format: "email", nullable: true },
+            email_verified: { type: "boolean" },
+            email_verified_at: { type: "string", format: "date-time", nullable: true },
+            email_verification_sent_at: { type: "string", format: "date-time", nullable: true }
+          },
+          required: %w[email_address email_verified]
+        }
+      },
+      required: %w[security]
+    },
     "NotificationPreferencesResponse" => {
       type: "object",
       properties: {

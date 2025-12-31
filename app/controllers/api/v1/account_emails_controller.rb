@@ -4,7 +4,7 @@ module Api
       before_action :authenticate_request!
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
-      # POST /api/v1/account/email/change
+      # POST /api/v1/account/email-change
       # @summary Request an email address change (verification required)
       # @request_body Change email payload (application/json) [!ChangeEmailRequest]
       # @response Accepted (202) [Hash{ status: String }]
