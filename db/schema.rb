@@ -10,9 +10,24 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_30_003000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_31_002000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "account_exports", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "requested_at", null: false
+    t.datetime "ready_at"
+    t.string "download_url"
+    t.text "error_message"
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_account_exports_on_status"
+    t.index ["user_id", "requested_at"], name: "index_account_exports_on_user_id_and_requested_at"
+    t.index ["user_id"], name: "index_account_exports_on_user_id"
+  end
 
   create_table "activity_events", force: :cascade do |t|
     t.bigint "user_id", null: false
@@ -255,7 +270,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_30_003000) do
     t.datetime "revoked_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "user_agent"
+    t.string "ip_address"
+    t.datetime "last_seen_at"
     t.index ["expires_at"], name: "index_session_tokens_on_expires_at"
+    t.index ["last_seen_at"], name: "index_session_tokens_on_last_seen_at"
     t.index ["token_digest"], name: "index_session_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_session_tokens_on_user_id"
   end
@@ -280,12 +299,22 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_30_003000) do
     t.integer "bid_credits", default: 0, null: false
     t.boolean "is_superuser", default: false, null: false
     t.integer "status", default: 0, null: false
+    t.datetime "email_verified_at"
+    t.string "email_verification_token_digest"
+    t.datetime "email_verification_sent_at"
+    t.string "unverified_email_address"
+    t.jsonb "notification_preferences", default: {"receipts" => true, "outbid_alerts" => true, "bidding_alerts" => true, "product_updates" => false, "marketing_emails" => false, "watched_auction_ending" => true}, null: false
+    t.datetime "disabled_at"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
+    t.index ["email_verification_token_digest"], name: "index_users_on_email_verification_token_digest"
+    t.index ["email_verified_at"], name: "index_users_on_email_verified_at"
     t.index ["is_superuser"], name: "index_users_on_is_superuser"
     t.index ["status"], name: "index_users_on_status"
+    t.index ["unverified_email_address"], name: "index_users_on_unverified_email_address"
     t.check_constraint "bid_credits >= 0", name: "users_bid_credits_non_negative"
   end
 
+  add_foreign_key "account_exports", "users"
   add_foreign_key "activity_events", "users"
   add_foreign_key "auction_fulfillments", "auction_settlements"
   add_foreign_key "auction_fulfillments", "users"

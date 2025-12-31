@@ -8,6 +8,7 @@ class SessionToken < ApplicationRecord
   validates :expires_at, presence: true
 
   scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
+  scope :inactive, -> { where.not(revoked_at: nil).or(where("expires_at <= ?", Time.current)) }
 
   def self.digest(raw_token)
     Digest::SHA256.hexdigest(raw_token)

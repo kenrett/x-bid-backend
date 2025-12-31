@@ -8,6 +8,7 @@ class User < ApplicationRecord
   has_many :session_tokens, dependent: :destroy
   has_many :password_reset_tokens, dependent: :destroy
   has_many :notifications, dependent: :destroy
+  has_many :account_exports, dependent: :destroy
 
   enum :role, { user: 0, admin: 1, superadmin: 2 }, default: :user
   enum :status, { active: 0, disabled: 1 }, default: :active
@@ -19,9 +20,28 @@ class User < ApplicationRecord
   # and use Credits::RebuildBalance to recompute from the ledger when needed.
   validates :bid_credits, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
+  NOTIFICATION_PREFERENCE_DEFAULTS = {
+    bidding_alerts: true,
+    outbid_alerts: true,
+    watched_auction_ending: true,
+    receipts: true,
+    product_updates: false,
+    marketing_emails: false
+  }.freeze
+
+  def email_verified?
+    email_verified_at.present?
+  end
+
+  def notification_preferences_with_defaults
+    defaults = NOTIFICATION_PREFERENCE_DEFAULTS
+    stored = notification_preferences.to_h
+    defaults.merge(stored.symbolize_keys).transform_keys(&:to_s)
+  end
+
   def disable_and_revoke_sessions!
     transaction do
-      update!(status: :disabled)
+      update!(status: :disabled, disabled_at: Time.current)
 
       session_tokens.active.find_each do |session_token|
         session_token.revoke!
