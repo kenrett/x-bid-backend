@@ -98,11 +98,17 @@ module Api
       private
 
       def login_params
-        params.require(:session).permit(:email_address, :password)
+        raw = (params[:session].presence || params).permit(:email_address, :emailAddress, :password)
+        raw.to_h.tap do |hash|
+          hash["email_address"] ||= hash.delete("emailAddress")
+        end
       end
 
       def refresh_params
-        params.require(:session).permit(:refresh_token)
+        raw = (params[:session].presence || params).permit(:refresh_token, :refreshToken)
+        raw.to_h.tap do |hash|
+          hash["refresh_token"] ||= hash.delete("refreshToken")
+        end
       end
 
       def build_logged_in_response(user, session_token)

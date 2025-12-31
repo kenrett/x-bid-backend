@@ -2104,8 +2104,33 @@
         "type": "object"
       },
       "LoginRequest": {
-        "properties": {
-          "session": {
+        "description": "Login payload accepted by /api/v1/login (nested or flat).",
+        "oneOf": [
+          {
+            "properties": {
+              "session": {
+                "properties": {
+                  "email_address": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email_address",
+                  "password"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "session"
+            ],
+            "type": "object"
+          },
+          {
             "properties": {
               "email_address": {
                 "format": "email",
@@ -2120,12 +2145,24 @@
               "password"
             ],
             "type": "object"
+          },
+          {
+            "properties": {
+              "emailAddress": {
+                "format": "email",
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "emailAddress",
+              "password"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "session"
-        ],
-        "type": "object"
+        ]
       },
       "MaintenanceToggle": {
         "properties": {
@@ -2300,8 +2337,28 @@
         "type": "object"
       },
       "RefreshRequest": {
-        "properties": {
-          "session": {
+        "description": "Session refresh payload accepted by /api/v1/session/refresh (nested or flat).",
+        "oneOf": [
+          {
+            "properties": {
+              "session": {
+                "properties": {
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "refresh_token"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "session"
+            ],
+            "type": "object"
+          },
+          {
             "properties": {
               "refresh_token": {
                 "type": "string"
@@ -2311,12 +2368,19 @@
               "refresh_token"
             ],
             "type": "object"
+          },
+          {
+            "properties": {
+              "refreshToken": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "refreshToken"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "session"
-        ],
-        "type": "object"
+        ]
       },
       "SignupRequest": {
         "description": "User registration payload accepted by /api/v1/signup (and legacy /api/v1/users).",

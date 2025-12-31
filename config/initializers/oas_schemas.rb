@@ -453,31 +453,71 @@ module OasSchemas
       ]
     },
     "LoginRequest" => {
-      type: "object",
-      properties: {
-        session: {
+      description: "Login payload accepted by /api/v1/login (nested or flat).",
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            session: {
+              type: "object",
+              properties: {
+                email_address: { type: "string", format: "email" },
+                password: { type: "string" }
+              },
+              required: %w[email_address password]
+            }
+          },
+          required: %w[session]
+        },
+        {
           type: "object",
           properties: {
             email_address: { type: "string", format: "email" },
             password: { type: "string" }
           },
           required: %w[email_address password]
+        },
+        {
+          type: "object",
+          properties: {
+            emailAddress: { type: "string", format: "email" },
+            password: { type: "string" }
+          },
+          required: %w[emailAddress password]
         }
-      },
-      required: %w[session]
+      ]
     },
     "RefreshRequest" => {
-      type: "object",
-      properties: {
-        session: {
+      description: "Session refresh payload accepted by /api/v1/session/refresh (nested or flat).",
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            session: {
+              type: "object",
+              properties: {
+                refresh_token: { type: "string" }
+              },
+              required: %w[refresh_token]
+            }
+          },
+          required: %w[session]
+        },
+        {
           type: "object",
           properties: {
             refresh_token: { type: "string" }
           },
           required: %w[refresh_token]
+        },
+        {
+          type: "object",
+          properties: {
+            refreshToken: { type: "string" }
+          },
+          required: %w[refreshToken]
         }
-      },
-      required: %w[session]
+      ]
     },
     "AuctionUpsert" => {
       type: "object",
