@@ -206,10 +206,13 @@ module OasSchemas
             "account_disabled",
             "invalid_token",
             "invalid_password",
+            "invalid_email",
             "invalid_user",
             "invalid_delta",
             "already_disabled",
+            "already_verified",
             "already_refunded",
+            "rate_limited",
             "retired",
             "missing_payment_intent"
           ]
@@ -236,7 +239,188 @@ module OasSchemas
       },
       required: %w[errors]
     },
+    "NotificationPreferences" => {
+      type: "object",
+      description: "User notification preferences (all boolean flags).",
+      properties: {
+        bidding_alerts: { type: "boolean" },
+        outbid_alerts: { type: "boolean" },
+        watched_auction_ending: { type: "boolean" },
+        receipts: { type: "boolean" },
+        product_updates: { type: "boolean" },
+        marketing_emails: { type: "boolean" }
+      },
+      required: %w[bidding_alerts outbid_alerts watched_auction_ending receipts product_updates marketing_emails]
+    },
+    "AccountProfile" => {
+      type: "object",
+      properties: {
+        user: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            name: { type: "string", nullable: true },
+            email_address: { type: "string", format: "email" },
+            email_verified: { type: "boolean" },
+            email_verified_at: { type: "string", format: "date-time", nullable: true },
+            created_at: { type: "string", format: "date-time" },
+            notification_preferences: { "$ref" => "#/components/schemas/NotificationPreferences" }
+          },
+          required: %w[id email_address email_verified created_at notification_preferences]
+        }
+      },
+      required: %w[user]
+    },
+    "NotificationPreferencesResponse" => {
+      type: "object",
+      properties: {
+        notification_preferences: { "$ref" => "#/components/schemas/NotificationPreferences" }
+      },
+      required: %w[notification_preferences]
+    },
+    "AccountSession" => {
+      type: "object",
+      properties: {
+        id: { type: "integer" },
+        created_at: { type: "string", format: "date-time" },
+        last_seen_at: { type: "string", format: "date-time", nullable: true },
+        user_agent: { type: "string", nullable: true },
+        ip_address: { type: "string", nullable: true },
+        current: { type: "boolean" }
+      },
+      required: %w[id created_at current]
+    },
+    "AccountSessionsResponse" => {
+      type: "object",
+      properties: {
+        sessions: { type: "array", items: { "$ref" => "#/components/schemas/AccountSession" } }
+      },
+      required: %w[sessions]
+    },
+    "AccountExport" => {
+      type: "object",
+      properties: {
+        id: { type: "integer" },
+        status: { type: "string", enum: %w[pending ready failed] },
+        requested_at: { type: "string", format: "date-time" },
+        ready_at: { type: "string", format: "date-time", nullable: true },
+        download_url: { type: "string", nullable: true },
+        data: { type: "object", nullable: true, additionalProperties: true }
+      },
+      required: %w[id status requested_at]
+    },
+    "AccountExportResponse" => {
+      type: "object",
+      properties: {
+        export: { oneOf: [ { "$ref" => "#/components/schemas/AccountExport" }, { type: "null" } ] }
+      },
+      required: %w[export]
+    },
     # Request payloads
+    "AccountUpdateRequest" => {
+      type: "object",
+      properties: {
+        account: {
+          type: "object",
+          properties: {
+            name: { type: "string" }
+          },
+          required: %w[name]
+        }
+      },
+      required: %w[account]
+    },
+    "ChangePasswordRequest" => {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            password: {
+              type: "object",
+              properties: {
+                current_password: { type: "string" },
+                new_password: { type: "string" }
+              },
+              required: %w[current_password new_password]
+            }
+          },
+          required: %w[password]
+        },
+        {
+          type: "object",
+          properties: {
+            current_password: { type: "string" },
+            new_password: { type: "string" }
+          },
+          required: %w[current_password new_password]
+        }
+      ]
+    },
+    "ChangeEmailRequest" => {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            email: {
+              type: "object",
+              properties: {
+                new_email_address: { type: "string", format: "email" },
+                current_password: { type: "string" }
+              },
+              required: %w[new_email_address current_password]
+            }
+          },
+          required: %w[email]
+        },
+        {
+          type: "object",
+          properties: {
+            new_email_address: { type: "string", format: "email" },
+            current_password: { type: "string" }
+          },
+          required: %w[new_email_address current_password]
+        }
+      ]
+    },
+    "NotificationPreferencesUpdateRequest" => {
+      type: "object",
+      properties: {
+        account: {
+          type: "object",
+          properties: {
+            notification_preferences: { "$ref" => "#/components/schemas/NotificationPreferences" }
+          },
+          required: %w[notification_preferences]
+        }
+      },
+      required: %w[account]
+    },
+    "AccountDeleteRequest" => {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            account: {
+              type: "object",
+              properties: {
+                current_password: { type: "string" },
+                confirmation: { type: "string", enum: [ "DELETE" ] }
+              },
+              required: %w[current_password confirmation]
+            }
+          },
+          required: %w[account]
+        },
+        {
+          type: "object",
+          properties: {
+            current_password: { type: "string" },
+            confirmation: { type: "string", enum: [ "DELETE" ] }
+          },
+          required: %w[current_password confirmation]
+        }
+      ]
+    },
     "SignupRequest" => {
       description: "User registration payload accepted by /api/v1/signup (and legacy /api/v1/users).",
       oneOf: [
