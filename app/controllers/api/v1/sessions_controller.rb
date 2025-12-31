@@ -23,6 +23,7 @@ module Api
 
         if user&.authenticate(login_params[:password])
           session_token, refresh_token = SessionToken.generate_for(user:)
+          track_session_token!(session_token)
           render json: Auth::SessionResponseBuilder.build(user:, session_token:, refresh_token:, jwt_encoder: method(:encode_jwt))
         else
           render_error(code: :invalid_credentials, message: "Invalid credentials", status: :unauthorized)
@@ -50,6 +51,7 @@ module Api
         SessionEventBroadcaster.session_invalidated(session_token, reason: "refresh_replaced")
 
         new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
+        track_session_token!(new_session_token)
         render json: Auth::SessionResponseBuilder.build(
           user: session_token.user,
           session_token: new_session_token,

@@ -5,32 +5,33 @@ class ApplicationController < ActionController::API
 
   def authenticate_request!
     header = request.headers["Authorization"]
-    return render json: { error: "Authorization header missing" }, status: :unauthorized unless header
+    return render_error(code: :invalid_token, message: "Authorization header missing", status: :unauthorized) unless header
 
     token = header.split(" ").last
-    return render json: { error: "Token missing from Authorization header" }, status: :unauthorized unless token
+    return render_error(code: :invalid_token, message: "Token missing from Authorization header", status: :unauthorized) unless token
 
     begin
       decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" })[0]
       session_token = SessionToken.find_by(id: decoded["session_token_id"])
       unless session_token&.active?
         SessionEventBroadcaster.session_invalidated(session_token, reason: "expired") if session_token
-        return render json: { error: "Session has expired" }, status: :unauthorized
+        return render_error(code: :invalid_session, message: "Session has expired", status: :unauthorized)
       end
 
       @current_session_token = session_token
       @current_user = session_token.user
+      track_session_token!(session_token)
       if @current_user.disabled?
         session_token.revoke! unless session_token.revoked_at?
         SessionEventBroadcaster.session_invalidated(session_token, reason: "user_disabled")
-        render json: { error: "User account disabled" }, status: :unauthorized
+        render_error(code: :account_disabled, message: "User account disabled", status: :unauthorized)
       end
     rescue JWT::ExpiredSignature
-      render json: { error: "Token has expired" }, status: :unauthorized
+      render_error(code: :invalid_token, message: "Token has expired", status: :unauthorized)
     rescue JWT::DecodeError => e
-      render json: { error: "Invalid token: #{e.message}" }, status: :unauthorized
+      render_error(code: :invalid_token, message: "Invalid token: #{e.message}", status: :unauthorized)
     rescue ActiveRecord::RecordNotFound
-      render json: { error: "Unauthorized" }, status: :unauthorized
+      render_error(code: :invalid_token, message: "Unauthorized", status: :unauthorized)
     end
   end
 
@@ -88,11 +89,29 @@ class ApplicationController < ActionController::API
     return true if request.path == "/up"
     return true if request.path == "/api/v1/login"
     return true if request.path == "/api/v1/signup"
+    return true if request.path == "/api/v1/email_verifications/verify"
     return true if request.path == "/api/v1/admin/maintenance"
     return true if request.path == "/api/v1/maintenance"
     return true if request.path == "/api/v1/stripe/webhooks"
 
     false
+  end
+
+  def track_session_token!(session_token)
+    return unless session_token
+
+    now = Time.current
+    last_seen = session_token.last_seen_at
+    return if last_seen.present? && last_seen > 1.minute.ago
+
+    session_token.update_columns(
+      last_seen_at: now,
+      user_agent: request.user_agent,
+      ip_address: request.remote_ip,
+      updated_at: now
+    )
+  rescue StandardError => e
+    AppLogger.error(event: "auth.session_token.track_failed", error: e, session_token_id: session_token&.id)
   end
 
   def encode_jwt(payload = {}, expires_at: nil, **kwargs)
