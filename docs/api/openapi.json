@@ -4849,6 +4849,35 @@
         ]
       }
     },
+    "/api/v1/me/account/profile": {
+      "get": {
+        "description": "GET /api/v1/me/account/profile",
+        "operationId": "GET__api_v1_me_account_profile",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_064"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_062"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_043"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_020"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Return current user's account profile (legacy /me alias)",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
     "/api/v1/me/activity": {
       "get": {
         "description": "GET /api/v1/me/activity\nMerges bids, watches, and outcomes into a single newest-first feed.\nNOTE: Currently merges in Ruby; may not scale for large histories.",
