@@ -42,6 +42,12 @@ class ApplicationController < ActionController::API
     @current_user
   end
 
+  def require_verified_email!
+    return if @current_user&.email_verified?
+
+    render_error(code: :email_unverified, message: "Email verification required", status: :forbidden)
+  end
+
   def authorize_admin!
     return if @current_user&.admin? || @current_user&.superadmin?
 

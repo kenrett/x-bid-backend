@@ -2,6 +2,7 @@ module Api
   module V1
     class BidsController < ApplicationController
       before_action :authenticate_request!
+      before_action :require_verified_email!
 
       # @summary Place a bid on an auction
       # Places a bid for the current user on the specified auction.

@@ -3,6 +3,7 @@ require Rails.root.join("app/lib/frontend_origins")
 
 class Api::V1::CheckoutsController < ApplicationController
   before_action :authenticate_request!
+  before_action :require_verified_email!, only: %i[create success]
 
   # @summary Start a Stripe Checkout session for a bid pack
   # Initializes a Stripe checkout session for the given bid pack and returns the client secret.
