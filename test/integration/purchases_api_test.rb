@@ -55,7 +55,7 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
     body = JSON.parse(response.body)
-    assert_equal "not_found", body["error_code"]
+    assert_equal "not_found", body.dig("error", "code").to_s
   end
 
   test "GET /api/v1/me/purchases/:id returns purchase detail for current user" do

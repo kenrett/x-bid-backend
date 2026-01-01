@@ -67,7 +67,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
       headers: auth_headers(@user, current_session)
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "invalid_password", body["error_code"]
+    assert_equal "invalid_password", body.dig("error", "code").to_s
 
     audit_events = []
     AppLogger.stub(:log, lambda { |event:, level: :info, **context|
@@ -129,7 +129,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     get "/api/v1/email_verifications/verify", params: { token: raw }
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "invalid_token", body["error_code"]
+    assert_equal "invalid_token", body.dig("error", "code").to_s
   end
 
   test "POST /api/v1/email_verifications/resend enforces cooldown" do
@@ -145,7 +145,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     post "/api/v1/email_verifications/resend", headers: auth_headers(@user, session_token)
     assert_response :too_many_requests
     body = JSON.parse(response.body)
-    assert_equal "rate_limited", body["error_code"]
+    assert_equal "rate_limited", body.dig("error", "code").to_s
 
     travel 61.seconds do
       perform_enqueued_jobs do
@@ -163,8 +163,8 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
       headers: auth_headers(@user, session_token)
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "validation_error", body["error_code"]
-    assert body.dig("details", "allowed_keys").is_a?(Array)
+    assert_equal "validation_error", body.dig("error", "code").to_s
+    assert body.dig("error", "details", "allowed_keys").is_a?(Array)
 
     put "/api/v1/account/notifications",
       params: { account: { notification_preferences: { marketing_emails: true } } },
@@ -197,7 +197,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
 
     delete "/api/v1/account/sessions/#{current_session.id}", headers: auth_headers(@user, current_session)
     assert_response :unprocessable_content
-    assert_equal "invalid_session", JSON.parse(response.body)["error_code"]
+    assert_equal "invalid_session", JSON.parse(response.body).dig("error", "code").to_s
   end
 
   test "POST /api/v1/account/sessions/revoke_others revokes all but current" do
@@ -238,7 +238,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
 
     post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
     assert_response :forbidden
-    assert_equal "account_disabled", JSON.parse(response.body)["error_code"]
+    assert_equal "account_disabled", JSON.parse(response.body).dig("error", "code").to_s
   end
 
   test "POST/GET /api/v1/account/data/export creates and returns latest export" do

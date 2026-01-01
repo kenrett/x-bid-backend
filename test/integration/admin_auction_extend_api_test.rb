@@ -43,7 +43,7 @@ class AdminAuctionExtendApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      assert_equal "invalid_state", body["error_code"]
+      assert_equal "invalid_state", body.dig("error", "code").to_s
       assert_equal original_end_time.to_i, auction.reload.end_time.to_i
     end
   end
@@ -56,7 +56,7 @@ class AdminAuctionExtendApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      assert_equal "not_found", body["error_code"]
+      assert_equal "not_found", body.dig("error", "code").to_s
     end
   end
 end

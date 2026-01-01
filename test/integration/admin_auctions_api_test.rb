@@ -53,7 +53,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      assert_includes body["message"], "Cannot retire an auction that has bids"
+      assert_includes body.dig("error", "message"), "Cannot retire an auction that has bids"
     end
   end
 
@@ -95,7 +95,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "Auction already inactive", body["message"]
+    assert_equal "Auction already inactive", body.dig("error", "message")
   end
 
   test "PUT /api/v1/auctions/:id enforces role matrix and updates auctions" do
@@ -138,7 +138,7 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      assert_includes body["message"], "Invalid status"
+      assert_includes body.dig("error", "message"), "Invalid status"
     end
   end
 

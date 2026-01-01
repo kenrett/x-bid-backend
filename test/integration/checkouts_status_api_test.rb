@@ -39,7 +39,7 @@ class CheckoutsStatusApiTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = JSON.parse(response.body)
-    assert_equal "forbidden", body["error_code"].to_s
-    assert_match(/does not belong/i, body["message"])
+    assert_equal "forbidden", body.dig("error", "code").to_s
+    assert_match(/does not belong/i, body.dig("error", "message"))
   end
 end

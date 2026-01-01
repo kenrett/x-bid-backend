@@ -23,8 +23,8 @@ class MaintenanceModeApiTest < ActionDispatch::IntegrationTest
     get "/api/v1/auctions"
     assert_response :service_unavailable
     body = JSON.parse(response.body)
-    assert_equal "maintenance_mode", body["error_code"].to_s
-    assert_equal "Maintenance in progress", body["message"]
+    assert_equal "maintenance_mode", body.dig("error", "code").to_s
+    assert_equal "Maintenance in progress", body.dig("error", "message")
   end
 
   test "allows admin requests during maintenance" do

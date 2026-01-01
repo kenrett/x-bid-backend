@@ -24,7 +24,7 @@ module Api
           if log
             render json: { status: "ok" }, status: :created
           else
-            render json: { error: "Unable to create audit log" }, status: :unprocessable_content
+            render_error(code: :audit_failed, message: "Unable to create audit log", status: :unprocessable_content)
           end
         end
 

@@ -16,8 +16,8 @@ Signup can create an authenticated session for a user whose email is not yet ver
   - `GET /api/v1/checkout/success`
 - Error response (via `render_error`):
   - HTTP: `403`
-  - `error_code`: `email_unverified`
-  - `message`: `Email verification required`
+  - `error.code`: `email_unverified`
+  - `error.message`: `Email verification required`
 
 ## Routes
 
@@ -34,7 +34,7 @@ post "/session/refresh", to: "sessions#refresh"
 ```
 
 Notes:
-- Confirmed: **no** `POST /api/v1/signup` exists (search for “signup” in `config/routes.rb` and `docs/api/openapi.json` returns nothing).
+- Confirmed: `POST /api/v1/signup` exists and routes to `Api::V1::RegistrationsController#create` (`config/routes.rb:26`).
 
 ## Signup Endpoint: `POST /api/v1/users`
 
@@ -79,10 +79,15 @@ Failure (`422 Unprocessable Content`) (`app/controllers/api/v1/users_controller.
 
 ```json
 {
-  "errors": [
-    "Password can't be blank",
-    "Email address has already been taken"
-  ]
+  "error": {
+    "code": "validation_error",
+    "message": "Password can't be blank",
+    "field_errors": {
+      "password": [
+        "can't be blank"
+      ]
+    }
+  }
 }
 ```
 
@@ -98,8 +103,7 @@ Failure (`422 Unprocessable Content`) (`app/controllers/api/v1/users_controller.
 - `authenticate_request!` looks for `session_token_id` inside the decoded JWT and loads `SessionToken` by that ID (`app/controllers/application_controller.rb:14` to `app/controllers/application_controller.rb:18`).
 
 Implication:
-- The signup token is created as `encode_jwt(user_id: user.id)` with **no `session_token_id`** (`app/controllers/api/v1/users_controller.rb:10`).
-- Therefore, requests using this token against endpoints protected by `authenticate_request!` will fail with `401` (“Session has expired”) because `SessionToken.find_by(id: nil)` returns `nil` and `session_token&.active?` is false (`app/controllers/application_controller.rb:15` to `app/controllers/application_controller.rb:18`).
+- Signup issues a JWT that includes `session_token_id`, and both `/api/v1/signup` and `/api/v1/users` create a persisted `SessionToken` row (via `SessionToken.generate_for` + `Auth::SessionResponseBuilder`).
 
 ## Session + Refresh Token Endpoints
 

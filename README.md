@@ -206,7 +206,7 @@ All endpoints are prefixed with `/api/v1`.
 *   `GET /api/v1/admin/payments`: List purchases with optional `search=userEmail` filter (admin/superadmin).
 *   `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }` (admin/superadmin). Audit logs are also written automatically for admin actions such as auction create/update/delete, bid pack create/update/deactivate, and admin role changes/bans.
 *   `GET /api/v1/maintenance`: Public maintenance flag `{ maintenance: { enabled, updated_at } }` (no auth).  
-*   `GET/POST /api/v1/admin/maintenance`: Superadmin-only maintenance mode status/toggle (`enabled` query/body param; returns maintenance JSON). When enabled, all non-admin traffic is blocked with 503 `{ error_code: "maintenance_mode", message: "Maintenance in progress" }`; allowed during maintenance: `/up`, `/api/v1/login`, `/api/v1/maintenance`, and any request with a valid admin/superadmin token.
+*   `GET/POST /api/v1/admin/maintenance`: Superadmin-only maintenance mode status/toggle (`enabled` query/body param; returns maintenance JSON). When enabled, all non-admin traffic is blocked with 503 `{ error: { code: "maintenance_mode", message: "Maintenance in progress" } }`; allowed during maintenance: `/up`, `/api/v1/login`, `/api/v1/maintenance`, and any request with a valid admin/superadmin token.
 
 ---
 

@@ -143,21 +143,23 @@ Most API endpoints should use `render_error` (see `app/controllers/concerns/erro
 
 ```json
 {
-  "error_code": "forbidden",
-  "message": "Admin privileges required"
+  "error": {
+    "code": "forbidden",
+    "message": "Admin privileges required"
+  }
 }
 ```
 
 Notes:
-- `details` may be included when provided to `render_error`.
+- `details` and `field_errors` may be included when provided to `render_error` (under `error`).
 - Status `422` is normalized to `422 Unprocessable Content` in this app.
 
 Common examples:
-- `403` + `error_code=email_unverified` + `message="Email verification required"` (money/wallet-impacting actions)
+- `403` + `error.code=email_unverified` + `error.message="Email verification required"` (money/wallet-impacting actions)
   - Applies to `POST /api/v1/auctions/:auction_id/bids`, `POST /api/v1/checkouts`, `GET /api/v1/checkout/success`
-- `503` + `error_code=maintenance_mode` + `message="Maintenance in progress"` (maintenance mode)
-- `400` + `error_code=stripe_webhook_invalid_signature` + `message="Invalid webhook signature"` (Stripe webhooks)
-- `500` + `error_code=stripe_webhook_missing_secret` + `message="Webhook secret not configured"` (Stripe webhooks)
+- `503` + `error.code=maintenance_mode` + `error.message="Maintenance in progress"` (maintenance mode)
+- `400` + `error.code=stripe_webhook_invalid_signature` + `error.message="Invalid webhook signature"` (Stripe webhooks)
+- `500` + `error.code=stripe_webhook_missing_secret` + `error.message="Webhook secret not configured"` (Stripe webhooks)
 
 ### Legacy / non-`render_error` shapes
 

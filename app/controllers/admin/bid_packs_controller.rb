@@ -36,7 +36,7 @@ module Admin
       result = ::Admin::BidPacks::Retire.new(actor: @current_user, bid_pack: @bid_pack, request: request).call
       return head :no_content if result.ok?
 
-      render json: { errors: [ result.error ] }, status: result.http_status
+      render_error(code: result.code || :invalid_bid_pack, message: result.error || "Bid pack could not be retired", status: result.http_status)
     end
 
     private
@@ -44,7 +44,7 @@ module Admin
     def set_bid_pack
       @bid_pack = BidPack.find(params[:id])
     rescue ActiveRecord::RecordNotFound
-      render json: { error: "Bid pack not found" }, status: :not_found
+      render_error(code: :not_found, message: "Bid pack not found", status: :not_found)
     end
 
     def bid_pack_params
@@ -52,7 +52,7 @@ module Admin
     end
 
     def render_result(result, success_status: :ok)
-      return render json: { errors: [ result.error ] }, status: result.http_status unless result.ok?
+      return render_error(code: result.code || :invalid_bid_pack, message: result.error || "Bid pack could not be saved", status: result.http_status) unless result.ok?
 
       render json: result.record, status: success_status
     end

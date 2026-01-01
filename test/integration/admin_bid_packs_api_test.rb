@@ -109,8 +109,8 @@ class AdminBidPacksApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      assert_equal "invalid_bid_pack", body["error_code"]
-      assert_match(/Name can't be blank/, body["message"])
+      assert_equal "invalid_bid_pack", body.dig("error", "code").to_s
+      assert_match(/Name can't be blank/, body.dig("error", "message"))
     end
   end
 
@@ -141,7 +141,7 @@ class AdminBidPacksApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "Bid pack already retired", body["message"]
+    assert_equal "Bid pack already retired", body.dig("error", "message")
   end
 
   test "blocks hard delete through the model" do

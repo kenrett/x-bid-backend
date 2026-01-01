@@ -2087,71 +2087,94 @@
         ],
         "type": "object"
       },
-      "Error": {
-        "description": "Standard error envelope returned by all error responses. error_code maps to ServiceResult#code or controller error codes.",
-        "properties": {
-          "details": {
-            "nullable": true,
-            "oneOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "items": {},
+    "Error": {
+      "description": "Standard error envelope returned by all error responses.",
+      "properties": {
+        "error": {
+          "description": "Canonical error object returned by render_error.",
+          "properties": {
+            "code": {
+              "description": "Symbol/string code derived from ServiceResult#code so clients can branch on error type.",
+              "enum": [
+                "forbidden",
+                "not_found",
+                "bad_request",
+                "invalid_status",
+                "invalid_state",
+                "invalid_auction",
+                "invalid_bid_pack",
+                "invalid_payment",
+                "invalid_amount",
+                "amount_exceeds_charge",
+                "gateway_error",
+                "database_error",
+                "unexpected_error",
+                "validation_error",
+                "auction_not_active",
+                "insufficient_credits",
+                "bid_race_lost",
+                "bid_invalid",
+                "bid_pack_purchase_failed",
+                "invalid_credentials",
+                "invalid_session",
+                "account_disabled",
+                "invalid_token",
+                "invalid_password",
+                "invalid_email",
+                "invalid_user",
+                "invalid_delta",
+                "already_disabled",
+                "already_verified",
+                "already_refunded",
+                "rate_limited",
+                "retired",
+                "missing_payment_intent",
+                "email_unverified",
+                "maintenance_mode",
+                "stripe_webhook_missing_secret",
+                "stripe_webhook_invalid_signature"
+              ],
+              "type": "string"
+            },
+            "details": {
+              "nullable": true,
+              "oneOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "items": {},
+                  "type": "array"
+                }
+              ]
+            },
+            "field_errors": {
+              "additionalProperties": {
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
-              }
-            ]
+              },
+              "nullable": true,
+              "type": "object"
+            },
+            "message": {
+              "type": "string"
+            }
           },
-          "error_code": {
-            "description": "Symbol/string code derived from ServiceResult#code so clients can branch on error type.",
-            "enum": [
-              "forbidden",
-              "not_found",
-              "bad_request",
-              "invalid_status",
-              "invalid_state",
-              "invalid_auction",
-              "invalid_bid_pack",
-              "invalid_payment",
-              "invalid_amount",
-              "amount_exceeds_charge",
-              "gateway_error",
-              "database_error",
-              "unexpected_error",
-              "validation_error",
-              "auction_not_active",
-              "insufficient_credits",
-              "bid_race_lost",
-              "bid_invalid",
-              "bid_pack_purchase_failed",
-              "invalid_credentials",
-              "invalid_session",
-              "account_disabled",
-              "invalid_token",
-              "invalid_password",
-              "invalid_email",
-              "invalid_user",
-              "invalid_delta",
-              "already_disabled",
-              "already_verified",
-              "already_refunded",
-              "rate_limited",
-              "retired",
-              "missing_payment_intent"
-            ],
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "error_code",
-          "message"
-        ],
-        "type": "object"
+          "required": [
+            "code",
+            "message"
+          ],
+          "type": "object"
+        }
       },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
       "LoginRequest": {
         "description": "Login payload accepted by /api/v1/login (nested or flat).",
         "oneOf": [
@@ -2582,21 +2605,14 @@
         ],
         "type": "object"
       },
-      "ValidationErrors": {
-        "description": "Validation error payload returned when user input is invalid.",
-        "properties": {
-          "errors": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "errors"
-        ],
-        "type": "object"
-      },
+    "ValidationErrors": {
+      "allOf": [
+        {
+          "$ref": "#/components/schemas/Error"
+        }
+      ],
+      "description": "Validation error payload returned when user input is invalid. Field-level errors are included in error.field_errors when available."
+    },
       "a077befc92201cc9817e570d6ae70b40": {
         "items": "wonauction",
         "type": "array"

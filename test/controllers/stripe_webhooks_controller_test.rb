@@ -17,8 +17,8 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
     post "/api/v1/stripe/webhooks", params: { id: "evt_missing_secret" }.to_json, headers: { "Stripe-Signature" => "sig_header" }
     assert_response :internal_server_error
     body = JSON.parse(response.body)
-    assert_equal "stripe_webhook_missing_secret", body["error_code"].to_s
-    assert_equal "Webhook secret not configured", body["message"]
+    assert_equal "stripe_webhook_missing_secret", body.dig("error", "code").to_s
+    assert_equal "Webhook secret not configured", body.dig("error", "message")
   end
 
   test "verifies signature, forwards to processor, and returns 200 with status/message" do
@@ -55,8 +55,8 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
         post "/api/v1/stripe/webhooks", params: payload, headers: { "Stripe-Signature" => "sig_header" }
         assert_response :bad_request
         body = JSON.parse(response.body)
-        assert_equal "stripe_webhook_invalid_signature", body["error_code"].to_s
-        assert_equal "Invalid webhook signature", body["message"]
+        assert_equal "stripe_webhook_invalid_signature", body.dig("error", "code").to_s
+        assert_equal "Invalid webhook signature", body.dig("error", "message")
       end
     end
   end
@@ -70,8 +70,8 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
         post "/api/v1/stripe/webhooks", params: payload, headers: { "Stripe-Signature" => "sig_header" }
         assert_response :unprocessable_content
         body = JSON.parse(response.body)
-        assert_equal "invalid_amount", body["error_code"].to_s
-        assert_equal "nope", body["message"]
+        assert_equal "invalid_amount", body.dig("error", "code").to_s
+        assert_equal "nope", body.dig("error", "message")
       end
     end
   end

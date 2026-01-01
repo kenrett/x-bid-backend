@@ -32,7 +32,7 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
     post "/api/v1/session/refresh", params: { refresh_token: refresh_token }
     assert_response :unauthorized
     body = JSON.parse(response.body)
-    assert_equal "invalid_session", body["error_code"].to_s
+    assert_equal "invalid_session", body.dig("error", "code").to_s
   end
 
   test "disabled user refresh fails with 403 and revokes session token" do
@@ -44,7 +44,7 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = JSON.parse(response.body)
-    assert_equal "account_disabled", body["error_code"].to_s
+    assert_equal "account_disabled", body.dig("error", "code").to_s
     assert session_token.reload.revoked_at.present?
   end
 end

@@ -163,8 +163,8 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = JSON.parse(response.body)
-    assert_equal "error", body["status"]
-    assert_match(/does not belong/i, body["error"])
+    assert_equal "forbidden", body.dig("error", "code").to_s
+    assert_match(/does not belong/i, body.dig("error", "message"))
     assert_equal 0, other_user.reload.bid_credits
     assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_999")
   end
@@ -186,8 +186,8 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "error", body["status"]
-    assert_equal "Payment not completed.", body["error"]
+    assert_equal "payment_not_completed", body.dig("error", "code").to_s
+    assert_equal "Payment not completed.", body.dig("error", "message")
   end
 
   test "uses session.amount_total and session.currency when present" do
@@ -228,8 +228,8 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "error", body["status"]
-    assert_match(/amount mismatch/i, body["error"])
+    assert_equal "amount_mismatch", body.dig("error", "code").to_s
+    assert_match(/amount mismatch/i, body.dig("error", "message"))
     assert_equal 0, @user.reload.bid_credits
     assert_nil Purchase.find_by(stripe_checkout_session_id: "cs_amount_mismatch")
   end
@@ -262,8 +262,8 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "error", body["status"]
-    assert_match(/bid pack mismatch/i, body["error"])
+    assert_equal "bid_pack_mismatch", body.dig("error", "code").to_s
+    assert_match(/bid pack mismatch/i, body.dig("error", "message"))
     assert_equal 0, @user.reload.bid_credits
     assert_nil Purchase.find_by(stripe_checkout_session_id: "cs_bid_pack_mismatch")
   end

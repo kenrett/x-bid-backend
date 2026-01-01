@@ -45,9 +45,9 @@ class Api::V1::CheckoutsController < ApplicationController
       })
       render json: { clientSecret: @session.client_secret }, status: :ok
     rescue Stripe::InvalidRequestError => e
-      render json: { error: e.message }, status: :unprocessable_content
+      render_error(code: :stripe_error, message: e.message, status: :unprocessable_content)
     rescue ActiveRecord::RecordNotFound
-      render json: { error: "Bid pack not found" }, status: :not_found
+      render_error(code: :not_found, message: "Bid pack not found", status: :not_found)
     end
   end
 
@@ -67,7 +67,7 @@ class Api::V1::CheckoutsController < ApplicationController
 
     render json: { payment_status: session.payment_status, status: session.status }, status: :ok
   rescue Stripe::InvalidRequestError => e
-    render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
+    render_error(code: :not_found, message: "Invalid session ID: #{e.message}", status: :not_found)
   end
 
   # @summary Handle successful checkout callbacks and credit the user
@@ -81,18 +81,20 @@ class Api::V1::CheckoutsController < ApplicationController
   def success
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
     unless session.payment_status == "paid"
-      return render json: { status: "error", error: "Payment not completed." }, status: :unprocessable_content
+      return render_error(code: :payment_not_completed, message: "Payment not completed.", status: :unprocessable_content)
     end
 
     ownership_error = validate_checkout_session_ownership(session)
     if ownership_error
-      return render json: { status: "error", error: ownership_error }, status: :forbidden
+      return render_error(code: :forbidden, message: ownership_error, status: :forbidden)
     end
 
     payment_intent_id = session.payment_intent
     metadata = session.respond_to?(:metadata) ? session.metadata : nil
     metadata_bid_pack_id = metadata&.respond_to?(:bid_pack_id) ? metadata.bid_pack_id.to_s.presence : nil
-    return render json: { status: "error", error: "Checkout session is missing bid pack metadata." }, status: :unprocessable_content if metadata_bid_pack_id.blank?
+    if metadata_bid_pack_id.blank?
+      return render_error(code: :missing_metadata, message: "Checkout session is missing bid pack metadata.", status: :unprocessable_content)
+    end
 
     requested_bid_pack_id = params[:bid_pack_id].to_s.presence || metadata_bid_pack_id
     bid_pack = BidPack.active.find(requested_bid_pack_id)
@@ -107,7 +109,7 @@ class Api::V1::CheckoutsController < ApplicationController
         requested_bid_pack_id: requested_bid_pack_id,
         metadata_bid_pack_id: metadata_bid_pack_id
       )
-      return render json: { status: "error", error: "Checkout session bid pack mismatch." }, status: :unprocessable_content
+      return render_error(code: :bid_pack_mismatch, message: "Checkout session bid pack mismatch.", status: :unprocessable_content)
     end
 
     expected_amount_cents = (bid_pack.price.to_d * 100).to_i
@@ -127,7 +129,7 @@ class Api::V1::CheckoutsController < ApplicationController
         expected_amount_cents: expected_amount_cents,
         stripe_amount_cents: amount_cents
       )
-      return render json: { status: "error", error: "Checkout session amount mismatch." }, status: :unprocessable_content
+      return render_error(code: :amount_mismatch, message: "Checkout session amount mismatch.", status: :unprocessable_content)
     end
 
     currency = session.respond_to?(:currency) ? session.currency.to_s.presence : nil
@@ -165,12 +167,12 @@ class Api::V1::CheckoutsController < ApplicationController
         updated_bid_credits: @current_user.reload.bid_credits
       }, status: :ok
     else
-      render json: { status: "error", error: result.error }, status: result.http_status
+      render_error(code: result.code || :checkout_error, message: result.error || "Purchase could not be applied", status: result.http_status)
     end
   rescue Stripe::InvalidRequestError => e
-    render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
+    render_error(code: :not_found, message: "Invalid session ID: #{e.message}", status: :not_found)
   rescue ActiveRecord::RecordNotFound
-    render json: { status: "error", error: "Bid pack not found or inactive." }, status: :not_found
+    render_error(code: :not_found, message: "Bid pack not found or inactive.", status: :not_found)
   end
 
   def validate_checkout_session_ownership(session)

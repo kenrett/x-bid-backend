@@ -10,7 +10,12 @@ module Api
       def create
         user = User.new(user_params)
         unless user.save
-          return render json: { errors: user.errors.full_messages }, status: :unprocessable_content
+          return render_error(
+            code: :validation_error,
+            message: user.errors.full_messages.to_sentence,
+            status: :unprocessable_content,
+            field_errors: user.errors.messages
+          )
         end
 
         session_token, refresh_token = SessionToken.generate_for(user: user)

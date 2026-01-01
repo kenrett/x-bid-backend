@@ -61,7 +61,7 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
     body = JSON.parse(response.body)
-    assert_equal "invalid_session", body["error_code"].to_s
+    assert_equal "invalid_session", body.dig("error", "code").to_s
   end
 
   test "GET /api/v1/session/remaining returns 401 when JWT exp is expired" do
@@ -69,8 +69,8 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
     body = JSON.parse(response.body)
-    assert_equal "invalid_token", body["error_code"].to_s
-    assert_equal "Token has expired", body["message"]
+    assert_equal "invalid_token", body.dig("error", "code").to_s
+    assert_equal "Token has expired", body.dig("error", "message")
   end
 
   test "GET /api/v1/session/remaining returns 401 when session is revoked" do
@@ -82,7 +82,7 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
     body = JSON.parse(response.body)
-    assert_equal "invalid_session", body["error_code"].to_s
+    assert_equal "invalid_session", body.dig("error", "code").to_s
   end
 
   test "GET /api/v1/session/remaining returns 403 when user is disabled" do
@@ -93,7 +93,7 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = JSON.parse(response.body)
-    assert_equal "account_disabled", body["error_code"].to_s
+    assert_equal "account_disabled", body.dig("error", "code").to_s
   end
 
   test "DELETE /api/v1/logout revokes token" do

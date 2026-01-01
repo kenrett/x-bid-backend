@@ -74,6 +74,8 @@ class SignupApiTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert body["errors"].is_a?(Array)
+    assert_equal "validation_error", body.dig("error", "code").to_s
+    assert body.dig("error", "message").present?
+    assert body.dig("error", "field_errors").is_a?(Hash)
   end
 end
