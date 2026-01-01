@@ -1,6 +1,7 @@
 class ApplicationController < ActionController::API
   include ErrorRenderer
   attr_reader :current_session_token
+  before_action :set_request_context
   before_action :enforce_maintenance_mode
 
   def authenticate_request!
@@ -30,6 +31,7 @@ class ApplicationController < ActionController::API
 
       @current_session_token = session_token
       @current_user = session_token.user
+      set_authenticated_request_context!
       track_session_token!(session_token)
       if @current_user.disabled?
         session_token.revoke! unless session_token.revoked_at?
@@ -47,6 +49,15 @@ class ApplicationController < ActionController::API
   end
 
   private
+
+  def set_request_context
+    Current.request_id = request.request_id
+  end
+
+  def set_authenticated_request_context!
+    Current.user_id = @current_user&.id
+    Current.session_token_id = @current_session_token&.id
+  end
 
   def current_user
     @current_user
@@ -107,6 +118,7 @@ class ApplicationController < ActionController::API
     user = session_token.user
     @current_session_token ||= session_token
     @current_user ||= user
+    set_authenticated_request_context!
     user.admin? || user.superadmin?
   rescue StandardError
     false

@@ -1,7 +1,8 @@
 class AppLogger
   class << self
     def log(event:, level: :info, **context)
-      payload = { event: event }.merge(compact_hash(context))
+      merged_context = compact_hash(current_context.merge(context))
+      payload = { event: event }.merge(merged_context)
       Rails.logger.public_send(level, payload.to_json)
     end
 
@@ -17,6 +18,16 @@ class AppLogger
     end
 
     private
+
+    def current_context
+      return {} unless defined?(Current)
+
+      {
+        request_id: Current.request_id,
+        user_id: Current.user_id,
+        session_token_id: Current.session_token_id
+      }
+    end
 
     def compact_hash(hash)
       hash.compact
