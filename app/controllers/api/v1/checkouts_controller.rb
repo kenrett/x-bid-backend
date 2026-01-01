@@ -60,6 +60,11 @@ class Api::V1::CheckoutsController < ApplicationController
   def status
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
 
+    ownership_error = validate_checkout_session_ownership(session)
+    if ownership_error
+      return render_error(code: :forbidden, message: ownership_error, status: :forbidden)
+    end
+
     render json: { payment_status: session.payment_status, status: session.status }, status: :ok
   rescue Stripe::InvalidRequestError => e
     render json: { status: "error", error: "Invalid session ID: #{e.message}" }, status: :not_found
