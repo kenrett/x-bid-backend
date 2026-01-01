@@ -155,6 +155,9 @@ Notes:
 Common examples:
 - `403` + `error_code=email_unverified` + `message="Email verification required"` (money/wallet-impacting actions)
   - Applies to `POST /api/v1/auctions/:auction_id/bids`, `POST /api/v1/checkouts`, `GET /api/v1/checkout/success`
+- `503` + `error_code=maintenance_mode` + `message="Maintenance in progress"` (maintenance mode)
+- `400` + `error_code=stripe_webhook_invalid_signature` + `message="Invalid webhook signature"` (Stripe webhooks)
+- `500` + `error_code=stripe_webhook_missing_secret` + `message="Webhook secret not configured"` (Stripe webhooks)
 
 ### Legacy / non-`render_error` shapes
 

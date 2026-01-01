@@ -159,7 +159,7 @@ Example pattern (conceptual):
 
 - `result = Auctions::PlaceBid.new(...).call`
 - `render_success(result.payload)` if `result.success?`
-- `render_error(result.code, result.errors)` otherwise
+- `render_error(code: result.code, message: result.error, status: result.http_status)` otherwise
 
 Controllers should not:
 - Implement business branching
