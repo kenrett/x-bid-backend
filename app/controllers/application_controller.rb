@@ -57,7 +57,7 @@ class ApplicationController < ActionController::API
   def authorize_superadmin!
     return if @current_user&.superadmin?
 
-    render json: { error: "Superadmin privileges required" }, status: :forbidden
+    render_error(code: :forbidden, message: "Superadmin privileges required", status: :forbidden)
   end
 
   def enforce_maintenance_mode
@@ -65,7 +65,7 @@ class ApplicationController < ActionController::API
     return if path_allowed_during_maintenance?
     return if maintenance_admin_override?
 
-    render json: { error: "Maintenance in progress" }, status: :service_unavailable
+    render_error(code: :maintenance_mode, message: "Maintenance in progress", status: :service_unavailable)
   end
 
   def maintenance_enabled?
