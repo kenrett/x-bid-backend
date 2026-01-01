@@ -17,6 +17,13 @@ module Account
       end
 
       token.revoke!
+      AppLogger.log(
+        event: "account.session.revoked",
+        user_id: @user.id,
+        revoked_session_token_id: token.id,
+        actor_session_token_id: @current_session_token&.id,
+        reason: "user_revoked"
+      )
       SessionEventBroadcaster.session_invalidated(token, reason: "user_revoked")
       ServiceResult.ok(code: :revoked)
     end

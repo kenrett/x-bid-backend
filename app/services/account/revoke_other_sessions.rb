@@ -13,9 +13,22 @@ module Account
       @user.session_tokens.active.where.not(id: @current_session_token.id).find_each do |session_token|
         session_token.revoke!
         revoked += 1
+        AppLogger.log(
+          event: "account.session.revoked",
+          user_id: @user.id,
+          revoked_session_token_id: session_token.id,
+          actor_session_token_id: @current_session_token.id,
+          reason: "revoke_others"
+        )
         SessionEventBroadcaster.session_invalidated(session_token, reason: "revoke_others")
       end
 
+      AppLogger.log(
+        event: "account.sessions.revoked_others",
+        user_id: @user.id,
+        actor_session_token_id: @current_session_token.id,
+        sessions_revoked: revoked
+      )
       ServiceResult.ok(code: :revoked, data: { sessions_revoked: revoked })
     end
   end

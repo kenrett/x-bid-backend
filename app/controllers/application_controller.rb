@@ -23,6 +23,7 @@ class ApplicationController < ActionController::API
       track_session_token!(session_token)
       if @current_user.disabled?
         session_token.revoke! unless session_token.revoked_at?
+        AppLogger.log(event: "auth.session.revoked", user_id: @current_user.id, session_token_id: session_token.id, reason: "user_disabled")
         SessionEventBroadcaster.session_invalidated(session_token, reason: "user_disabled")
         render_error(code: :account_disabled, message: "User account disabled", status: :unauthorized)
       end
@@ -101,15 +102,15 @@ class ApplicationController < ActionController::API
     return unless session_token
 
     now = Time.current
-    last_seen = session_token.last_seen_at
-    return if last_seen.present? && last_seen > 1.minute.ago
+    updates = { last_seen_at: now, updated_at: now }
 
-    session_token.update_columns(
-      last_seen_at: now,
-      user_agent: request.user_agent,
-      ip_address: request.remote_ip,
-      updated_at: now
-    )
+    user_agent = request.user_agent
+    ip_address = request.remote_ip
+
+    updates[:user_agent] = user_agent if user_agent.present? && user_agent != session_token.user_agent
+    updates[:ip_address] = ip_address if ip_address.present? && ip_address != session_token.ip_address
+
+    session_token.update_columns(updates)
   rescue StandardError => e
     AppLogger.error(event: "auth.session_token.track_failed", error: e, session_token_id: session_token&.id)
   end

@@ -19,6 +19,12 @@ module Account
         end
 
         sessions_revoked = revoke_other_sessions
+        AppLogger.log(
+          event: "account.password_change.succeeded",
+          user_id: @user.id,
+          actor_session_token_id: @current_session_token&.id,
+          sessions_revoked: sessions_revoked
+        )
         ServiceResult.ok(code: :password_updated, data: { sessions_revoked: sessions_revoked })
       end
     rescue StandardError => e
@@ -35,6 +41,13 @@ module Account
       @user.session_tokens.active.where.not(id: @current_session_token.id).find_each do |session_token|
         session_token.revoke!
         revoked += 1
+        AppLogger.log(
+          event: "account.session.revoked",
+          user_id: @user.id,
+          revoked_session_token_id: session_token.id,
+          actor_session_token_id: @current_session_token.id,
+          reason: "password_change"
+        )
         SessionEventBroadcaster.session_invalidated(session_token, reason: "password_change")
       end
       revoked

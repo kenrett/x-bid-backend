@@ -26,6 +26,30 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal DEFAULT_PREFS, body.dig("user", "notification_preferences")
   end
 
+  test "authenticated requests update current session last_seen_at each time" do
+    session_token = create_session_token_for(@user)
+    session_token.update!(last_seen_at: 2.hours.ago)
+
+    t1 = Time.current.change(usec: 0)
+    travel_to(t1)
+    begin
+      get "/api/v1/account", headers: auth_headers(@user, session_token)
+      assert_response :success
+      first_seen = session_token.reload.last_seen_at
+      assert_in_delta t1.to_i, first_seen.to_i, 1
+
+      t2 = t1 + 2.seconds
+      travel_to(t2)
+
+      get "/api/v1/account", headers: auth_headers(@user, session_token)
+      assert_response :success
+      second_seen = session_token.reload.last_seen_at
+      assert_operator second_seen, :>, first_seen
+    ensure
+      travel_back
+    end
+  end
+
   test "PATCH /api/v1/account updates name only" do
     session_token = create_session_token_for(@user)
 
@@ -45,15 +69,22 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal "invalid_password", body["error_code"]
 
-    post "/api/v1/account/password",
-      params: { current_password: "password", new_password: "newpassword" },
-      headers: auth_headers(@user, current_session)
+    audit_events = []
+    AppLogger.stub(:log, lambda { |event:, level: :info, **context|
+      audit_events << { event: event, level: level, **context }
+    }) do
+      post "/api/v1/account/password",
+        params: { current_password: "password", new_password: "newpassword" },
+        headers: auth_headers(@user, current_session)
+    end
     assert_response :success
     body = JSON.parse(response.body)
     assert_equal "password_updated", body["status"]
     assert_equal 1, body["sessions_revoked"]
     assert other_session.reload.revoked_at.present?
     assert_nil current_session.reload.revoked_at
+    assert audit_events.any? { |e| e[:event] == "account.password_change.succeeded" }
+    assert audit_events.any? { |e| e[:event] == "account.session.revoked" && e[:reason] == "password_change" }
   end
 
   test "POST /api/v1/account/email/change sends verification and applies pending email on verify" do
@@ -154,9 +185,15 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     current = sessions.find { |s| s["id"] == current_session.id }
     assert_equal true, current["current"]
 
-    delete "/api/v1/account/sessions/#{other_session.id}", headers: auth_headers(@user, current_session)
+    audit_events = []
+    AppLogger.stub(:log, lambda { |event:, level: :info, **context|
+      audit_events << { event: event, level: level, **context }
+    }) do
+      delete "/api/v1/account/sessions/#{other_session.id}", headers: auth_headers(@user, current_session)
+    end
     assert_response :success
     assert other_session.reload.revoked_at.present?
+    assert audit_events.any? { |e| e[:event] == "account.session.revoked" && e[:reason] == "user_revoked" }
 
     delete "/api/v1/account/sessions/#{current_session.id}", headers: auth_headers(@user, current_session)
     assert_response :unprocessable_content
@@ -167,13 +204,20 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     current_session = create_session_token_for(@user)
     other_session = create_session_token_for(@user)
 
-    post "/api/v1/account/sessions/revoke_others", headers: auth_headers(@user, current_session)
+    audit_events = []
+    AppLogger.stub(:log, lambda { |event:, level: :info, **context|
+      audit_events << { event: event, level: level, **context }
+    }) do
+      post "/api/v1/account/sessions/revoke_others", headers: auth_headers(@user, current_session)
+    end
     assert_response :success
     body = JSON.parse(response.body)
     assert_equal "revoked", body["status"]
     assert_equal 1, body["sessions_revoked"]
     assert other_session.reload.revoked_at.present?
     assert_nil current_session.reload.revoked_at
+    assert audit_events.any? { |e| e[:event] == "account.session.revoked" && e[:reason] == "revoke_others" }
+    assert audit_events.any? { |e| e[:event] == "account.sessions.revoked_others" && e[:sessions_revoked] == 1 }
   end
 
   test "DELETE /api/v1/account disables user, revokes sessions, and blocks login" do
