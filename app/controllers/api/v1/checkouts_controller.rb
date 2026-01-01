@@ -14,11 +14,16 @@ class Api::V1::CheckoutsController < ApplicationController
   # @response Validation error (422) [Error]
   def create
     bid_pack = BidPack.active.find(params[:bid_pack_id])
-    # debugger
-
     begin
       origin = resolve_frontend_origin
       return_url = "#{origin}/purchase-status?session_id={CHECKOUT_SESSION_ID}"
+
+      AppLogger.log(
+        event: "checkout.create.started",
+        bid_pack_id: bid_pack.id,
+        frontend_origin: origin,
+        return_url: return_url
+      )
 
       @session = Stripe::Checkout::Session.create({
         payment_method_types: [ "card" ],
@@ -43,8 +48,14 @@ class Api::V1::CheckoutsController < ApplicationController
           bid_pack_id: bid_pack.id
         }
       })
+      AppLogger.log(
+        event: "checkout.create.succeeded",
+        bid_pack_id: bid_pack.id,
+        stripe_checkout_session_id: (@session.id if @session.respond_to?(:id))
+      )
       render json: { clientSecret: @session.client_secret }, status: :ok
     rescue Stripe::InvalidRequestError => e
+      AppLogger.error(event: "checkout.create.failed", error: e, bid_pack_id: bid_pack&.id)
       render_error(code: :stripe_error, message: e.message, status: :unprocessable_content)
     rescue ActiveRecord::RecordNotFound
       render_error(code: :not_found, message: "Bid pack not found", status: :not_found)
@@ -65,6 +76,12 @@ class Api::V1::CheckoutsController < ApplicationController
       return render_error(code: :forbidden, message: ownership_error, status: :forbidden)
     end
 
+    AppLogger.log(
+      event: "checkout.status.read",
+      stripe_checkout_session_id: session.id,
+      payment_status: session.payment_status,
+      session_status: session.status
+    )
     render json: { payment_status: session.payment_status, status: session.status }, status: :ok
   rescue Stripe::InvalidRequestError => e
     render_error(code: :not_found, message: "Invalid session ID: #{e.message}", status: :not_found)
@@ -80,6 +97,7 @@ class Api::V1::CheckoutsController < ApplicationController
   # @response Validation error (422) [Error]
   def success
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
+    AppLogger.log(event: "checkout.success.requested", stripe_checkout_session_id: session.id, stripe_payment_intent_id: session.payment_intent)
     unless session.payment_status == "paid"
       return render_error(code: :payment_not_completed, message: "Payment not completed.", status: :unprocessable_content)
     end
@@ -160,6 +178,14 @@ class Api::V1::CheckoutsController < ApplicationController
     end
 
     if result.ok?
+      AppLogger.log(
+        event: "checkout.success.applied",
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: payment_intent_id,
+        purchase_id: result.purchase.id,
+        idempotent: !!result.idempotent,
+        bid_pack_id: bid_pack.id
+      )
       render json: {
         status: "success",
         idempotent: !!result.idempotent,
@@ -167,6 +193,15 @@ class Api::V1::CheckoutsController < ApplicationController
         updated_bid_credits: @current_user.reload.bid_credits
       }, status: :ok
     else
+      AppLogger.log(
+        event: "checkout.success.apply_failed",
+        level: :error,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: payment_intent_id,
+        bid_pack_id: bid_pack.id,
+        code: result.code,
+        message: result.error
+      )
       render_error(code: result.code || :checkout_error, message: result.error || "Purchase could not be applied", status: result.http_status)
     end
   rescue Stripe::InvalidRequestError => e

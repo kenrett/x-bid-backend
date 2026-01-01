@@ -61,10 +61,12 @@ module Auctions
       attempts = 0
 
       begin
+        started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         LockOrder.with_user_then_auction(user: @user, auction: @auction) { block.call }
       rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
         attempts += 1
-        log_retry(e, attempts)
+        elapsed_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
+        log_retry(e, attempts, elapsed_ms: elapsed_ms)
         retry if attempts < MAX_RETRIES
 
         log_error(e)
@@ -131,13 +133,14 @@ module Auctions
       Auctions::Events::ListBroadcast.call(auction: @auction) if @auction.present?
     end
 
-    def log_retry(error, attempt)
+    def log_retry(error, attempt, elapsed_ms:)
       AppLogger.log(
         event: "bid.retry",
         level: :warn,
         user_id: @user.id,
         auction_id: @auction.id,
         attempt: attempt,
+        lock_wait_ms: elapsed_ms,
         error_class: error.class.name,
         error_message: error.message
       )
