@@ -137,16 +137,25 @@ Codes (examples):
 
 All error responses should share a predictable envelope.
 
-### Standard error response (recommended)
+### Standard error response (`render_error`)
+
+Most API endpoints should use `render_error` (see `app/controllers/concerns/error_renderer.rb`), which returns:
 
 ```json
 {
-  "error": {
-    "code": "forbidden",
-    "message": "You are not allowed to perform this action.",
-    "details": [
-      { "field": "actor", "message": "admin privileges required" }
-    ],
-    "request_id": "abc123"
-  }
+  "error_code": "forbidden",
+  "message": "Admin privileges required"
 }
+```
+
+Notes:
+- `details` may be included when provided to `render_error`.
+- Status `422` is normalized to `422 Unprocessable Content` in this app.
+
+Common examples:
+- `403` + `error_code=email_unverified` + `message="Email verification required"` (money/wallet-impacting actions)
+  - Applies to `POST /api/v1/auctions/:auction_id/bids`, `POST /api/v1/checkouts`, `GET /api/v1/checkout/success`
+
+### Legacy / non-`render_error` shapes
+
+Some endpoints may still return ad-hoc error payloads (for example checkout flows returning `{ "status": "error", "error": "..." }`). Prefer standardizing to `render_error` for new work.

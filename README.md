@@ -185,13 +185,19 @@ All endpoints are prefixed with `/api/v1`.
 
 ### Bidding
 
-*   `POST /auctions/:auction_id/bids`: Places a bid on an auction. Requires authentication.
+*   `POST /auctions/:auction_id/bids`: Places a bid on an auction. Requires authentication + verified email (`403` `email_unverified` if unverified).
 *   `GET /auctions/:auction_id/bid_history`: Retrieves the list of bids for a specific auction (newest-first by `created_at`).
 
 ### Bid Packs
 
 *   `GET /bid_packs`: Get a list of available bid packs for purchase.
 *   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE retires a bid pack; hard delete is blocked to preserve purchase history). Reactivation allowed via update (`status: "active"` or `active: true`).
+
+### Checkout (Bid Pack Purchases)
+
+*   `POST /checkouts`: Create a Stripe Checkout session. Requires authentication + verified email (`403` `email_unverified` if unverified).
+*   `GET /checkout/status`: Fetch a Stripe checkout session status.
+*   `GET /checkout/success`: Apply a successful checkout (idempotent) and credit the user. Requires authentication + verified email (`403` `email_unverified` if unverified).
 
 ### Admin & Audit
 

@@ -6,6 +6,19 @@
 - `POST /api/v1/users` (`Api::V1::UsersController#create`) is a **legacy alias** of `/api/v1/signup` and returns the same session-bound contract.
 - Signup now **creates a persisted `SessionToken` row**, returns a `refresh_token`, and issues a JWT containing `session_token_id` so it is compatible with `authenticate_request!`.
 
+## Email Verification Gating (Money Actions)
+
+Signup can create an authenticated session for a user whose email is not yet verified. For money / wallet-impacting actions, the API requires a verified email:
+
+- Blocked when `current_user.email_verified?` is false:
+  - `POST /api/v1/auctions/:auction_id/bids`
+  - `POST /api/v1/checkouts`
+  - `GET /api/v1/checkout/success`
+- Error response (via `render_error`):
+  - HTTP: `403`
+  - `error_code`: `email_unverified`
+  - `message`: `Email verification required`
+
 ## Routes
 
 From `config/routes.rb:24`:
