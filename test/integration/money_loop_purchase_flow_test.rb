@@ -17,6 +17,7 @@ class MoneyLoopPurchaseFlowTest < ActionDispatch::IntegrationTest
 
   test "close-the-loop flow creates purchase, grants credits, persists receipt when available, and is idempotent" do
     user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
     bid_pack = BidPack.create!(name: "Starter", bids: 10, price: BigDecimal("9.99"), highlight: false, description: "test pack", active: true)
 
     checkout_session_id = "cs_money_loop"
@@ -116,6 +117,7 @@ class MoneyLoopPurchaseFlowTest < ActionDispatch::IntegrationTest
 
   test "receipt link is returned only when available" do
     user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
     bid_pack = BidPack.create!(name: "No Receipt Pack", bids: 5, price: BigDecimal("4.99"), highlight: false, description: "test pack", active: true)
 
     checkout_session = FakeCheckoutSession.new(

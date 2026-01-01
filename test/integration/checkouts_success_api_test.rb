@@ -21,7 +21,8 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       email_address: "buyer@example.com",
       password: "password",
       role: :user,
-      bid_credits: 0
+      bid_credits: 0,
+      email_verified_at: Time.current
     )
     @session_token = SessionToken.create!(
       user: @user,
@@ -137,7 +138,8 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       email_address: "other@example.com",
       password: "password",
       role: :user,
-      bid_credits: 0
+      bid_credits: 0,
+      email_verified_at: Time.current
     )
     other_token = SessionToken.create!(
       user: other_user,

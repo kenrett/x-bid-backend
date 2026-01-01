@@ -13,6 +13,11 @@ class ActiveSupport::TestCase
   # Run tests in parallel with specified workers
   parallelize(workers: :number_of_processors)
 
+  setup do
+    store = Rack::Attack.cache&.store if defined?(Rack::Attack)
+    store&.clear if store.respond_to?(:clear)
+  end
+
   # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
   # Note: You do not have a fixtures directory yet, but this is standard practice.
   # fixtures :all
