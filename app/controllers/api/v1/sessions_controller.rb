@@ -75,10 +75,10 @@ module Api
 
       # @summary Return remaining time for the current session token
       # Provides session token metadata for the authenticated user.
-      # @response Session timing (200) [Hash{ session_expires_at: String, session_token_id: Integer, seconds_remaining: Integer }]
+      # @response Session timing (200) [Hash{ remaining_seconds: Integer, session_expires_at: String, session_token_id: Integer, user: Hash, is_admin: Boolean, is_superuser: Boolean }]
       # @response Unauthorized (401) [Error]
       def remaining
-        render json: Auth::SessionResponseBuilder.session_data(@current_session_token)
+        render json: Auth::SessionResponseBuilder.remaining_data(user: @current_user, session_token: @current_session_token)
       end
 
       # DELETE /api/v1/logout

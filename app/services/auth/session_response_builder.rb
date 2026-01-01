@@ -40,14 +40,30 @@ module Auth
       }
     end
 
+    def self.remaining_data(user:, session_token:)
+      flags = flags_for(user)
+      {
+        session_token_id: session_token.id,
+        session_expires_at: session_token.expires_at.iso8601,
+        remaining_seconds: remaining_seconds_for(session_token),
+        user: user_data(user, flags: flags),
+        is_admin: flags[:is_admin],
+        is_superuser: flags[:is_superuser]
+      }
+    end
+
     def self.redirect_path_for(user)
       return "/admin/auctions" if user.superadmin?
 
       nil
     end
 
-    def self.seconds_remaining_for(session_token)
+    def self.remaining_seconds_for(session_token)
       [ (session_token.expires_at - Time.current).to_i, 0 ].max
+    end
+
+    def self.seconds_remaining_for(session_token)
+      remaining_seconds_for(session_token)
     end
   end
 end

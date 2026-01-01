@@ -25,7 +25,7 @@ class ApplicationController < ActionController::API
         session_token.revoke! unless session_token.revoked_at?
         AppLogger.log(event: "auth.session.revoked", user_id: @current_user.id, session_token_id: session_token.id, reason: "user_disabled")
         SessionEventBroadcaster.session_invalidated(session_token, reason: "user_disabled")
-        render_error(code: :account_disabled, message: "User account disabled", status: :unauthorized)
+        render_error(code: :account_disabled, message: "User account disabled", status: :forbidden)
       end
     rescue JWT::ExpiredSignature
       render_error(code: :invalid_token, message: "Token has expired", status: :unauthorized)
