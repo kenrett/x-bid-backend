@@ -52,12 +52,16 @@ module Api
 
         new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
         track_session_token!(new_session_token)
-        render json: Auth::SessionResponseBuilder.build(
+        payload = Auth::SessionResponseBuilder.build(
           user: session_token.user,
           session_token: new_session_token,
           refresh_token: refresh_token,
           jwt_encoder: method(:encode_jwt)
         )
+
+        payload[:session_expires_at] = payload.dig(:session, :session_expires_at)
+
+        render json: payload
       end
 
       # GET /api/v1/logged_in
