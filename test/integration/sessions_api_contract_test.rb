@@ -64,6 +64,15 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_session", body["error_code"].to_s
   end
 
+  test "GET /api/v1/session/remaining returns 401 when JWT exp is expired" do
+    get "/api/v1/session/remaining", headers: auth_headers(@user, @session_token, exp: 1.hour.ago.to_i)
+
+    assert_response :unauthorized
+    body = JSON.parse(response.body)
+    assert_equal "invalid_token", body["error_code"].to_s
+    assert_equal "Token has expired", body["message"]
+  end
+
   test "GET /api/v1/session/remaining returns 401 when session is revoked" do
     revoked_session_token = SessionToken.create!(user: @user, token_digest: SessionToken.digest("revoked"), expires_at: 1.hour.from_now)
     revoked_session_token.revoke!

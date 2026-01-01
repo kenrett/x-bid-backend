@@ -11,7 +11,17 @@ class ApplicationController < ActionController::API
     return render_error(code: :invalid_token, message: "Token missing from Authorization header", status: :unauthorized) unless token
 
     begin
-      decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" })[0]
+      decoded = JWT.decode(
+        token,
+        Rails.application.secret_key_base,
+        true,
+        {
+          algorithm: "HS256",
+          verify_expiration: true,
+          verify_iat: true,
+          verify_not_before: true
+        }
+      )[0]
       session_token = SessionToken.find_by(id: decoded["session_token_id"])
       unless session_token&.active?
         SessionEventBroadcaster.session_invalidated(session_token, reason: "expired") if session_token
@@ -80,7 +90,17 @@ class ApplicationController < ActionController::API
     return false unless header
 
     token = header.split(" ").last
-    decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
+    decoded = JWT.decode(
+      token,
+      Rails.application.secret_key_base,
+      true,
+      {
+        algorithm: "HS256",
+        verify_expiration: true,
+        verify_iat: true,
+        verify_not_before: true
+      }
+    ).first
     session_token = SessionToken.find_by(id: decoded["session_token_id"])
     return false unless session_token&.active?
 
