@@ -11,20 +11,22 @@ Rack::Attack.cache.store =
 Rack::Attack.throttled_responder = lambda do |request|
   match_data = request.env["rack.attack.match_data"] || {}
   retry_after = (match_data[:period] || match_data["period"]).to_i
-  name = match_data[:name] || match_data["name"]
 
-  message = case name
-  when /login/
-              "Too many login attempts. Please try again soon."
-  when /password/
-              "Too many password attempts. Please slow down and try again."
-  when /checkout/
-              "Too many checkout attempts. Please try again soon."
-  when /bid/
-              "Too many bid attempts. Please wait before bidding again."
-  else
-              "Too many requests. Please try again later."
-  end
+  message =
+    case request.path
+    when %r{\A/api/v1/login\z}
+      "Too many login attempts. Please try again soon."
+    when %r{\A/api/v1/(signup|users)\z}
+      "Too many signup attempts. Please try again soon."
+    when %r{\A/api/v1/password/(forgot|reset)\z}
+      "Too many password attempts. Please slow down and try again."
+    when %r{\A/api/v1/auctions/\d+/bids\z}
+      "Too many bid attempts. Please wait before bidding again."
+    when %r{\A/api/v1/checkout(?:s|/status|/success)?\z}
+      "Too many checkout attempts. Please try again soon."
+    else
+      "Too many requests. Please try again later."
+    end
 
   body = { error: { code: "rate_limited", message: message } }.to_json
   headers = { "Content-Type" => "application/json" }
@@ -41,6 +43,7 @@ end
 module RackAttackRules
   EXPENSIVE_PATHS = {
     login: %r{\A/api/v1/login\z},
+    signup: %r{\A/api/v1/(signup|users)\z},
     password_reset: %r{\A/api/v1/password/(forgot|reset)\z},
     bidding: %r{\A/api/v1/auctions/\d+/bids\z},
     checkout: %r{\A/api/v1/checkout(?:s|/status|/success)?\z}
@@ -54,6 +57,10 @@ module RackAttackRules
 
   def self.login?(req)
     req.post? && req.path.match?(EXPENSIVE_PATHS[:login])
+  end
+
+  def self.signup?(req)
+    req.post? && req.path.match?(EXPENSIVE_PATHS[:signup])
   end
 
   def self.password_reset?(req)
@@ -71,8 +78,11 @@ module RackAttackRules
   def self.normalized_email(req)
     password_params = req.params["password"]
     password_email = password_params["email_address"] if password_params.is_a?(Hash)
+    user_params = req.params["user"]
+    user_email = user_params["email_address"] if user_params.is_a?(Hash)
 
     email = req.params.dig("session", "email_address") ||
+      user_email ||
       password_email ||
       req.params["email_address"] ||
       req.params["email"]
@@ -101,6 +111,14 @@ end
 
 Rack::Attack.throttle("login/email/short", limit: 8, period: 10.minutes) do |req|
   RackAttackRules.normalized_email(req) if RackAttackRules.login?(req)
+end
+
+Rack::Attack.throttle("signup/ip", limit: 10, period: 10.minutes) do |req|
+  req.ip if RackAttackRules.signup?(req)
+end
+
+Rack::Attack.throttle("signup/email", limit: 6, period: 1.hour) do |req|
+  RackAttackRules.normalized_email(req) if RackAttackRules.signup?(req)
 end
 
 Rack::Attack.blocklist("lockout/login/ip") do |req|

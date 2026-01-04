@@ -10,7 +10,7 @@ module Api
       def create
         user = User.find_by(email_address: forgot_params[:email_address])
         result = Auth::PasswordReset.new(user: user, reset_params: {}, environment: Rails.env).request_reset
-        render json: response_payload(result.debug_token), status: :accepted
+        render json: response_payload(result[:debug_token]), status: :accepted
       end
 
       # @summary Reset a password using a token
