@@ -97,7 +97,18 @@ class Api::V1::CheckoutsController < ApplicationController
   # @response Validation error (422) [Error]
   def success
     session = Stripe::Checkout::Session.retrieve(params[:session_id])
-    AppLogger.log(event: "checkout.success.requested", stripe_checkout_session_id: session.id, stripe_payment_intent_id: session.payment_intent)
+    metadata = session.respond_to?(:metadata) ? session.metadata : nil
+    metadata_user_id = metadata&.respond_to?(:user_id) ? metadata.user_id.to_s.presence : nil
+    metadata_bid_pack_id = metadata&.respond_to?(:bid_pack_id) ? metadata.bid_pack_id.to_s.presence : nil
+
+    AppLogger.log(
+      event: "checkout.success.requested",
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: session.payment_intent,
+      user_id: @current_user&.id,
+      bid_pack_id: metadata_bid_pack_id,
+      metadata_user_id: metadata_user_id
+    )
     unless session.payment_status == "paid"
       return render_error(code: :payment_not_completed, message: "Payment not completed.", status: :unprocessable_content)
     end
@@ -108,8 +119,6 @@ class Api::V1::CheckoutsController < ApplicationController
     end
 
     payment_intent_id = session.payment_intent
-    metadata = session.respond_to?(:metadata) ? session.metadata : nil
-    metadata_bid_pack_id = metadata&.respond_to?(:bid_pack_id) ? metadata.bid_pack_id.to_s.presence : nil
     if metadata_bid_pack_id.blank?
       return render_error(code: :missing_metadata, message: "Checkout session is missing bid pack metadata.", status: :unprocessable_content)
     end

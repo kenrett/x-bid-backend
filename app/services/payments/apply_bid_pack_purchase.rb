@@ -148,10 +148,28 @@ module Payments
         end
         result
       rescue ActiveRecord::RecordInvalid => e
-        AppLogger.error(event: "payments.apply_purchase.error", error: e, user_id: user&.id, bid_pack_id: bid_pack&.id, source: source)
+        AppLogger.error(
+          event: "payments.apply_purchase.error",
+          error: e,
+          user_id: user&.id,
+          bid_pack_id: bid_pack&.id,
+          stripe_payment_intent_id: stripe_payment_intent_id,
+          stripe_checkout_session_id: stripe_checkout_session_id,
+          stripe_event_id: stripe_event_id,
+          source: source
+        )
         ServiceResult.fail("Validation error: #{e.message}", code: :validation_error, record: e.record)
       rescue => e
-        AppLogger.error(event: "payments.apply_purchase.error", error: e, user_id: user&.id, bid_pack_id: bid_pack&.id, source: source)
+        AppLogger.error(
+          event: "payments.apply_purchase.error",
+          error: e,
+          user_id: user&.id,
+          bid_pack_id: bid_pack&.id,
+          stripe_payment_intent_id: stripe_payment_intent_id,
+          stripe_checkout_session_id: stripe_checkout_session_id,
+          stripe_event_id: stripe_event_id,
+          source: source
+        )
         ServiceResult.fail("Unable to apply purchase", code: :processing_error)
       end
 

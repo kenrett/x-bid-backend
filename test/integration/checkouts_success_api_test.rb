@@ -180,14 +180,112 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       currency: "usd"
     )
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success", params: { session_id: "cs_unpaid" }, headers: auth_headers(@user, @session_token)
-    end
+    logs =
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        capture_structured_logs do
+          get "/api/v1/checkout/success", params: { session_id: "cs_unpaid" }, headers: auth_headers(@user, @session_token)
+        end
+      end
 
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
     assert_equal "payment_not_completed", body.dig("error", "code").to_s
     assert_equal "Payment not completed.", body.dig("error", "message")
+    assert_equal 0, @user.reload.bid_credits
+    assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_unpaid")
+
+    requested = logs.find { |entry| entry["event"] == "checkout.success.requested" }
+    assert requested, "Expected a checkout.success.requested log entry"
+    assert_equal @user.id, requested["user_id"]
+    assert_equal @bid_pack.id.to_s, requested["bid_pack_id"].to_s
+    assert_equal "cs_unpaid", requested["stripe_checkout_session_id"]
+    assert_equal "pi_unpaid", requested["stripe_payment_intent_id"]
+  end
+
+  test "rejects when checkout session is missing ownership metadata" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_missing_owner",
+      payment_status: "paid",
+      payment_intent: "pi_missing_owner",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id),
+      amount_total: 999,
+      currency: "usd"
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_missing_owner" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_equal "forbidden", body.dig("error", "code").to_s
+    assert_match(/missing ownership metadata/i, body.dig("error", "message"))
+    assert_equal 0, @user.reload.bid_credits
+    assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_missing_owner")
+  end
+
+  test "rejects when checkout session is missing bid pack metadata" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_missing_bid_pack",
+      payment_status: "paid",
+      payment_intent: "pi_missing_bid_pack",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
+    )
+
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_missing_bid_pack" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "missing_metadata", body.dig("error", "code").to_s
+    assert_match(/missing bid pack metadata/i, body.dig("error", "message"))
+    assert_equal 0, @user.reload.bid_credits
+    assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_missing_bid_pack")
+  end
+
+  test "bogus session id returns 404 and does not mutate credits" do
+    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { raise Stripe::InvalidRequestError.new("nope", "id") }) do
+      get "/api/v1/checkout/success", params: { session_id: "cs_nope" }, headers: auth_headers(@user, @session_token)
+    end
+
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code").to_s
+    assert_equal 0, @user.reload.bid_credits
+  end
+
+  test "logs checkout.success.applied with correlation and stripe identifiers" do
+    checkout_session = FakeCheckoutSession.new(
+      id: "cs_log_success",
+      payment_status: "paid",
+      payment_intent: "pi_log_success",
+      customer_email: @user.email_address,
+      metadata: OpenStruct.new(bid_pack_id: @bid_pack.id, user_id: @user.id),
+      amount_total: 999,
+      currency: "usd"
+    )
+
+    captured =
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        capture_structured_logs do
+          get "/api/v1/checkout/success", params: { session_id: "cs_log_success" }, headers: auth_headers(@user, @session_token)
+        end
+      end
+
+    assert_response :success
+    applied = captured.find { |entry| entry["event"] == "checkout.success.applied" }
+    assert applied, "Expected a checkout.success.applied log entry"
+    assert_equal @user.id, applied["user_id"]
+    assert_equal @session_token.id, applied["session_token_id"]
+    assert_equal "cs_log_success", applied["stripe_checkout_session_id"]
+    assert_equal "pi_log_success", applied["stripe_payment_intent_id"]
+    assert_equal @bid_pack.id, applied["bid_pack_id"]
+    assert applied["purchase_id"].present?
   end
 
   test "uses session.amount_total and session.currency when present" do
@@ -269,6 +367,31 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def capture_structured_logs
+    captured = []
+
+    capture_json = lambda do |*args, &block|
+      msg = args.first
+      msg = block.call if msg.nil? && block
+      next if msg.nil?
+
+      parsed = JSON.parse(msg.to_s)
+      captured << parsed if parsed.is_a?(Hash) && parsed["event"].present?
+    rescue JSON::ParserError
+      nil
+    end
+
+    Rails.logger.stub(:info, capture_json) do
+      Rails.logger.stub(:warn, capture_json) do
+        Rails.logger.stub(:error, capture_json) do
+          yield
+        end
+      end
+    end
+
+    captured
+  end
 
   def auth_headers(user, session_token)
     payload = { user_id: user.id, session_token_id: session_token.id, exp: 1.hour.from_now.to_i }

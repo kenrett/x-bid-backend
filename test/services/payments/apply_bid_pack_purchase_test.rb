@@ -43,6 +43,34 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal @bid_pack.bids, @user.reload.bid_credits
   end
 
+  test "logs payments.apply_purchase with user/bid_pack and stripe identifiers" do
+    logs = []
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :pending, nil, nil ] }) do
+      AppLogger.stub(:log, ->(**payload) { logs << payload }) do
+        result = Payments::ApplyBidPackPurchase.call!(
+          user: @user,
+          bid_pack: @bid_pack,
+          stripe_checkout_session_id: "cs_log",
+          stripe_payment_intent_id: "pi_log",
+          stripe_event_id: "evt_log",
+          amount_cents: 100,
+          currency: "usd",
+          source: "test"
+        )
+
+        assert result.ok?
+      end
+    end
+
+    apply_log = logs.find { |entry| entry[:event] == "payments.apply_purchase" }
+    assert apply_log, "Expected payments.apply_purchase log"
+    assert_equal @user.id, apply_log[:user_id]
+    assert_equal @bid_pack.id, apply_log[:bid_pack_id]
+    assert_equal "pi_log", apply_log[:stripe_payment_intent_id]
+    assert_equal "cs_log", apply_log[:stripe_checkout_session_id]
+    assert_equal "evt_log", apply_log[:stripe_event_id]
+  end
+
   test "calling twice does not double-credit and creates purchase once" do
     result1 = nil
     assert_enqueued_jobs 1, only: PurchaseReceiptEmailJob do
@@ -171,6 +199,48 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal 0, Purchase.where(stripe_payment_intent_id: "pi_fail").count
     assert_equal 0, CreditTransaction.where(stripe_payment_intent_id: "pi_fail").count
     assert_equal 0, MoneyEvent.where(source_type: "StripePaymentIntent", source_id: "pi_fail").count
+  end
+
+  test "rejects attempts to apply a payment intent owned by a different user" do
+    other_user = User.create!(email_address: "other@example.com", password: "password", role: :user, bid_credits: 0)
+
+    Purchase.create!(
+      user: @user,
+      bid_pack: @bid_pack,
+      amount_cents: 100,
+      currency: "usd",
+      stripe_payment_intent_id: "pi_shared",
+      stripe_checkout_session_id: "cs_shared",
+      status: "completed"
+    )
+
+    errors = []
+    AppLogger.stub(:error, lambda { |event:, error:, **context|
+      errors << { event: event, error_class: error.class.name, error_message: error.message, **context }
+    }) do
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: other_user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_shared",
+        stripe_payment_intent_id: "pi_shared",
+        stripe_event_id: "evt_shared",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      refute result.ok?
+    end
+
+    assert_equal 0, other_user.reload.bid_credits
+    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_shared").count
+    error_log = errors.find { |e| e[:event] == "payments.apply_purchase.error" }
+    assert error_log, "Expected payments.apply_purchase.error log"
+    assert_equal other_user.id, error_log[:user_id]
+    assert_equal @bid_pack.id, error_log[:bid_pack_id]
+    assert_equal "pi_shared", error_log[:stripe_payment_intent_id]
+    assert_equal "cs_shared", error_log[:stripe_checkout_session_id]
+    assert_equal "evt_shared", error_log[:stripe_event_id]
   end
 
   test "sets receipt_status unavailable when Stripe returns no receipt URL" do
