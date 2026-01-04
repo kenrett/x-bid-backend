@@ -100,6 +100,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -113,5 +115,159 @@ jobs:
       - name: Generate OpenAPI spec
         run: bundle exec rails openapi:generate
 
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-json
+          path: docs/api/openapi.json
+          if-no-files-found: error
+
       - name: Fail on schema drift
         run: git diff --stat --exit-code docs/api/openapi.json
+
+  frontend_contract:
+    name: Frontend contract (CT-2)
+    runs-on: ubuntu-latest
+    needs: openapi_drift
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout backend (for diff detection)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether OpenAPI changed
+        id: openapi_changed
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^docs/api/openapi\.json$'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip when OpenAPI unchanged
+        if: steps.openapi_changed.outputs.changed != 'true'
+        run: echo "OpenAPI unchanged; skipping frontend contract checks."
+
+      - name: Download OpenAPI artifact
+        if: steps.openapi_changed.outputs.changed == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-json
+          path: openapi-artifact
+
+      - name: Locate OpenAPI artifact path
+        if: steps.openapi_changed.outputs.changed == 'true'
+        id: openapi_path
+        run: |
+          set -euo pipefail
+          found="$(find openapi-artifact -type f -name openapi.json | head -n 1)"
+          if [[ -z "${found}" ]]; then
+            echo "::error::Unable to locate openapi.json in downloaded artifact"
+            find openapi-artifact -maxdepth 4 -type f -print || true
+            exit 1
+          fi
+          echo "path=${found}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate frontend CI configuration
+        if: steps.openapi_changed.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ vars.FRONTEND_REPO || '' }}" ]]; then
+            echo "::error::Missing required repo variable FRONTEND_REPO (e.g. owner/x-bid-frontend)."
+            exit 1
+          fi
+
+      - name: Checkout frontend repo
+        if: steps.openapi_changed.outputs.changed == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.FRONTEND_REPO }}
+          ref: ${{ vars.FRONTEND_REF || 'main' }}
+          path: frontend
+          # For private repos, set a PAT with read access as secret FRONTEND_CI_TOKEN.
+          token: ${{ secrets.FRONTEND_CI_TOKEN || github.token }}
+
+      - name: Set up Node
+        if: steps.openapi_changed.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.FRONTEND_NODE_VERSION || '20' }}
+
+      - name: Install frontend dependencies
+        if: steps.openapi_changed.outputs.changed == 'true'
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          if [[ -f pnpm-lock.yaml ]]; then
+            corepack enable
+            pnpm -v
+            pnpm install --frozen-lockfile
+          elif [[ -f yarn.lock ]]; then
+            corepack enable
+            yarn -v
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Run frontend OpenAPI type generation (if present)
+        if: steps.openapi_changed.outputs.changed == 'true'
+        working-directory: frontend
+        env:
+          BACKEND_OPENAPI_PATH: ${{ steps.openapi_path.outputs.path }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$BACKEND_OPENAPI_PATH" ]]; then
+            echo "::error::Missing OpenAPI artifact at $BACKEND_OPENAPI_PATH"
+            exit 1
+          fi
+
+          if [[ -f package.json ]]; then
+            if node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit((s["openapi:types"]||s["openapi:generate"]||s["generate:openapi"])?0:1)'; then
+              if [[ -f pnpm-lock.yaml ]]; then
+                pnpm run openapi:types || pnpm run openapi:generate || pnpm run generate:openapi
+              elif [[ -f yarn.lock ]]; then
+                yarn run openapi:types || yarn run openapi:generate || yarn run generate:openapi
+              else
+                npm run openapi:types || npm run openapi:generate || npm run generate:openapi
+              fi
+            else
+              echo "No OpenAPI type generation script found; skipping."
+            fi
+          fi
+
+      - name: Run frontend contract drift tests (CT-2)
+        if: steps.openapi_changed.outputs.changed == 'true'
+        working-directory: frontend
+        env:
+          BACKEND_OPENAPI_PATH: ${{ steps.openapi_path.outputs.path }}
+        run: |
+          set -euo pipefail
+          if [[ -f package.json ]]; then
+            if node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit((s["ct-2"]||s["test:ct-2"]||s["test:ct2"])?0:1)'; then
+              if [[ -f pnpm-lock.yaml ]]; then
+                pnpm run ct-2 || pnpm run test:ct-2 || pnpm run test:ct2
+              elif [[ -f yarn.lock ]]; then
+                yarn run ct-2 || yarn run test:ct-2 || yarn run test:ct2
+              else
+                npm run ct-2 || npm run test:ct-2 || npm run test:ct2
+              fi
+            else
+              echo "::error::No CT-2 script found in frontend package.json (expected ct-2 or test:ct-2)."
+              exit 1
+            fi
+          else
+            echo "::error::No package.json found in frontend repo; cannot run CT-2."
+            exit 1
+          fi
+
+      - name: Fail if frontend repo has uncommitted changes
+        if: steps.openapi_changed.outputs.changed == 'true'
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          git status --porcelain
+          git diff --exit-code
