@@ -3,6 +3,7 @@ module Api
     module Me
       class WinsController < ApplicationController
         before_action :authenticate_request!
+        before_action :require_verified_email!, only: [ :claim ]
 
         # GET /api/v1/me/wins
         # @summary List current user's auction wins (newest first)

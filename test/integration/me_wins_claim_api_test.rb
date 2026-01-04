@@ -3,8 +3,20 @@ require "jwt"
 
 class MeWinsClaimApiTest < ActionDispatch::IntegrationTest
   def setup
-    @user = User.create!(name: "User", email_address: "user_claim@example.com", password: "password", bid_credits: 0)
-    @other_user = User.create!(name: "Other", email_address: "other_claim@example.com", password: "password", bid_credits: 0)
+    @user = User.create!(
+      name: "User",
+      email_address: "user_claim@example.com",
+      password: "password",
+      bid_credits: 0,
+      email_verified_at: Time.current
+    )
+    @other_user = User.create!(
+      name: "Other",
+      email_address: "other_claim@example.com",
+      password: "password",
+      bid_credits: 0,
+      email_verified_at: Time.current
+    )
 
     @session_token = SessionToken.create!(user: @user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
     @other_session_token = SessionToken.create!(
@@ -33,6 +45,23 @@ class MeWinsClaimApiTest < ActionDispatch::IntegrationTest
       ended_at: 2.days.ago
     )
     @fulfillment = AuctionFulfillment.create!(auction_settlement: @settlement, user: @user)
+  end
+
+  test "claim requires verified email" do
+    @user.update!(email_verified_at: nil)
+
+    post "/api/v1/me/wins/#{@auction.id}/claim",
+         params: { shipping_address: valid_address },
+         headers: auth_headers(@user, @session_token)
+
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_equal "email_unverified", body.dig("error", "code").to_s
+    assert_equal "Email verification required", body.dig("error", "message")
+
+    @fulfillment.reload
+    assert_equal "pending", @fulfillment.status
+    assert_equal({}, @fulfillment.shipping_address || {})
   end
 
   test "POST /api/v1/me/wins/:auction_id/claim captures address and transitions to claimed" do
