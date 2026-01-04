@@ -3,6 +3,7 @@ class ApplicationController < ActionController::API
   attr_reader :current_session_token
   before_action :set_request_context
   before_action :enforce_maintenance_mode
+  after_action :set_request_id_header
   rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
   rescue_from ActiveRecord::RecordNotFound, with: :handle_record_not_found
   rescue_from ActionDispatch::Http::Parameters::ParseError, with: :handle_parse_error
@@ -55,6 +56,12 @@ class ApplicationController < ActionController::API
 
   def set_request_context
     Current.request_id = request.request_id
+  end
+
+  def set_request_id_header
+    return if response.headers["X-Request-Id"].present?
+
+    response.set_header("X-Request-Id", request.request_id)
   end
 
   def set_authenticated_request_context!

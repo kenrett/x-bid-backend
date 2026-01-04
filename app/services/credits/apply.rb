@@ -63,7 +63,18 @@ module Credits
           end
 
           new_balance = Credits::RebuildBalance.call!(user: user, lock: false)
-          AppLogger.log(event: "credits.credit", user_id: user.id, reason: reason, amount: amount, balance: new_balance, purchase_id: purchase&.id, auction_id: auction&.id)
+          AppLogger.log(
+            event: "credits.credit",
+            user_id: user.id,
+            reason: reason,
+            amount: amount,
+            balance: new_balance,
+            purchase_id: purchase&.id,
+            auction_id: auction&.id,
+            stripe_payment_intent_id: stripe_payment_intent_id,
+            stripe_checkout_session_id: stripe_checkout_session_id,
+            stripe_event_id: stripe_event&.stripe_event_id
+          )
           new_balance
         end
       end

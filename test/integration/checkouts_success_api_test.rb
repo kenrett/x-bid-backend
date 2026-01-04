@@ -278,8 +278,12 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       end
 
     assert_response :success
+    request_id = response.headers["X-Request-Id"].to_s
+    assert request_id.present?, "Expected X-Request-Id response header"
+
     applied = captured.find { |entry| entry["event"] == "checkout.success.applied" }
     assert applied, "Expected a checkout.success.applied log entry"
+    assert_equal request_id, applied["request_id"].to_s
     assert_equal @user.id, applied["user_id"]
     assert_equal @session_token.id, applied["session_token_id"]
     assert_equal "cs_log_success", applied["stripe_checkout_session_id"]
