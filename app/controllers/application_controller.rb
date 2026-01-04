@@ -3,6 +3,9 @@ class ApplicationController < ActionController::API
   attr_reader :current_session_token
   before_action :set_request_context
   before_action :enforce_maintenance_mode
+  rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
+  rescue_from ActiveRecord::RecordNotFound, with: :handle_record_not_found
+  rescue_from ActionDispatch::Http::Parameters::ParseError, with: :handle_parse_error
 
   def authenticate_request!
     header = request.headers["Authorization"]
@@ -151,6 +154,18 @@ class ApplicationController < ActionController::API
     session_token.update_columns(updates)
   rescue StandardError => e
     AppLogger.error(event: "auth.session_token.track_failed", error: e, session_token_id: session_token&.id)
+  end
+
+  def handle_parameter_missing(exception)
+    render_error(code: :bad_request, message: exception.message, status: :bad_request)
+  end
+
+  def handle_record_not_found(_exception)
+    render_error(code: :not_found, message: "Not found", status: :not_found)
+  end
+
+  def handle_parse_error(_exception)
+    render_error(code: :bad_request, message: "Malformed JSON", status: :bad_request)
   end
 
   def encode_jwt(payload = {}, expires_at: nil, **kwargs)
