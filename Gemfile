@@ -65,3 +65,7 @@ end
 group :development do
   gem "lefthook", require: false
 end
+
+group :test do
+  gem "json-schema"
+end

@@ -5,6 +5,7 @@ require "rails/test_help"
 
 require_relative "support/auth_helpers"
 require_relative "support/role_matrix_helpers"
+require_relative "support/openapi_contract_helpers"
 
 class ActiveSupport::TestCase
   # Use the test adapter for Action Cable to avoid external Redis during tests.
