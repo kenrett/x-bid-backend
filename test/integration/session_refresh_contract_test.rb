@@ -10,13 +10,12 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = JSON.parse(response.body)
 
-    assert body["token"].present?
+    assert body["access_token"].present?
     assert body["refresh_token"].present?
     assert body["session_token_id"].present?
-    assert body["session_expires_at"].present?
     assert body["user"].is_a?(Hash)
-    assert_equal false, body["is_admin"]
-    assert_equal false, body["is_superuser"]
+    assert_equal false, body.dig("user", "is_admin")
+    assert_equal false, body.dig("user", "is_superuser")
 
     assert old_session_token.reload.revoked_at.present?
     assert_equal true, SessionToken.find_by(id: body["session_token_id"]).active?

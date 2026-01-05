@@ -21,8 +21,6 @@ class SessionsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal true, body["is_admin"]
-    assert_equal true, body["is_superuser"]
     assert_equal true, body["user"]["is_admin"]
     assert_equal true, body["user"]["is_superuser"]
   end
@@ -34,8 +32,6 @@ class SessionsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal true, body["is_admin"]
-    assert_equal true, body["is_superuser"]
     assert_equal true, body["user"]["is_admin"]
     assert_equal true, body["user"]["is_superuser"]
   ensure

@@ -12,7 +12,7 @@ class SessionsRedirectPathTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal "/admin/auctions", body["redirect_path"]
+    assert_nil body["redirect_path"]
   end
 
   test "regular user login has nil redirect_path" do

@@ -12,9 +12,9 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert body["token"].present?
-    assert_equal false, body["is_admin"]
-    assert_equal false, body["is_superuser"]
+    assert body["access_token"].present?
+    assert_equal false, body.dig("user", "is_admin")
+    assert_equal false, body.dig("user", "is_superuser")
   end
 
   test "POST /api/v1/login accepts flat payload (email_address/password)" do
@@ -22,7 +22,7 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert body["token"].present?
+    assert body["access_token"].present?
     assert body["session_token_id"].present?
   end
 
@@ -33,7 +33,7 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert body["token"].present?
+    assert body["access_token"].present?
     assert body["session_token_id"].present?
   ensure
     session_token&.destroy

@@ -10,13 +10,9 @@ module Auth
       }
 
       {
-        token: jwt_encoder.call(jwt_payload, expires_at: session_token.expires_at),
+        access_token: jwt_encoder.call(jwt_payload, expires_at: session_token.expires_at),
         refresh_token: refresh_token,
         session_token_id: session_token.id,
-        session: session_data(session_token),
-        is_admin: flags[:is_admin],
-        is_superuser: flags[:is_superuser],
-        redirect_path: redirect_path_for(user),
         user: user_data(user, flags: flags)
       }
     end

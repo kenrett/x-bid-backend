@@ -16,7 +16,7 @@ class SignupContractTest < ActionDispatch::IntegrationTest
 
     assert_exact_keys!(
       body,
-      %w[token refresh_token session session_token_id is_admin is_superuser redirect_path user],
+      %w[access_token refresh_token session_token_id user],
       label: "POST /api/v1/users response"
     )
   end
@@ -36,7 +36,7 @@ class SignupContractTest < ActionDispatch::IntegrationTest
 
     assert_exact_keys!(
       body,
-      %w[token refresh_token session session_token_id is_admin is_superuser redirect_path user],
+      %w[access_token refresh_token session_token_id user],
       label: "POST /api/v1/signup response"
     )
   end

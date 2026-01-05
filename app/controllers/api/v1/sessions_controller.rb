@@ -59,8 +59,6 @@ module Api
           jwt_encoder: method(:encode_jwt)
         )
 
-        payload[:session_expires_at] = payload.dig(:session, :session_expires_at)
-
         render json: payload
       end
 

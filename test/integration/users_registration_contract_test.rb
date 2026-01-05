@@ -18,13 +18,12 @@ class UsersRegistrationContractTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     body = JSON.parse(response.body)
-    assert body["token"].present?
+    assert body["access_token"].present?
     assert body["refresh_token"].present?
-    assert body["session"].is_a?(Hash)
-    assert_equal body["session"]["session_token_id"], body["session_token_id"]
+    assert body["session_token_id"].present?
 
     user = User.find_by!(email_address: "legacy_users_endpoint@example.com")
-    decoded = JWT.decode(body["token"], Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
+    decoded = JWT.decode(body["access_token"], Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
     assert_equal user.id, decoded.fetch("user_id")
     assert_equal body["session_token_id"], decoded.fetch("session_token_id")
   end

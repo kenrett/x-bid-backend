@@ -19,20 +19,16 @@ class SignupApiTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = JSON.parse(response.body)
 
-    assert body["token"].present?
+    assert body["access_token"].present?
     assert body["refresh_token"].present?
-    assert body["session"].is_a?(Hash)
-    assert_equal body["session"]["session_token_id"], body["session_token_id"]
-    assert body["session"]["session_expires_at"].present?
-    assert body["session"]["seconds_remaining"].is_a?(Integer)
-
-    assert_equal false, body["is_admin"]
-    assert_equal false, body["is_superuser"]
+    assert body["session_token_id"].present?
+    assert_equal false, body.dig("user", "is_admin")
+    assert_equal false, body.dig("user", "is_superuser")
 
     user = User.find_by!(email_address: "signup_contract@example.com")
     assert_equal user.id, body.dig("user", "id")
 
-    decoded = JWT.decode(body["token"], Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
+    decoded = JWT.decode(body["access_token"], Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
     assert_equal user.id, decoded.fetch("user_id")
     assert_equal body["session_token_id"], decoded.fetch("session_token_id")
 
@@ -58,13 +54,12 @@ class SignupApiTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = JSON.parse(response.body)
 
-    assert body["token"].present?
+    assert body["access_token"].present?
     assert body["refresh_token"].present?
-    assert body["session"].is_a?(Hash)
     assert body["session_token_id"].present?
 
     user = User.find_by!(email_address: "signup_contract_flat@example.com")
-    decoded = JWT.decode(body["token"], Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
+    decoded = JWT.decode(body["access_token"], Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
     assert_equal user.id, decoded.fetch("user_id")
     assert_equal body["session_token_id"], decoded.fetch("session_token_id")
   end
