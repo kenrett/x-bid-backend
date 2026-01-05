@@ -14,6 +14,7 @@ require "action_view/railtie"
 require "action_cable/engine"
 require_relative "../app/lib/middleware/request_size_limiter"
 # require "rails/test_unit/railtie"
+require "rack/deflater"
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
@@ -47,6 +48,12 @@ module XBidBackend
     config.middleware.insert_after Rack::Attack, Middleware::RequestSizeLimiter
 
     config.middleware.insert_before Rack::Runtime, Rack::Timeout
+    unless Rails.env.test?
+      config.middleware.insert_after Rack::Timeout, Rack::Deflater, include: [
+        "application/json",
+        "application/vnd.api+json"
+      ]
+    end
 
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.

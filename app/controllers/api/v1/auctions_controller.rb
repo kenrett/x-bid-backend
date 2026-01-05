@@ -12,6 +12,13 @@ module Api
       # @response Validation error (422) [Error]
       # @no_auth
       def index
+        ttl = public_index_cache_ttl
+        expires_in ttl, public: true, must_revalidate: true, "s-maxage": ttl.to_i, stale_while_revalidate: public_index_swr
+
+        last_modified = Auction.maximum(:updated_at)&.utc || Time.at(0).utc
+        etag = [ "auctions-index", params[:status].to_s, last_modified.to_i, Auction.count ]
+        return unless stale?(etag: etag, last_modified: last_modified, public: true)
+
         result = ::Auctions::Queries::PublicIndex.call(params: public_index_params)
         render json: result.records, each_serializer: Api::V1::AuctionSerializer
       end
@@ -23,6 +30,14 @@ module Api
       # @response Not found (404) [Error]
       # @no_auth
       def show
+        auction = Auction.select(:id, :status, :updated_at).find(params[:id])
+        ttl = public_show_cache_ttl(auction)
+        expires_in ttl, public: true, must_revalidate: true, "s-maxage": ttl.to_i, stale_while_revalidate: public_show_swr(ttl)
+
+        last_modified = auction.updated_at&.utc || Time.at(0).utc
+        etag = [ "auctions-show", auction.id, auction.status, last_modified.to_i ]
+        return unless stale?(etag: etag, last_modified: last_modified, public: true)
+
         result = ::Auctions::Queries::PublicShow.call(params: { id: params[:id] })
         render json: result.record, include: :bids, serializer: Api::V1::AuctionSerializer
       rescue ActiveRecord::RecordNotFound
@@ -149,6 +164,37 @@ module Api
 
       def public_index_params
         params.permit(:status)
+      end
+
+      def public_index_cache_ttl
+        case params[:status].to_s
+        when "active"
+          2.seconds
+        when "scheduled", "pending"
+          10.seconds
+        when "inactive"
+          60.seconds
+        when "complete", "ended", "cancelled"
+          5.minutes
+        else
+          2.seconds
+        end
+      end
+
+      def public_index_swr
+        [ public_index_cache_ttl * 5, 5.minutes ].min
+      end
+
+      def public_show_cache_ttl(auction)
+        if auction.status.to_s == "active"
+          2.seconds
+        else
+          60.seconds
+        end
+      end
+
+      def public_show_swr(ttl)
+        [ ttl * 5, 5.minutes ].min
       end
     end
   end

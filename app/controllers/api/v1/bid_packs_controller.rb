@@ -8,7 +8,16 @@ module Api
       # @response Bid packs (200) [Array<BidPack>]
       # @no_auth
       def index
-        bid_packs = BidPack.active
+        scope = BidPack.active
+
+        ttl = 10.minutes
+        expires_in ttl, public: true, must_revalidate: true, "s-maxage": ttl.to_i, stale_while_revalidate: 30.minutes
+
+        last_modified = scope.maximum(:updated_at)&.utc || Time.at(0).utc
+        etag = [ "bid-packs-index", last_modified.to_i, scope.count ]
+        return unless stale?(etag: etag, last_modified: last_modified, public: true)
+
+        bid_packs = scope
         render json: bid_packs
       end
 
