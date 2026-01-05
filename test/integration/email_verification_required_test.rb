@@ -20,7 +20,7 @@ class EmailVerificationRequiredTest < ActionDispatch::IntegrationTest
     assert_forbidden
     body = JSON.parse(response.body)
     assert_equal "email_unverified", body.dig("error", "code").to_s
-    assert_equal "Email verification required", body.dig("error", "message")
+    assert_equal "Verify your email to continue.", body.dig("error", "message")
   end
 
   test "allows bidding when email is verified" do
@@ -52,7 +52,7 @@ class EmailVerificationRequiredTest < ActionDispatch::IntegrationTest
     assert_forbidden
     body = JSON.parse(response.body)
     assert_equal "email_unverified", body.dig("error", "code").to_s
-    assert_equal "Email verification required", body.dig("error", "message")
+    assert_equal "Verify your email to continue.", body.dig("error", "message")
   end
 
   test "allows checkout session creation when email is verified" do
@@ -77,6 +77,6 @@ class EmailVerificationRequiredTest < ActionDispatch::IntegrationTest
     assert_forbidden
     body = JSON.parse(response.body)
     assert_equal "email_unverified", body.dig("error", "code").to_s
-    assert_equal "Email verification required", body.dig("error", "message")
+    assert_equal "Verify your email to continue.", body.dig("error", "message")
   end
 end

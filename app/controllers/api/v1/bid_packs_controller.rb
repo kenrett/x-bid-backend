@@ -2,6 +2,7 @@ module Api
   module V1
     class BidPacksController < ApplicationController
       before_action :authenticate_request!, only: [ :purchase ]
+      before_action :require_verified_email!, only: [ :purchase ]
 
       # @summary List available bid packs
       # Publicly lists active bid packs available for purchase.

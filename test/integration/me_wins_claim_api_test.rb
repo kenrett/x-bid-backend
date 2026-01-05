@@ -57,7 +57,7 @@ class MeWinsClaimApiTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     body = JSON.parse(response.body)
     assert_equal "email_unverified", body.dig("error", "code").to_s
-    assert_equal "Email verification required", body.dig("error", "message")
+    assert_equal "Verify your email to continue.", body.dig("error", "message")
 
     @fulfillment.reload
     assert_equal "pending", @fulfillment.status
