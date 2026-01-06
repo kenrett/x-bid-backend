@@ -24,6 +24,14 @@ module Api
         if user&.authenticate(login_params[:password])
           session_token, refresh_token = SessionToken.generate_for(user:)
           track_session_token!(session_token)
+          AuditLogger.log(
+            action: "auth.login",
+            actor: user,
+            user: user,
+            session_token_id: session_token.id,
+            request: request,
+            payload: { session_token_id: session_token.id }
+          )
           render json: Auth::SessionResponseBuilder.build(user:, session_token:, refresh_token:, jwt_encoder: method(:encode_jwt))
         else
           render_error(code: :invalid_credentials, message: "Invalid credentials", status: :unauthorized)
@@ -52,6 +60,17 @@ module Api
 
         new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
         track_session_token!(new_session_token)
+        AuditLogger.log(
+          action: "auth.refresh",
+          actor: session_token.user,
+          user: session_token.user,
+          session_token_id: new_session_token.id,
+          request: request,
+          payload: {
+            replaced_session_token_id: session_token.id,
+            session_token_id: new_session_token.id
+          }
+        )
         payload = Auth::SessionResponseBuilder.build(
           user: session_token.user,
           session_token: new_session_token,
@@ -92,6 +111,14 @@ module Api
         if @current_session_token
           @current_session_token.revoke!
           SessionEventBroadcaster.session_invalidated(@current_session_token, reason: "logout")
+          AuditLogger.log(
+            action: "auth.logout",
+            actor: @current_user,
+            user: @current_user,
+            session_token_id: @current_session_token.id,
+            request: request,
+            payload: { revoked_session_token_id: @current_session_token.id }
+          )
         end
 
         render json: { status: "Logged out successfully" }, status: :ok

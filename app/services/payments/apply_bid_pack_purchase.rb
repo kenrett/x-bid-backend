@@ -113,14 +113,31 @@ module Payments
               AppLogger.log(
                 event: "payments.apply_purchase",
                 user_id: user.id,
-              purchase_id: purchase.id,
-              bid_pack_id: bid_pack.id,
-              stripe_payment_intent_id: stripe_payment_intent_id,
-              stripe_checkout_session_id: stripe_checkout_session_id,
-              stripe_event_id: stripe_event_id,
-              idempotent: idempotent,
-              source: source
-            )
+                purchase_id: purchase.id,
+                bid_pack_id: bid_pack.id,
+                stripe_payment_intent_id: stripe_payment_intent_id,
+                stripe_checkout_session_id: stripe_checkout_session_id,
+                stripe_event_id: stripe_event_id,
+                idempotent: idempotent,
+                source: source
+              )
+              AuditLogger.log(
+                action: "payment.applied",
+                actor: (Current.user_id.to_s == user.id.to_s ? user : nil),
+                user: user,
+                session_token_id: Current.session_token_id,
+                payload: {
+                  purchase_id: purchase.id,
+                  bid_pack_id: bid_pack.id,
+                  amount_cents: amount_cents.to_i,
+                  currency: currency.to_s,
+                  stripe_payment_intent_id: stripe_payment_intent_id,
+                  stripe_checkout_session_id: stripe_checkout_session_id,
+                  stripe_event_id: stripe_event_id,
+                  idempotent: idempotent,
+                  source: source
+                }.compact
+              )
 
             result = ServiceResult.ok(
               code: idempotent ? :already_processed : :processed,

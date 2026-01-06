@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_05_000000) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_06_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -111,7 +111,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_05_000000) do
 
   create_table "audit_logs", force: :cascade do |t|
     t.string "action", null: false
-    t.bigint "actor_id", null: false
+    t.bigint "actor_id"
     t.string "target_type"
     t.bigint "target_id"
     t.jsonb "payload", default: {}
@@ -119,10 +119,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_05_000000) do
     t.datetime "updated_at", null: false
     t.string "ip_address"
     t.text "user_agent"
+    t.string "request_id"
+    t.bigint "session_token_id"
+    t.bigint "user_id"
     t.index ["action"], name: "index_audit_logs_on_action"
     t.index ["actor_id"], name: "index_audit_logs_on_actor_id"
     t.index ["created_at"], name: "index_audit_logs_on_created_at"
+    t.index ["request_id"], name: "index_audit_logs_on_request_id"
+    t.index ["session_token_id"], name: "index_audit_logs_on_session_token_id"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
+    t.index ["user_id"], name: "index_audit_logs_on_user_id"
   end
 
   create_table "bid_packs", force: :cascade do |t|

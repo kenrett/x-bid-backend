@@ -41,6 +41,18 @@ module Auctions
         winning_bid_id: winning_bid&.id,
         final_price: final_price
       )
+      AuditLogger.log(
+        action: "auction.settled",
+        user: winning_user,
+        target: settlement,
+        payload: {
+          auction_id: auction.id,
+          settlement_id: settlement.id,
+          winning_user_id: winning_user&.id,
+          winning_bid_id: winning_bid&.id,
+          final_price: final_price
+        }.compact
+      )
 
       ServiceResult.ok(code: :settled, data: { settlement: settlement })
     rescue ActiveRecord::RecordNotUnique

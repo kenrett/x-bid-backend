@@ -24,6 +24,17 @@ module Account
         actor_session_token_id: @current_session_token&.id,
         reason: "user_revoked"
       )
+      AuditLogger.log(
+        action: "auth.session.revoked",
+        actor: @user,
+        user: @user,
+        session_token_id: @current_session_token&.id,
+        payload: {
+          revoked_session_token_id: token.id,
+          actor_session_token_id: @current_session_token&.id,
+          reason: "user_revoked"
+        }.compact
+      )
       SessionEventBroadcaster.session_invalidated(token, reason: "user_revoked")
       ServiceResult.ok(code: :revoked)
     end

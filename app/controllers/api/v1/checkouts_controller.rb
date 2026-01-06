@@ -48,6 +48,17 @@ class Api::V1::CheckoutsController < ApplicationController
           bid_pack_id: bid_pack.id
         }
       })
+      AuditLogger.log(
+        action: "checkout.created",
+        actor: @current_user,
+        user: @current_user,
+        request: request,
+        payload: {
+          bid_pack_id: bid_pack.id,
+          stripe_checkout_session_id: (@session.id if @session.respond_to?(:id)),
+          payment_status: (@session.payment_status if @session.respond_to?(:payment_status))
+        }.compact
+      )
       AppLogger.log(
         event: "checkout.create.succeeded",
         bid_pack_id: bid_pack.id,

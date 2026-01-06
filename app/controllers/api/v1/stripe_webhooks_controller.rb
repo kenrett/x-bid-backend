@@ -6,6 +6,11 @@ class Api::V1::StripeWebhooksController < ApplicationController
     endpoint_secret = ENV["STRIPE_WEBHOOK_SECRET"]
     if endpoint_secret.blank?
       AppLogger.log(event: "stripe.webhook.missing_secret", level: :error)
+      AuditLogger.log(
+        action: "stripe.webhook.rejected",
+        request: request,
+        payload: { reason: "missing_secret" }
+      )
       return render_error(code: :stripe_webhook_missing_secret, message: "Webhook secret not configured", status: :internal_server_error)
     end
 
@@ -17,6 +22,15 @@ class Api::V1::StripeWebhooksController < ApplicationController
       stripe_event_id: event.id,
       stripe_event_type: event.type,
       livemode: event.respond_to?(:livemode) ? event.livemode : nil
+    )
+    AuditLogger.log(
+      action: "stripe.webhook.received",
+      request: request,
+      payload: {
+        stripe_event_id: event.id,
+        stripe_event_type: event.type,
+        livemode: (event.respond_to?(:livemode) ? event.livemode : nil)
+      }.compact
     )
 
     result = ::Stripe::WebhookEvents::Process.call(event: event)
@@ -50,6 +64,11 @@ class Api::V1::StripeWebhooksController < ApplicationController
     ::Stripe::Webhook.construct_event(payload, signature, endpoint_secret)
   rescue JSON::ParserError, ::Stripe::SignatureVerificationError => e
     AppLogger.log(event: "stripe.webhook.invalid_signature", level: :warn, error_message: e.message)
+    AuditLogger.log(
+      action: "stripe.webhook.rejected",
+      request: request,
+      payload: { reason: "invalid_signature", error_message: e.message }
+    )
     render_error(code: :stripe_webhook_invalid_signature, message: "Invalid webhook signature", status: :bad_request)
   end
 end

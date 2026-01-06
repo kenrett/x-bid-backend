@@ -86,6 +86,16 @@ module Auctions
       @auction.update!(current_price: bid_amount, winning_user: @user)
       record_bid_spent_money_event!
       AppLogger.log(event: "bid.saved", auction_id: @auction.id, bid_id: @bid.id, user_id: @user.id, amount: bid_amount)
+      AuditLogger.log(
+        action: "auction.bid.placed",
+        actor: @user,
+        user: @user,
+        payload: {
+          auction_id: @auction.id,
+          bid_id: @bid.id,
+          amount: bid_amount
+        }
+      )
     end
 
     def debit_user_credits!
