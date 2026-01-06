@@ -42,6 +42,7 @@ Rails.application.routes.draw do
 
       get "/account/data/export", to: "account_exports#show"
       post "/account/data/export", to: "account_exports#create"
+      get "/account/export", to: "account_exports#export"
 
       post "/email_verifications/resend", to: "email_verifications#resend"
       get "/email_verifications/verify", to: "email_verifications#verify"

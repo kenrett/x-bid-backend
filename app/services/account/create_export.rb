@@ -53,13 +53,40 @@ module Account
           created_at: @user.created_at.iso8601,
           role: @user.role
         },
-        purchases: @user.purchases.order(created_at: :desc).limit(100).map do |purchase|
+        purchases: @user.purchases.includes(:bid_pack).order(created_at: :desc).limit(100).map do |purchase|
           {
             id: purchase.id,
+            bid_pack: {
+              id: purchase.bid_pack_id,
+              name: purchase.bid_pack&.name
+            },
             amount_cents: purchase.amount_cents,
             currency: purchase.currency,
             status: purchase.status,
+            stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+            stripe_checkout_session_id: purchase.stripe_checkout_session_id,
             created_at: purchase.created_at.iso8601
+          }
+        end,
+        bids: @user.bids.includes(:auction).order(created_at: :desc).limit(200).map do |bid|
+          {
+            id: bid.id,
+            auction: {
+              id: bid.auction_id,
+              title: bid.auction&.title
+            },
+            amount: bid.amount,
+            created_at: bid.created_at.iso8601
+          }
+        end,
+        auction_watches: @user.auction_watches.includes(:auction).order(created_at: :desc).limit(200).map do |watch|
+          {
+            id: watch.id,
+            auction: {
+              id: watch.auction_id,
+              title: watch.auction&.title
+            },
+            created_at: watch.created_at.iso8601
           }
         end,
         bids_count: @user.bids.count,
