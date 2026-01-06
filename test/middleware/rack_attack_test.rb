@@ -1,6 +1,8 @@
 require "test_helper"
 
 class RackAttackTest < ActionDispatch::IntegrationTest
+  include ActiveSupport::Testing::TimeHelpers
+
   setup do
     Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
     Rack::Attack.enabled = true
@@ -23,6 +25,21 @@ class RackAttackTest < ActionDispatch::IntegrationTest
 
     post_login("other@example.com")
     assert_response :unauthorized
+  end
+
+  test "login throttle resets after window" do
+    8.times do
+      post_login("User@example.com")
+      assert_response :unauthorized
+    end
+
+    post_login("user@example.com")
+    assert_response :too_many_requests
+
+    travel 10.minutes + 1.second do
+      post_login("user@example.com")
+      assert_response :unauthorized
+    end
   end
 
   test "locks out repeated login attempts by IP after backoff threshold" do
@@ -51,6 +68,26 @@ class RackAttackTest < ActionDispatch::IntegrationTest
       assert_throttled!(expected_message: "Too many bid attempts", expected_retry_after: 1.minute.to_i)
 
       post "/api/v1/auctions/1/bids", headers: ip_headers("4.4.4.4").merge("HTTP_AUTHORIZATION" => "Bearer token")
+      assert_response :ok
+    end
+  end
+
+  test "throttles bidding by user_id across IPs" do
+    stub_authentication_and_bids_controller do
+      token = jwt_for(user_id: 123, session_token_id: 1)
+
+      50.times do |idx|
+        ip = "7.7.7.#{idx % 10}"
+        post "/api/v1/auctions/1/bids", headers: ip_headers(ip).merge("HTTP_AUTHORIZATION" => "Bearer #{token}")
+        assert_not_equal 429, response.status
+      end
+
+      post "/api/v1/auctions/1/bids", headers: ip_headers("8.8.8.8").merge("HTTP_AUTHORIZATION" => "Bearer #{token}")
+      assert_response :too_many_requests
+      assert_throttled!(expected_message: "Too many bid attempts", expected_retry_after: 1.minute.to_i)
+
+      other_token = jwt_for(user_id: 456, session_token_id: 2)
+      post "/api/v1/auctions/1/bids", headers: ip_headers("8.8.8.8").merge("HTTP_AUTHORIZATION" => "Bearer #{other_token}")
       assert_response :ok
     end
   end
@@ -95,6 +132,21 @@ class RackAttackTest < ActionDispatch::IntegrationTest
 
     post "/api/v1/checkouts", params: { bid_pack_id: 1 }, headers: ip_headers("6.6.6.6")
     assert_not_equal 429, response.status
+  end
+
+  test "checkout throttle resets after window" do
+    15.times do
+      post "/api/v1/checkouts", params: { bid_pack_id: 1 }, headers: ip_headers("9.9.9.9")
+      assert_not_equal 429, response.status
+    end
+
+    post "/api/v1/checkouts", params: { bid_pack_id: 1 }, headers: ip_headers("9.9.9.9")
+    assert_response :too_many_requests
+
+    travel 10.minutes + 1.second do
+      post "/api/v1/checkouts", params: { bid_pack_id: 1 }, headers: ip_headers("9.9.9.9")
+      assert_not_equal 429, response.status
+    end
   end
 
   private
@@ -142,5 +194,10 @@ class RackAttackTest < ActionDispatch::IntegrationTest
 
   def ip_headers(ip)
     { "REMOTE_ADDR" => ip, "X-Forwarded-For" => ip }
+  end
+
+  def jwt_for(user_id:, session_token_id:)
+    payload = { "user_id" => user_id, "session_token_id" => session_token_id, "exp" => 1.hour.from_now.to_i }
+    JWT.encode(payload, Rails.application.secret_key_base, "HS256")
   end
 end

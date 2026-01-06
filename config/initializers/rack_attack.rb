@@ -41,6 +41,19 @@ Rack::Attack.blocklisted_responder = lambda do |_request|
 end
 
 module RackAttackRules
+  def self.env_int(name, default)
+    raw = ENV[name]
+    return default if raw.blank?
+
+    Integer(raw, 10)
+  rescue ArgumentError, TypeError
+    default
+  end
+
+  def self.env_seconds(name, default_seconds)
+    env_int(name, default_seconds).seconds
+  end
+
   EXPENSIVE_PATHS = {
     login: %r{\A/api/v1/login\z},
     signup: %r{\A/api/v1/(signup|users)\z},
@@ -89,35 +102,86 @@ module RackAttackRules
     trimmed = email.to_s.strip
     trimmed.empty? ? nil : trimmed.downcase
   end
+
+  def self.jwt_user_id(req)
+    header = req.env["HTTP_AUTHORIZATION"].to_s
+    token = header.split(" ").last
+    return nil if token.blank?
+
+    decoded =
+      JWT.decode(
+        token,
+        Rails.application.secret_key_base,
+        true,
+        {
+          algorithm: "HS256",
+          verify_expiration: false,
+          verify_iat: false,
+          verify_not_before: false
+        }
+      ).first
+
+    decoded["user_id"]
+  rescue JWT::DecodeError, JWT::VerificationError, ArgumentError
+    nil
+  end
 end
 
 Rack::Attack.safelist("allow-healthcheck") { |req| req.path == "/up" }
 
-Rack::Attack.throttle("requests/ip", limit: 300, period: 5.minutes) do |req|
+Rack::Attack.throttle(
+  "requests/ip",
+  limit: RackAttackRules.env_int("RATE_LIMIT_REQUESTS_IP_LIMIT", 300),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_REQUESTS_IP_PERIOD_SECONDS", 5.minutes.to_i)
+) do |req|
   req.ip
 end
 
-Rack::Attack.throttle("expensive/ip/short", limit: 25, period: 1.minute) do |req|
+Rack::Attack.throttle(
+  "expensive/ip/short",
+  limit: RackAttackRules.env_int("RATE_LIMIT_EXPENSIVE_IP_SHORT_LIMIT", 25),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_EXPENSIVE_IP_SHORT_PERIOD_SECONDS", 1.minute.to_i)
+) do |req|
   req.ip if RackAttackRules.expensive?(req)
 end
 
-Rack::Attack.throttle("expensive/ip/long", limit: 150, period: 1.hour) do |req|
+Rack::Attack.throttle(
+  "expensive/ip/long",
+  limit: RackAttackRules.env_int("RATE_LIMIT_EXPENSIVE_IP_LONG_LIMIT", 150),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_EXPENSIVE_IP_LONG_PERIOD_SECONDS", 1.hour.to_i)
+) do |req|
   req.ip if RackAttackRules.expensive?(req)
 end
 
-Rack::Attack.throttle("login/ip/short", limit: 20, period: 30.seconds) do |req|
+Rack::Attack.throttle(
+  "login/ip/short",
+  limit: RackAttackRules.env_int("RATE_LIMIT_LOGIN_IP_SHORT_LIMIT", 20),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_LOGIN_IP_SHORT_PERIOD_SECONDS", 30.seconds.to_i)
+) do |req|
   req.ip if RackAttackRules.login?(req)
 end
 
-Rack::Attack.throttle("login/email/short", limit: 8, period: 10.minutes) do |req|
+Rack::Attack.throttle(
+  "login/email/short",
+  limit: RackAttackRules.env_int("RATE_LIMIT_LOGIN_EMAIL_SHORT_LIMIT", 8),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_LOGIN_EMAIL_SHORT_PERIOD_SECONDS", 10.minutes.to_i)
+) do |req|
   RackAttackRules.normalized_email(req) if RackAttackRules.login?(req)
 end
 
-Rack::Attack.throttle("signup/ip", limit: 10, period: 10.minutes) do |req|
+Rack::Attack.throttle(
+  "signup/ip",
+  limit: RackAttackRules.env_int("RATE_LIMIT_SIGNUP_IP_LIMIT", 10),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_SIGNUP_IP_PERIOD_SECONDS", 10.minutes.to_i)
+) do |req|
   req.ip if RackAttackRules.signup?(req)
 end
 
-Rack::Attack.throttle("signup/email", limit: 6, period: 1.hour) do |req|
+Rack::Attack.throttle(
+  "signup/email",
+  limit: RackAttackRules.env_int("RATE_LIMIT_SIGNUP_EMAIL_LIMIT", 6),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_SIGNUP_EMAIL_PERIOD_SECONDS", 1.hour.to_i)
+) do |req|
   RackAttackRules.normalized_email(req) if RackAttackRules.signup?(req)
 end
 
@@ -136,19 +200,43 @@ Rack::Attack.blocklist("lockout/login/email") do |req|
   end
 end
 
-Rack::Attack.throttle("password_reset/ip", limit: 10, period: 10.minutes) do |req|
+Rack::Attack.throttle(
+  "password_reset/ip",
+  limit: RackAttackRules.env_int("RATE_LIMIT_PASSWORD_RESET_IP_LIMIT", 10),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_PASSWORD_RESET_IP_PERIOD_SECONDS", 10.minutes.to_i)
+) do |req|
   req.ip if RackAttackRules.password_reset?(req)
 end
 
-Rack::Attack.throttle("password_reset/email", limit: 6, period: 30.minutes) do |req|
+Rack::Attack.throttle(
+  "password_reset/email",
+  limit: RackAttackRules.env_int("RATE_LIMIT_PASSWORD_RESET_EMAIL_LIMIT", 6),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_PASSWORD_RESET_EMAIL_PERIOD_SECONDS", 30.minutes.to_i)
+) do |req|
   RackAttackRules.normalized_email(req) if RackAttackRules.password_reset?(req)
 end
 
 # Bidding is hot; keep a short window but allow a handful before throttling.
-Rack::Attack.throttle("bids/ip", limit: 50, period: 1.minute) do |req|
+Rack::Attack.throttle(
+  "bids/ip",
+  limit: RackAttackRules.env_int("RATE_LIMIT_BIDS_IP_LIMIT", 50),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_BIDS_IP_PERIOD_SECONDS", 1.minute.to_i)
+) do |req|
   req.ip if RackAttackRules.bidding?(req)
 end
 
-Rack::Attack.throttle("checkout/ip", limit: 15, period: 10.minutes) do |req|
+Rack::Attack.throttle(
+  "bids/user",
+  limit: RackAttackRules.env_int("RATE_LIMIT_BIDS_USER_LIMIT", 50),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_BIDS_USER_PERIOD_SECONDS", 1.minute.to_i)
+) do |req|
+  RackAttackRules.jwt_user_id(req) if RackAttackRules.bidding?(req)
+end
+
+Rack::Attack.throttle(
+  "checkout/ip",
+  limit: RackAttackRules.env_int("RATE_LIMIT_CHECKOUT_IP_LIMIT", 15),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_CHECKOUT_IP_PERIOD_SECONDS", 10.minutes.to_i)
+) do |req|
   req.ip if RackAttackRules.checkout?(req)
 end
