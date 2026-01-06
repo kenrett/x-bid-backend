@@ -3,10 +3,9 @@ require "json"
 
 class OpenapiAdminRefundDocsTest < ActionDispatch::IntegrationTest
   test "OpenAPI includes admin refund endpoint with request/response schemas" do
-    get "/api-docs.json"
-    assert_response :success
-
-    spec = JSON.parse(response.body)
+    openapi_path = Rails.root.join("docs", "api", "openapi.json")
+    assert File.exist?(openapi_path), "Missing OpenAPI spec at #{openapi_path} (run `bin/rails openapi:generate`)"
+    spec = JSON.parse(File.read(openapi_path))
 
     refund = spec.dig("paths", "/api/v1/admin/payments/{id}/refund", "post")
     assert refund, "Expected OpenAPI to include POST /api/v1/admin/payments/{id}/refund"

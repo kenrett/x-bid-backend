@@ -50,20 +50,22 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       currency: "usd"
     )
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success", params: { session_id: "cs_123" }, headers: auth_headers(@user, @session_token)
-      assert_response :success
-      body1 = JSON.parse(response.body)
-      assert_equal false, body1["idempotent"]
-      assert body1["purchaseId"].present?
-      assert_equal 10, body1["updated_bid_credits"]
+    with_pending_receipt_lookup do
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        get "/api/v1/checkout/success", params: { session_id: "cs_123" }, headers: auth_headers(@user, @session_token)
+        assert_response :success
+        body1 = JSON.parse(response.body)
+        assert_equal false, body1["idempotent"]
+        assert body1["purchaseId"].present?
+        assert_equal 10, body1["updated_bid_credits"]
 
-      get "/api/v1/checkout/success", params: { session_id: "cs_123" }, headers: auth_headers(@user, @session_token)
-      assert_response :success
-      body2 = JSON.parse(response.body)
-      assert_equal true, body2["idempotent"]
-      assert_equal body1["purchaseId"], body2["purchaseId"]
-      assert_equal 10, body2["updated_bid_credits"]
+        get "/api/v1/checkout/success", params: { session_id: "cs_123" }, headers: auth_headers(@user, @session_token)
+        assert_response :success
+        body2 = JSON.parse(response.body)
+        assert_equal true, body2["idempotent"]
+        assert_equal body1["purchaseId"], body2["purchaseId"]
+        assert_equal 10, body2["updated_bid_credits"]
+      end
     end
   end
 
@@ -81,13 +83,15 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     original = Payments::ApplyBidPackPurchase.method(:call!)
     attempts = 0
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      Payments::ApplyBidPackPurchase.stub(:call!, lambda { |**kwargs|
-        attempts += 1
-        raise ActiveRecord::RecordNotUnique if attempts == 1
-        original.call(**kwargs)
-      }) do
-        get "/api/v1/checkout/success", params: { session_id: "cs_456" }, headers: auth_headers(@user, @session_token)
+    with_pending_receipt_lookup do
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        Payments::ApplyBidPackPurchase.stub(:call!, lambda { |**kwargs|
+          attempts += 1
+          raise ActiveRecord::RecordNotUnique if attempts == 1
+          original.call(**kwargs)
+        }) do
+          get "/api/v1/checkout/success", params: { session_id: "cs_456" }, headers: auth_headers(@user, @session_token)
+        end
       end
     end
 
@@ -99,18 +103,20 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
   end
 
   test "success after webhook already applied returns idempotent true" do
-    webhook_apply = Payments::ApplyBidPackPurchase.call!(
-      user: @user,
-      bid_pack: @bid_pack,
-      stripe_checkout_session_id: nil,
-      stripe_payment_intent_id: "pi_789",
-      stripe_event_id: "evt_789",
-      amount_cents: (@bid_pack.price * 100).to_i,
-      currency: "usd",
-      source: "stripe_webhook"
-    )
-    assert webhook_apply.ok?
-    assert_equal 10, @user.reload.bid_credits
+    with_pending_receipt_lookup do
+      webhook_apply = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: nil,
+        stripe_payment_intent_id: "pi_789",
+        stripe_event_id: "evt_789",
+        amount_cents: (@bid_pack.price * 100).to_i,
+        currency: "usd",
+        source: "stripe_webhook"
+      )
+      assert webhook_apply.ok?
+      assert_equal 10, @user.reload.bid_credits
+    end
 
     checkout_session = FakeCheckoutSession.new(
       id: "cs_789",
@@ -122,8 +128,10 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       currency: "usd"
     )
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success", params: { session_id: "cs_789" }, headers: auth_headers(@user, @session_token)
+    with_pending_receipt_lookup do
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        get "/api/v1/checkout/success", params: { session_id: "cs_789" }, headers: auth_headers(@user, @session_token)
+      end
     end
 
     assert_response :success
@@ -157,8 +165,10 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       currency: "usd"
     )
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success", params: { session_id: "cs_999" }, headers: auth_headers(other_user, other_token)
+    with_pending_receipt_lookup do
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        get "/api/v1/checkout/success", params: { session_id: "cs_999" }, headers: auth_headers(other_user, other_token)
+      end
     end
 
     assert_response :forbidden
@@ -271,9 +281,11 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     )
 
     captured =
-      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-        capture_structured_logs do
-          get "/api/v1/checkout/success", params: { session_id: "cs_log_success" }, headers: auth_headers(@user, @session_token)
+      with_pending_receipt_lookup do
+        Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+          capture_structured_logs do
+            get "/api/v1/checkout/success", params: { session_id: "cs_log_success" }, headers: auth_headers(@user, @session_token)
+          end
         end
       end
 
@@ -303,8 +315,10 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       currency: "cad"
     )
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success", params: { session_id: "cs_amount_total" }, headers: auth_headers(@user, @session_token)
+    with_pending_receipt_lookup do
+      Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
+        get "/api/v1/checkout/success", params: { session_id: "cs_amount_total" }, headers: auth_headers(@user, @session_token)
+      end
     end
 
     assert_response :success
@@ -395,6 +409,10 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     end
 
     captured
+  end
+
+  def with_pending_receipt_lookup(&block)
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :pending, nil, nil ] }, &block)
   end
 
   def auth_headers(user, session_token)

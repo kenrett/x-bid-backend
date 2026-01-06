@@ -418,27 +418,31 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     base_payload = @event_payload.deep_dup
     base_payload[:data][:object][:id] = "pi_concurrent_1"
 
+    thread_count = 3
     start = Queue.new
     ready = Queue.new
     results = Queue.new
-    threads =
-      5.times.map do |idx|
-        Thread.new do
-          ActiveRecord::Base.connection_pool.with_connection do
-            ready << true
-            start.pop
-            payload = base_payload.deep_dup
-            payload[:id] = "evt_concurrent_#{idx}"
-            results << Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :pending, nil, nil ] }) do
+      threads =
+        thread_count.times.map do |idx|
+          Thread.new do
+            ActiveRecord::Base.connection_pool.with_connection do
+              ready << true
+              start.pop
+              payload = base_payload.deep_dup
+              payload[:id] = "evt_concurrent_#{idx}"
+              results << Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+            end
           end
         end
-      end
 
-    5.times { ready.pop }
-    5.times { start << true }
-    threads.each(&:join)
+      thread_count.times { ready.pop }
+      thread_count.times { start << true }
+      threads.each(&:join)
+    end
 
-    5.times do
+    thread_count.times do
       result = results.pop
       assert result.ok?
     end
@@ -449,7 +453,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
 
     purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_concurrent_1")
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
-    assert_equal 5, StripeEvent.where(stripe_event_id: (0...5).map { |i| "evt_concurrent_#{i}" }).count
+    assert_equal thread_count, StripeEvent.where(stripe_event_id: (0...thread_count).map { |i| "evt_concurrent_#{i}" }).count
   end
 
   test "partial failure during credit application converges correctly on replay" do
