@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       class MaintenanceController < ApplicationController
-        before_action :authenticate_request!, :authorize_superadmin!
+        before_action :authenticate_request!
+        before_action -> { authorize!(:superadmin) }
 
         # GET /api/v1/admin/maintenance
         # @summary Show current maintenance mode state

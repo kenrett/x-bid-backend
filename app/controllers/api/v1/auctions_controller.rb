@@ -1,7 +1,8 @@
 module Api
   module V1
     class AuctionsController < ApplicationController
-      before_action :authenticate_request!, :authorize_admin!, only: [ :create, :update, :destroy, :extend_time ]
+      before_action :authenticate_request!, only: [ :create, :update, :destroy, :extend_time ]
+      before_action -> { authorize!(:admin) }, only: [ :create, :update, :destroy, :extend_time ]
 
       ALLOWED_STATUSES = Auctions::Status.allowed_keys
 

@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       class UsersController < ApplicationController
-        before_action :authenticate_request!, :authorize_superadmin!
+        before_action :authenticate_request!
+        before_action -> { authorize!(:superadmin) }
         before_action :set_user, except: [ :index ]
         before_action :ensure_not_last_superadmin_on_role_change, only: [ :update ]
         before_action :ensure_not_last_superadmin!, only: [ :revoke_superadmin, :ban ]

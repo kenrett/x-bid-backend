@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       class AuctionsController < ApplicationController
-        before_action :authenticate_request!, :authorize_admin!
+        before_action :authenticate_request!
+        before_action -> { authorize!(:admin) }
 
         # GET /api/v1/admin/auctions
         # @summary List auctions for admin with filters and pagination

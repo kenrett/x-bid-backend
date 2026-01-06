@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       class PaymentsController < ApplicationController
-        before_action :authenticate_request!, :authorize_admin!
+        before_action :authenticate_request!
+        before_action -> { authorize!(:admin) }
 
         # GET /api/v1/admin/payments
         # @summary List payments with optional email search

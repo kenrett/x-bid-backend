@@ -1,6 +1,7 @@
 module Admin
   class BidPacksController < ApplicationController
-    before_action :authenticate_request!, :authorize_admin!
+    before_action :authenticate_request!
+    before_action -> { authorize!(:admin) }
     before_action :set_bid_pack, only: [ :edit, :update, :destroy ]
 
     # GET /admin/bid-packs

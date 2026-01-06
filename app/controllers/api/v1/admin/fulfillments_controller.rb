@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       class FulfillmentsController < ApplicationController
-        before_action :authenticate_request!, :authorize_admin!
+        before_action :authenticate_request!
+        before_action -> { authorize!(:admin) }
         before_action :set_fulfillment
 
         # POST /api/v1/admin/fulfillments/:id/process

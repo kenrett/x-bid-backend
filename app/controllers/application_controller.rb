@@ -80,15 +80,22 @@ class ApplicationController < ActionController::API
   end
 
   def authorize_admin!
-    return if @current_user&.admin? || @current_user&.superadmin?
-
-    render_error(code: :forbidden, message: "Admin privileges required", status: :forbidden)
+    authorize!(:admin)
   end
 
   def authorize_superadmin!
-    return if @current_user&.superadmin?
+    authorize!(:superadmin)
+  end
 
-    render_error(code: :forbidden, message: "Superadmin privileges required", status: :forbidden)
+  def authorize!(role, message: nil)
+    return true if Authorization::Guard.allow?(actor: @current_user, role: role)
+
+    render_error(
+      code: :forbidden,
+      message: (message || Authorization::Guard.default_forbidden_message(role)),
+      status: :forbidden
+    )
+    false
   end
 
   def enforce_maintenance_mode
@@ -129,7 +136,7 @@ class ApplicationController < ActionController::API
     @current_session_token ||= session_token
     @current_user ||= user
     set_authenticated_request_context!
-    user.admin? || user.superadmin?
+    Authorization::Guard.allow?(actor: user, role: :admin)
   rescue StandardError
     false
   end

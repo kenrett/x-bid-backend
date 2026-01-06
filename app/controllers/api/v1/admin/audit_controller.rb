@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       class AuditController < ApplicationController
-        before_action :authenticate_request!, :authorize_admin!
+        before_action :authenticate_request!
+        before_action -> { authorize!(:admin) }
 
         # POST /api/v1/admin/audit
         # @summary Create an audit log entry
