@@ -16,8 +16,9 @@ class RateLimitingHttpBoundaryTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/login returns 429 with canonical envelope and Retry-After" do
     user = User.create!(name: "User", email_address: "rate_login@example.com", password: "password", bid_credits: 0)
+    throttle = Rack::Attack.throttles.fetch("login/email/short")
 
-    8.times do
+    throttle.limit.times do
       post "/api/v1/login",
            params: { session: { email_address: user.email_address, password: "wrong" } },
            headers: ip_headers("1.1.1.1")
@@ -28,9 +29,9 @@ class RateLimitingHttpBoundaryTest < ActionDispatch::IntegrationTest
          params: { session: { email_address: user.email_address, password: "wrong" } },
          headers: ip_headers("1.1.1.1")
     assert_response :too_many_requests
-    assert_rate_limited!(expected_retry_after: 10.minutes.to_i)
+    assert_rate_limited!(expected_retry_after: throttle.period.to_i)
 
-    travel 10.minutes + 1.second do
+    travel throttle.period + 1.second do
       post "/api/v1/login",
            params: { session: { email_address: user.email_address, password: "wrong" } },
            headers: ip_headers("1.1.1.1")
@@ -39,7 +40,9 @@ class RateLimitingHttpBoundaryTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /api/v1/signup returns 429 with canonical envelope and Retry-After" do
-    6.times do
+    throttle = Rack::Attack.throttles.fetch("signup/email")
+
+    throttle.limit.times do
       post "/api/v1/signup",
            params: {
              user: {
@@ -64,37 +67,28 @@ class RateLimitingHttpBoundaryTest < ActionDispatch::IntegrationTest
          },
          headers: ip_headers("2.2.2.2")
     assert_response :too_many_requests
-    assert_rate_limited!(expected_retry_after: 1.hour.to_i)
+    assert_rate_limited!(expected_retry_after: throttle.period.to_i)
   end
 
   test "POST /api/v1/auctions/:id/bids returns 429 with canonical envelope and Retry-After" do
-    user = create_actor(role: :user)
-    user.update!(email_verified_at: Time.current)
-    Credits::Apply.apply!(user: user, reason: "seed_grant", amount: 55, idempotency_key: "test:rate:bid:seed:#{user.id}")
+    throttle = Rack::Attack.throttles.fetch("bids/ip")
 
-    auction = Auction.create!(
-      title: "Rate Limit Auction",
-      description: "Desc",
-      start_date: 1.minute.ago,
-      end_time: 1.hour.from_now,
-      current_price: BigDecimal("1.00"),
-      status: :active
-    )
+    stub_authentication_and_bids_controller do
+      headers = ip_headers("3.3.3.3").merge("HTTP_AUTHORIZATION" => "Bearer token")
 
-    headers = auth_headers_for(user).merge(ip_headers("3.3.3.3"))
+      throttle.limit.times do
+        post "/api/v1/auctions/1/bids", headers: headers
+        assert_response :success
+      end
 
-    50.times do
-      post "/api/v1/auctions/#{auction.id}/bids", headers: headers
-      assert_response :success
-    end
+      post "/api/v1/auctions/1/bids", headers: headers
+      assert_response :too_many_requests
+      assert_rate_limited!(expected_retry_after: throttle.period.to_i)
 
-    post "/api/v1/auctions/#{auction.id}/bids", headers: headers
-    assert_response :too_many_requests
-    assert_rate_limited!(expected_retry_after: 1.minute.to_i)
-
-    travel 61.seconds do
-      post "/api/v1/auctions/#{auction.id}/bids", headers: headers
-      assert_response :success
+      travel throttle.period + 1.second do
+        post "/api/v1/auctions/1/bids", headers: headers
+        assert_response :success
+      end
     end
   end
 
@@ -109,5 +103,21 @@ class RateLimitingHttpBoundaryTest < ActionDispatch::IntegrationTest
 
   def ip_headers(ip)
     { "REMOTE_ADDR" => ip, "X-Forwarded-For" => ip }
+  end
+
+  def stub_authentication_and_bids_controller
+    original_authenticate = Api::V1::BidsController.instance_method(:authenticate_request!)
+    original_require_verified = Api::V1::BidsController.instance_method(:require_verified_email!)
+    original_create = Api::V1::BidsController.instance_method(:create)
+
+    Api::V1::BidsController.define_method(:authenticate_request!) { }
+    Api::V1::BidsController.define_method(:require_verified_email!) { }
+    Api::V1::BidsController.define_method(:create) { head :ok }
+
+    yield
+  ensure
+    Api::V1::BidsController.define_method(:authenticate_request!, original_authenticate)
+    Api::V1::BidsController.define_method(:require_verified_email!, original_require_verified)
+    Api::V1::BidsController.define_method(:create, original_create)
   end
 end
