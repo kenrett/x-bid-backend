@@ -358,6 +358,130 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal 1, StripeEvent.where(stripe_event_id: "evt_cs_dup").count
   end
 
+  test "checkout.session.completed with different event IDs but same session/payment is idempotent" do
+    base_object = {
+      id: "cs_same",
+      payment_status: "paid",
+      payment_intent: "pi_same",
+      metadata: { user_id: @user.id, bid_pack_id: @bid_pack.id },
+      amount_total: 500,
+      currency: "usd"
+    }
+
+    first_payload = { id: "evt_cs_same_a", type: "checkout.session.completed", data: { object: base_object } }
+    second_payload = { id: "evt_cs_same_b", type: "checkout.session.completed", data: { object: base_object } }
+
+    first = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(first_payload))
+    assert first.ok?
+    credits_after_first = @user.reload.bid_credits
+
+    second = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(second_payload))
+    assert second.ok?
+    assert_equal credits_after_first, @user.reload.bid_credits
+
+    assert_equal 1, Purchase.where(stripe_checkout_session_id: "cs_same").count
+    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_same").count
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_same").count
+    assert_equal 2, StripeEvent.where(stripe_event_id: [ "evt_cs_same_a", "evt_cs_same_b" ]).count
+  end
+
+  test "out-of-order refund before purchase converges correctly on replay" do
+    refund_object = {
+      id: "ch_oor_1",
+      payment_intent: "pi_oor_1",
+      amount_refunded: 500,
+      refunds: { data: [ { id: "re_oor_1" } ] }
+    }
+
+    refund_payload = { id: "evt_refund_oor", type: "charge.refunded", data: { object: refund_object } }
+    first_refund = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(refund_payload))
+    refute first_refund.ok?
+    assert_equal :not_found, first_refund.code
+    assert_equal 0, @user.reload.bid_credits
+
+    purchase_payload = @event_payload.deep_dup
+    purchase_payload[:id] = "evt_purchase_oor"
+    purchase_payload[:data][:object][:id] = "pi_oor_1"
+    purchase = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(purchase_payload))
+    assert purchase.ok?
+    assert_equal 500, @user.reload.bid_credits
+
+    second_refund = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(refund_payload))
+    assert second_refund.ok?
+    assert_equal 0, @user.reload.bid_credits
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_oor_1").count
+    assert_equal 1, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_oor_1").count
+    assert_equal(-500, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_oor_1").sum(:amount_cents))
+  end
+
+  test "concurrent webhook processing applies credits exactly once for the same payment intent" do
+    base_payload = @event_payload.deep_dup
+    base_payload[:data][:object][:id] = "pi_concurrent_1"
+
+    start = Queue.new
+    ready = Queue.new
+    results = Queue.new
+    threads =
+      5.times.map do |idx|
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            ready << true
+            start.pop
+            payload = base_payload.deep_dup
+            payload[:id] = "evt_concurrent_#{idx}"
+            results << Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+          end
+        end
+      end
+
+    5.times { ready.pop }
+    5.times { start << true }
+    threads.each(&:join)
+
+    5.times do
+      result = results.pop
+      assert result.ok?
+    end
+
+    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_concurrent_1").count
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_concurrent_1").count
+    assert_equal @bid_pack.bids, @user.reload.bid_credits
+
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_concurrent_1")
+    assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+    assert_equal 5, StripeEvent.where(stripe_event_id: (0...5).map { |i| "evt_concurrent_#{i}" }).count
+  end
+
+  test "partial failure during credit application converges correctly on replay" do
+    payload = @event_payload.deep_dup
+    payload[:id] = "evt_partial_failure"
+    payload[:data][:object][:id] = "pi_partial_failure"
+    event = FakeStripeEvent.new(payload)
+
+    calls = 0
+    original_apply = Credits::Apply.method(:apply!)
+    Credits::Apply.stub(:apply!, lambda { |**kwargs|
+      calls += 1
+      raise "boom" if calls == 1
+      original_apply.call(**kwargs)
+    }) do
+      first = Stripe::WebhookEvents::Process.call(event: event)
+      refute first.ok?
+      assert_equal :processing_error, first.code
+
+      assert_equal 0, Purchase.where(stripe_payment_intent_id: "pi_partial_failure").count
+      assert_equal 0, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_partial_failure").count
+      assert_equal 0, @user.reload.bid_credits
+
+      second = Stripe::WebhookEvents::Process.call(event: event)
+      assert second.ok?
+    end
+
+    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_partial_failure").count
+    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_partial_failure").count
+    assert_equal @bid_pack.bids, @user.reload.bid_credits
+  end
+
   test "checkout.session.completed fails when metadata is missing" do
     payload = {
       id: "evt_cs_missing_meta",

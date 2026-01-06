@@ -114,6 +114,50 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, StripeEvent.where(stripe_event_id: "evt_replay").count
   end
 
+  test "different Stripe event IDs for the same payment intent do not double-credit" do
+    user = User.create!(name: "Buyer", email_address: "buyer_webhook_dupe_pi@example.com", password: "password", role: :user, bid_credits: 0)
+    bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 10, price: 1.0, active: true)
+
+    object = {
+      id: "pi_dupe_pi",
+      amount_received: 100,
+      currency: "usd",
+      metadata: { user_id: user.id, bid_pack_id: bid_pack.id }
+    }
+
+    events = [
+      OpenStruct.new(
+        id: "evt_dupe_a",
+        type: "payment_intent.succeeded",
+        data: OpenStruct.new(object: object),
+        livemode: false,
+        to_hash: { id: "evt_dupe_a", type: "payment_intent.succeeded", data: { object: object } }
+      ),
+      OpenStruct.new(
+        id: "evt_dupe_b",
+        type: "payment_intent.succeeded",
+        data: OpenStruct.new(object: object),
+        livemode: false,
+        to_hash: { id: "evt_dupe_b", type: "payment_intent.succeeded", data: { object: object } }
+      )
+    ]
+
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :pending, nil, nil ] }) do
+      Stripe::Webhook.stub(:construct_event, ->(*_) { events.shift }) do
+        post "/api/v1/stripe/webhooks", params: { id: "evt_dupe_a" }.to_json, headers: { "Stripe-Signature" => "sig_header" }
+        assert_response :success
+        assert_equal 10, user.reload.bid_credits
+
+        post "/api/v1/stripe/webhooks", params: { id: "evt_dupe_b" }.to_json, headers: { "Stripe-Signature" => "sig_header" }
+        assert_response :success
+        assert_equal 10, user.reload.bid_credits
+      end
+    end
+
+    assert_equal 1, Purchase.where(user_id: user.id, stripe_payment_intent_id: "pi_dupe_pi").count
+    assert_equal 2, StripeEvent.where(stripe_event_id: [ "evt_dupe_a", "evt_dupe_b" ]).count
+  end
+
   test "replayed checkout.session.completed event does not double-credit" do
     user = User.create!(name: "Buyer", email_address: "buyer_cs_webhook@example.com", password: "password", role: :user, bid_credits: 0)
     bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 10, price: 1.0, active: true)
