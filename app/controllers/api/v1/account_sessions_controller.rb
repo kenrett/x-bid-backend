@@ -32,6 +32,7 @@ module Api
       end
 
       # POST /api/v1/account/sessions/revoke_others
+      # DELETE /api/v1/account/sessions
       # @summary Revoke all sessions except current
       # @response Success (200) [Hash{ status: String, sessions_revoked: Integer }]
       # @response Unauthorized (401) [Error]

@@ -157,13 +157,25 @@ class ApplicationController < ActionController::API
     return unless session_token
 
     now = Time.current
-    updates = { last_seen_at: now, updated_at: now }
+    debounce_seconds = (ENV["SESSION_LAST_SEEN_DEBOUNCE_SECONDS"].presence || 60).to_i
+    debounce_seconds = 60 if debounce_seconds <= 0
+
+    updates = {}
 
     user_agent = request.user_agent
     ip_address = request.remote_ip
 
     updates[:user_agent] = user_agent if user_agent.present? && user_agent != session_token.user_agent
     updates[:ip_address] = ip_address if ip_address.present? && ip_address != session_token.ip_address
+
+    last_seen_at = session_token.last_seen_at
+    should_touch_last_seen = last_seen_at.nil? || last_seen_at <= (now - debounce_seconds.seconds)
+    if should_touch_last_seen
+      updates[:last_seen_at] = now
+      updates[:updated_at] = now
+    end
+
+    return if updates.empty?
 
     session_token.update_columns(updates)
   rescue StandardError => e

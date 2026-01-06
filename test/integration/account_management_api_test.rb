@@ -26,7 +26,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal DEFAULT_PREFS, body.dig("user", "notification_preferences")
   end
 
-  test "authenticated requests update current session last_seen_at each time" do
+  test "authenticated requests update current session last_seen_at (debounced)" do
     session_token = create_session_token_for(@user)
     session_token.update!(last_seen_at: 2.hours.ago)
 
@@ -44,7 +44,15 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
       get "/api/v1/account", headers: auth_headers(@user, session_token)
       assert_response :success
       second_seen = session_token.reload.last_seen_at
-      assert_operator second_seen, :>, first_seen
+      assert_equal first_seen.to_i, second_seen.to_i
+
+      t3 = t1 + 61.seconds
+      travel_to(t3)
+
+      get "/api/v1/account", headers: auth_headers(@user, session_token)
+      assert_response :success
+      third_seen = session_token.reload.last_seen_at
+      assert_operator third_seen, :>, second_seen
     ensure
       travel_back
     end
@@ -200,7 +208,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_session", JSON.parse(response.body).dig("error", "code").to_s
   end
 
-  test "POST /api/v1/account/sessions/revoke_others revokes all but current" do
+  test "DELETE /api/v1/account/sessions revokes all but current" do
     current_session = create_session_token_for(@user)
     other_session = create_session_token_for(@user)
 
@@ -208,7 +216,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     AppLogger.stub(:log, lambda { |event:, level: :info, **context|
       audit_events << { event: event, level: level, **context }
     }) do
-      post "/api/v1/account/sessions/revoke_others", headers: auth_headers(@user, current_session)
+      delete "/api/v1/account/sessions", headers: auth_headers(@user, current_session)
     end
     assert_response :success
     body = JSON.parse(response.body)

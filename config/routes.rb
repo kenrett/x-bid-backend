@@ -36,6 +36,7 @@ Rails.application.routes.draw do
       put "/account/notifications", to: "account_notifications#update"
 
       get "/account/sessions", to: "account_sessions#index"
+      delete "/account/sessions", to: "account_sessions#revoke_others"
       delete "/account/sessions/:id", to: "account_sessions#destroy"
       post "/account/sessions/revoke_others", to: "account_sessions#revoke_others"
 
