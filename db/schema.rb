@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_31_002000) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_05_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -172,9 +172,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_31_002000) do
     t.index ["auction_id"], name: "index_credit_transactions_on_auction_id"
     t.index ["idempotency_key"], name: "unique_index_credit_transactions_on_idempotency_key", unique: true
     t.index ["purchase_id"], name: "index_credit_transactions_on_purchase_id"
+    t.index ["purchase_id"], name: "uniq_ct_bpp_grant_purchase", unique: true, where: "((purchase_id IS NOT NULL) AND ((reason)::text = 'bid_pack_purchase'::text) AND ((kind)::text = 'grant'::text))"
     t.index ["stripe_checkout_session_id"], name: "index_credit_transactions_on_stripe_checkout_session_id"
+    t.index ["stripe_checkout_session_id"], name: "uniq_ct_bpp_grant_cs", unique: true, where: "((stripe_checkout_session_id IS NOT NULL) AND ((reason)::text = 'bid_pack_purchase'::text) AND ((kind)::text = 'grant'::text))"
     t.index ["stripe_event_id"], name: "index_credit_transactions_on_stripe_event_id"
     t.index ["stripe_payment_intent_id"], name: "index_credit_transactions_on_stripe_payment_intent_id"
+    t.index ["stripe_payment_intent_id"], name: "uniq_ct_bpp_grant_pi", unique: true, where: "((stripe_payment_intent_id IS NOT NULL) AND ((reason)::text = 'bid_pack_purchase'::text) AND ((kind)::text = 'grant'::text))"
     t.index ["user_id", "created_at"], name: "index_credit_transactions_on_user_id_created_at"
     t.index ["user_id"], name: "index_credit_transactions_on_user_id"
   end

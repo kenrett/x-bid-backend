@@ -19,14 +19,17 @@ module Stripe
       def call
         return ServiceResult.ok(code: :ignored, message: "Unhandled event type: #{event.type}") unless supported_event?
 
-        persist_event!
-        dispatch_event
-      rescue ActiveRecord::RecordNotUnique
-        duplicate_result
-      rescue ActiveRecord::RecordInvalid => e
-        raise unless duplicate_event_error?(e)
+        stripe_event = ensure_stripe_event_record!
 
-        duplicate_result
+        stripe_event.with_lock do
+          return duplicate_result if stripe_event.processed_at.present?
+
+          result = dispatch_event
+          stripe_event.update!(processed_at: Time.current) if result.ok?
+          result
+        end
+      rescue ActiveRecord::RecordNotUnique
+        retry
       rescue => e
         log_error(e)
         ServiceResult.fail("Unable to process Stripe event", code: :processing_error)
@@ -243,13 +246,23 @@ module Stripe
         ServiceResult.ok(code: result.code, message: "Refund applied", data: { purchase: purchase })
       end
 
-      def persist_event!
-        @persisted_event ||= StripeEvent.create!(
-          stripe_event_id: event.id,
-          event_type: event.type,
-          payload: event_payload,
-          processed_at: Time.current
-        )
+      def ensure_stripe_event_record!
+        StripeEvent.find_or_create_by!(stripe_event_id: event.id) do |record|
+          record.event_type = event.type
+          record.payload = event_payload
+        end.tap do |record|
+          next if record.processed_at.present?
+
+          missing_payload = record.payload.blank? || record.payload == {}
+          missing_type = record.event_type.blank?
+          if missing_payload || missing_type
+            record.update_columns(
+              event_type: (record.event_type.presence || event.type),
+              payload: (missing_payload ? event_payload : record.payload),
+              updated_at: Time.current
+            )
+          end
+        end
       end
 
       def stripe_object_data
@@ -327,11 +340,6 @@ module Stripe
 
       def duplicate_result
         ServiceResult.ok(code: :duplicate, message: "Event already processed", data: { idempotent: true })
-      end
-
-      def duplicate_event_error?(error)
-        record = error.record
-        record.is_a?(StripeEvent)
       end
 
       def extract_refund_id_from_charge(charge)

@@ -217,10 +217,10 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
       get "/api/v1/checkout/success", params: { session_id: "cs_missing_owner" }, headers: auth_headers(@user, @session_token)
     end
 
-    assert_response :forbidden
+    assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "forbidden", body.dig("error", "code").to_s
-    assert_match(/missing ownership metadata/i, body.dig("error", "message"))
+    assert_equal "missing_metadata", body.dig("error", "code").to_s
+    assert_equal "Checkout session is missing required metadata.", body.dig("error", "message")
     assert_equal 0, @user.reload.bid_credits
     assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_missing_owner")
   end
@@ -243,7 +243,7 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
     assert_equal "missing_metadata", body.dig("error", "code").to_s
-    assert_match(/missing bid pack metadata/i, body.dig("error", "message"))
+    assert_equal "Checkout session is missing required metadata.", body.dig("error", "message")
     assert_equal 0, @user.reload.bid_credits
     assert_nil Purchase.find_by(stripe_payment_intent_id: "pi_missing_bid_pack")
   end

@@ -161,6 +161,31 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_includes output, "\"payment_intent_id\":\"pi_123\""
   end
 
+  test "replays are retry-safe when the first attempt fails after persisting the event" do
+    calls = 0
+    original = Payments::ApplyBidPackPurchase.method(:call!)
+
+    Payments::ApplyBidPackPurchase.stub(:call!, lambda { |**kwargs|
+      calls += 1
+      raise "boom" if calls == 1
+      original.call(**kwargs)
+    }) do
+      first = Stripe::WebhookEvents::Process.call(event: @event)
+      refute first.ok?
+      assert_equal :processing_error, first.code
+
+      second = Stripe::WebhookEvents::Process.call(event: @event)
+      assert second.ok?
+    end
+
+    assert_equal 500, @user.reload.bid_credits
+    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_123")
+    assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+    assert_equal 1, StripeEvent.where(stripe_event_id: "evt_123").count
+    assert StripeEvent.find_by!(stripe_event_id: "evt_123").processed_at.present?
+  end
+
   test "is idempotent when the same Stripe event is replayed" do
     Stripe::WebhookEvents::Process.call(event: @event)
     credits_after_first = @user.reload.bid_credits
@@ -176,6 +201,25 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal money_events_after_first, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
     assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
     assert_equal 1, StripeEvent.where(stripe_event_id: "evt_123").count
+  end
+
+  test "DB constraints prevent double-credit for the same purchase even with a different idempotency key" do
+    Stripe::WebhookEvents::Process.call(event: @event)
+    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_123")
+
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      CreditTransaction.create!(
+        user: @user,
+        kind: "grant",
+        amount: @bid_pack.bids,
+        reason: "bid_pack_purchase",
+        idempotency_key: "purchase:#{purchase.id}:grant:evil",
+        purchase: purchase,
+        stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+        stripe_checkout_session_id: purchase.stripe_checkout_session_id,
+        metadata: {}
+      )
+    end
   end
 
   test "does not double-credit when different Stripe events reference the same payment intent" do

@@ -113,16 +113,16 @@ class Api::V1::CheckoutsController < ApplicationController
       return render_error(code: :payment_not_completed, message: "Payment not completed.", status: :unprocessable_content)
     end
 
+    if metadata_user_id.blank? || metadata_bid_pack_id.blank?
+      return render_error(code: :missing_metadata, message: "Checkout session is missing required metadata.", status: :unprocessable_content)
+    end
+
     ownership_error = validate_checkout_session_ownership(session)
     if ownership_error
       return render_error(code: :forbidden, message: ownership_error, status: :forbidden)
     end
 
     payment_intent_id = session.payment_intent
-    if metadata_bid_pack_id.blank?
-      return render_error(code: :missing_metadata, message: "Checkout session is missing bid pack metadata.", status: :unprocessable_content)
-    end
-
     requested_bid_pack_id = params[:bid_pack_id].to_s.presence || metadata_bid_pack_id
     bid_pack = BidPack.active.find(requested_bid_pack_id)
 
