@@ -101,40 +101,33 @@ module OasSchemas
       },
       required: %w[id name bids price status active]
     },
+    "User" => {
+      type: "object",
+      description: "Minimal user payload returned by authenticated endpoints.",
+      properties: {
+        id: { type: "integer" },
+        name: { type: "string" },
+        role: { type: "string" },
+        is_admin: { type: "boolean" },
+        is_superuser: { type: "boolean" }
+      },
+      required: %w[id name role is_admin is_superuser]
+    },
     "UserSession" => {
       type: "object",
-      description: "Session details and tokens returned after login/refresh.",
+      description: "Auth Contract v1 session details returned after signup/login/refresh.",
       properties: {
-        token: { type: "string", description: "JWT used for authenticated requests." },
+        access_token: { type: "string", description: "JWT used for authenticated requests." },
         refresh_token: { type: "string" },
-        session_token_id: { type: "integer" },
-        session: {
-          type: "object",
-          properties: {
-            session_token_id: { type: "integer" },
-            session_expires_at: { type: "string", format: "date-time" },
-            seconds_remaining: { type: "integer" }
-          },
-          required: %w[session_token_id session_expires_at seconds_remaining]
+        session_token_id: {
+          oneOf: [
+            { type: "integer" },
+            { type: "string" }
+          ]
         },
-        is_admin: { type: "boolean" },
-        is_superuser: { type: "boolean" },
-        redirect_path: { type: "string", nullable: true },
-        user: {
-          type: "object",
-          properties: {
-            id: { type: "integer" },
-            name: { type: "string" },
-            role: { type: "string" },
-            emailAddress: { type: "string", format: "email" },
-            bidCredits: { type: "integer" },
-            is_admin: { type: "boolean" },
-            is_superuser: { type: "boolean" }
-          },
-          required: %w[id name role emailAddress bidCredits]
-        }
+        user: { "$ref" => "#/components/schemas/User" }
       },
-      required: %w[token refresh_token session_token_id session is_admin is_superuser redirect_path user]
+      required: %w[access_token refresh_token session_token_id user]
     },
     "CheckoutSession" => {
       type: "object",

@@ -2521,92 +2521,62 @@
           }
         ]
       },
-      "UserSession": {
-        "description": "Session details and tokens returned after login/refresh.",
+      "User": {
+        "description": "Minimal user payload returned by authenticated endpoints.",
         "properties": {
+          "id": {
+            "type": "integer"
+          },
           "is_admin": {
             "type": "boolean"
           },
           "is_superuser": {
             "type": "boolean"
           },
-          "redirect_path": {
-            "nullable": true,
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "is_admin",
+          "is_superuser"
+        ],
+        "type": "object"
+      },
+      "UserSession": {
+        "description": "Auth Contract v1 session details returned after signup/login/refresh.",
+        "properties": {
+          "access_token": {
+            "description": "JWT used for authenticated requests.",
             "type": "string"
           },
           "refresh_token": {
             "type": "string"
           },
-          "session": {
-            "properties": {
-              "seconds_remaining": {
-                "type": "integer"
-              },
-              "session_expires_at": {
-                "format": "date-time",
-                "type": "string"
-              },
-              "session_token_id": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "session_token_id",
-              "session_expires_at",
-              "seconds_remaining"
-            ],
-            "type": "object"
-          },
           "session_token_id": {
-            "type": "integer"
-          },
-          "token": {
-            "description": "JWT used for authenticated requests.",
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
           },
           "user": {
-            "properties": {
-              "bidCredits": {
-                "type": "integer"
-              },
-              "emailAddress": {
-                "format": "email",
-                "type": "string"
-              },
-              "id": {
-                "type": "integer"
-              },
-              "is_admin": {
-                "type": "boolean"
-              },
-              "is_superuser": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name",
-              "role",
-              "emailAddress",
-              "bidCredits"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/User"
           }
         },
         "required": [
-          "token",
+          "access_token",
           "refresh_token",
           "session_token_id",
-          "session",
-          "is_admin",
-          "is_superuser",
-          "redirect_path",
           "user"
         ],
         "type": "object"
