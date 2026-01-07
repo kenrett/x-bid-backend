@@ -102,6 +102,19 @@ Regenerate the OpenAPI spec (CI will fail if `docs/api/openapi.json` is out of d
 bundle exec rails openapi:generate
 ```
 
+### Canonical OpenAPI artifact (for frontend CI/dev)
+
+Use the generated JSON file at `docs/api/openapi.json` as the single canonical artifact to feed client generation/validation.
+
+```bash
+bundle exec rails openapi:generate
+```
+
+- Canonical file path (in this repo): `docs/api/openapi.json`
+- Determinism: running `bundle exec rails openapi:generate` repeatedly produces identical output (canonicalized + deep-sorted).
+- Frontend environment example: `OPENAPI_SPEC_PATH=/path/to/x-bid-backend/docs/api/openapi.json`
+- Local dev alternative (when the backend is running): fetch the raw spec from `http://localhost:3000/api-docs.json` (or `http://localhost:3000/docs.json`).
+
 ## Architecture checks
 
 Ensure public services do not reference admin namespaces:
