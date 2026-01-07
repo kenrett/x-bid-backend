@@ -111,6 +111,7 @@ bundle exec rails openapi:generate
 ```
 
 - Canonical file path (in this repo): `docs/api/openapi.json`
+- CI artifact: job `openapi_drift` uploads `openapi-json` containing `openapi.json` (and `docs/api/openapi.json`).
 - Determinism: running `bundle exec rails openapi:generate` repeatedly produces identical output (canonicalized + deep-sorted).
 - Frontend environment example: `OPENAPI_SPEC_PATH=/path/to/x-bid-backend/docs/api/openapi.json`
 - Local dev alternative (when the backend is running): fetch the raw spec from `http://localhost:3000/api-docs.json` (or `http://localhost:3000/docs.json`).

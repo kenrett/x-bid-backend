@@ -119,16 +119,37 @@ jobs:
           cp docs/api/openapi.json /tmp/openapi.json
           bundle exec rails openapi:generate
           diff -u /tmp/openapi.json docs/api/openapi.json
+          cp docs/api/openapi.json openapi.json
+          test -f openapi.json
+
+      - name: Emit OpenAPI artifact metadata
+        id: openapi_meta
+        run: |
+          set -euo pipefail
+          echo "artifact_name=openapi-json" >> "$GITHUB_OUTPUT"
+          echo "spec_path=$(realpath openapi.json)" >> "$GITHUB_OUTPUT"
+          echo "run_id=${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "OpenAPI artifact: openapi-json"
+          echo "OpenAPI spec path: $(realpath openapi.json)"
+          echo "GitHub run id: ${GITHUB_RUN_ID}"
 
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@v4
         with:
           name: openapi-json
-          path: docs/api/openapi.json
+          path: |
+            openapi.json
+            docs/api/openapi.json
           if-no-files-found: error
+          retention-days: 14
 
       - name: Fail on schema drift
         run: git diff --stat --exit-code docs/api/openapi.json
+
+    outputs:
+      artifact_name: ${{ steps.openapi_meta.outputs.artifact_name }}
+      spec_path: ${{ steps.openapi_meta.outputs.spec_path }}
+      run_id: ${{ steps.openapi_meta.outputs.run_id }}
 
   frontend_contract:
     name: Frontend contract (CT-2)
@@ -144,7 +165,7 @@ jobs:
       - name: Download OpenAPI artifact
         uses: actions/download-artifact@v4
         with:
-          name: openapi-json
+          name: ${{ needs.openapi_drift.outputs.artifact_name }}
           path: openapi-artifact
 
       - name: Locate OpenAPI artifact path
