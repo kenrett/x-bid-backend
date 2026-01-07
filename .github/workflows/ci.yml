@@ -112,8 +112,13 @@ jobs:
       - name: Prepare database
         run: bundle exec rails db:prepare
 
-      - name: Generate OpenAPI spec
-        run: bundle exec rails openapi:generate
+      - name: Generate OpenAPI spec (deterministic)
+        run: |
+          set -euo pipefail
+          bundle exec rails openapi:generate
+          cp docs/api/openapi.json /tmp/openapi.json
+          bundle exec rails openapi:generate
+          diff -u /tmp/openapi.json docs/api/openapi.json
 
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@v4
@@ -136,49 +141,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine whether OpenAPI changed
-        id: openapi_changed
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin "${{ github.base_ref }}"
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^docs/api/openapi\.json$'; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip when OpenAPI unchanged
-        if: steps.openapi_changed.outputs.changed != 'true'
-        run: echo "OpenAPI unchanged; skipping frontend contract checks."
-
       - name: Download OpenAPI artifact
-        if: steps.openapi_changed.outputs.changed == 'true'
         uses: actions/download-artifact@v4
         with:
           name: openapi-json
           path: openapi-artifact
 
       - name: Locate OpenAPI artifact path
-        if: steps.openapi_changed.outputs.changed == 'true'
         id: openapi_path
         run: |
           set -euo pipefail
-          found="$(find openapi-artifact -type f -name openapi.json | head -n 1)"
+          found="$(find openapi-artifact -type f -name openapi.json -print -quit)"
           if [[ -z "${found}" ]]; then
             echo "::error::Unable to locate openapi.json in downloaded artifact; this workflow downloads the backend OpenAPI artifact and sets OPENAPI_SPEC_PATH for frontend scripts."
             find openapi-artifact -maxdepth 4 -type f -print || true
             exit 1
           fi
-          echo "path=${found}" >> "$GITHUB_OUTPUT"
+          echo "path=$(realpath "$found")" >> "$GITHUB_OUTPUT"
 
       - name: Export OPENAPI_SPEC_PATH for frontend steps
-        if: steps.openapi_changed.outputs.changed == 'true'
         run: |
           set -euo pipefail
           echo "OPENAPI_SPEC_PATH=${{ steps.openapi_path.outputs.path }}" >> "$GITHUB_ENV"
 
       - name: Validate frontend CI configuration
-        if: steps.openapi_changed.outputs.changed == 'true'
         run: |
           set -euo pipefail
           if [[ -z "${{ vars.FRONTEND_REPO || '' }}" ]]; then
@@ -187,7 +173,6 @@ jobs:
           fi
 
       - name: Checkout frontend repo
-        if: steps.openapi_changed.outputs.changed == 'true'
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.FRONTEND_REPO }}
@@ -197,30 +182,33 @@ jobs:
           token: ${{ secrets.FRONTEND_CI_TOKEN || github.token }}
 
       - name: Set up Node
-        if: steps.openapi_changed.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ vars.FRONTEND_NODE_VERSION || '20' }}
 
       - name: Install frontend dependencies
-        if: steps.openapi_changed.outputs.changed == 'true'
         working-directory: frontend
         run: |
           set -euo pipefail
-          if [[ -f pnpm-lock.yaml ]]; then
+          if [[ -f package-lock.json ]]; then
+            npm ci
+            echo "FRONTEND_PKG_MANAGER=npm" >> "$GITHUB_ENV"
+          elif [[ -f pnpm-lock.yaml ]]; then
             corepack enable
             pnpm -v
             pnpm install --frozen-lockfile
+            echo "FRONTEND_PKG_MANAGER=pnpm" >> "$GITHUB_ENV"
           elif [[ -f yarn.lock ]]; then
             corepack enable
             yarn -v
             yarn install --frozen-lockfile
+            echo "FRONTEND_PKG_MANAGER=yarn" >> "$GITHUB_ENV"
           else
-            npm ci
+            npm install
+            echo "FRONTEND_PKG_MANAGER=npm" >> "$GITHUB_ENV"
           fi
 
-      - name: Run frontend OpenAPI type generation (if present)
-        if: steps.openapi_changed.outputs.changed == 'true'
+      - name: Run frontend OpenAPI type checks (check:api-types)
         working-directory: frontend
         run: |
           set -euo pipefail
@@ -239,22 +227,23 @@ jobs:
             exit 1
           fi
 
-          if [[ -f package.json ]]; then
-            if node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit((s["openapi:types"]||s["openapi:generate"]||s["generate:openapi"])?0:1)'; then
-              if [[ -f pnpm-lock.yaml ]]; then
-                pnpm run openapi:types || pnpm run openapi:generate || pnpm run generate:openapi
-              elif [[ -f yarn.lock ]]; then
-                yarn run openapi:types || yarn run openapi:generate || yarn run generate:openapi
-              else
-                npm run openapi:types || npm run openapi:generate || npm run generate:openapi
-              fi
-            else
-              echo "No OpenAPI type generation script found; skipping."
-            fi
+          if [[ ! -f package.json ]]; then
+            echo "::error::No package.json found in frontend repo; cannot run check:api-types."
+            exit 1
           fi
+
+          if ! node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit(s["check:api-types"]?0:1)'; then
+            echo "::error::Missing required frontend script check:api-types. It should read OPENAPI_SPEC_PATH and fail if types drift."
+            exit 1
+          fi
+
+          case "${FRONTEND_PKG_MANAGER:-npm}" in
+            pnpm) pnpm run check:api-types ;;
+            yarn) yarn run check:api-types ;;
+            *) npm run check:api-types ;;
+          esac
 
       - name: Run frontend contract drift tests (CT-2)
-        if: steps.openapi_changed.outputs.changed == 'true'
         working-directory: frontend
         run: |
           set -euo pipefail
@@ -273,26 +262,23 @@ jobs:
             exit 1
           fi
 
-          if [[ -f package.json ]]; then
-            if node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit((s["ct-2"]||s["test:ct-2"]||s["test:ct2"])?0:1)'; then
-              if [[ -f pnpm-lock.yaml ]]; then
-                pnpm run ct-2 || pnpm run test:ct-2 || pnpm run test:ct2
-              elif [[ -f yarn.lock ]]; then
-                yarn run ct-2 || yarn run test:ct-2 || yarn run test:ct2
-              else
-                npm run ct-2 || npm run test:ct-2 || npm run test:ct2
-              fi
-            else
-              echo "::error::No CT-2 script found in frontend package.json (expected ct-2 or test:ct-2)."
-              exit 1
-            fi
-          else
-            echo "::error::No package.json found in frontend repo; cannot run CT-2."
+          if [[ ! -f package.json ]]; then
+            echo "::error::No package.json found in frontend repo; cannot run ct-2."
             exit 1
           fi
 
+          if ! node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit(s["ct-2"]?0:1)'; then
+            echo "::error::No ct-2 script found in frontend package.json (expected ct-2)."
+            exit 1
+          fi
+
+          case "${FRONTEND_PKG_MANAGER:-npm}" in
+            pnpm) pnpm run ct-2 ;;
+            yarn) yarn run ct-2 ;;
+            *) npm run ct-2 ;;
+          esac
+
       - name: Fail if frontend repo has uncommitted changes
-        if: steps.openapi_changed.outputs.changed == 'true'
         working-directory: frontend
         run: |
           set -euo pipefail
