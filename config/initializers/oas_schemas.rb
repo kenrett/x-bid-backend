@@ -129,6 +129,50 @@ module OasSchemas
       },
       required: %w[access_token refresh_token session_token_id user]
     },
+    "LoggedInStatus" => {
+      type: "object",
+      description: "Session validity and context returned by GET /api/v1/logged_in.",
+      properties: {
+        logged_in: { type: "boolean" },
+        user: { "$ref" => "#/components/schemas/User" },
+        is_admin: { type: "boolean" },
+        is_superuser: { type: "boolean" },
+        redirect_path: { type: "string", nullable: true },
+        session_token_id: {
+          oneOf: [
+            { type: "integer" },
+            { type: "string" }
+          ]
+        },
+        session_expires_at: { type: "string", format: "date-time" },
+        seconds_remaining: { type: "integer", minimum: 0 },
+        session: {
+          type: "object",
+          properties: {
+            session_token_id: {
+              oneOf: [
+                { type: "integer" },
+                { type: "string" }
+              ]
+            },
+            session_expires_at: { type: "string", format: "date-time" },
+            seconds_remaining: { type: "integer", minimum: 0 }
+          },
+          required: %w[session_token_id session_expires_at seconds_remaining]
+        }
+      },
+      required: %w[
+        logged_in
+        user
+        is_admin
+        is_superuser
+        redirect_path
+        session_token_id
+        session_expires_at
+        seconds_remaining
+        session
+      ]
+    },
     "CheckoutSession" => {
       type: "object",
       description: "Stripe checkout session details used to complete purchases.",

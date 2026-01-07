@@ -84,6 +84,20 @@ class OpenapiContractTest < ActionDispatch::IntegrationTest
     assert_openapi_response_schema!(method: :post, path: "/api/v1/session/refresh", status: response.status)
   end
 
+  test "GET /api/v1/logged_in matches OpenAPI (200 + 401)" do
+    user = create_actor(role: :user)
+
+    get "/api/v1/logged_in", headers: auth_headers_for(user)
+
+    assert_response :success
+    assert_openapi_response_schema!(method: :get, path: "/api/v1/logged_in", status: response.status)
+
+    get "/api/v1/logged_in"
+
+    assert_response :unauthorized
+    assert_openapi_response_schema!(method: :get, path: "/api/v1/logged_in", status: response.status)
+  end
+
   test "POST /api/v1/checkouts matches OpenAPI (200 + 401)" do
     user = create_actor(role: :user)
     user.update!(email_verified_at: Time.current)

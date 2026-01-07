@@ -497,23 +497,13 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/09eda044efad4320218b100180234bec"
-            }
-          }
-        },
-        "description": "Session valid"
-      },
-      "resp_009": {
-        "content": {
-          "application/json": {
-            "schema": {
               "$ref": "#/components/schemas/797b200d569c2326e602789cf5857a55"
             }
           }
         },
         "description": "Session timing"
       },
-      "resp_010": {
+      "resp_009": {
         "content": {
           "application/json": {
             "schema": {
@@ -523,7 +513,7 @@
         },
         "description": "Bid pack created"
       },
-      "resp_011": {
+      "resp_010": {
         "content": {
           "application/json": {
             "schema": {
@@ -533,7 +523,7 @@
         },
         "description": "Wins"
       },
-      "resp_012": {
+      "resp_011": {
         "content": {
           "application/json": {
             "schema": {
@@ -543,7 +533,7 @@
         },
         "description": "Purchases"
       },
-      "resp_013": {
+      "resp_012": {
         "content": {
           "application/json": {
             "schema": {
@@ -553,7 +543,7 @@
         },
         "description": "Auction extended"
       },
-      "resp_014": {
+      "resp_013": {
         "content": {
           "application/json": {
             "schema": {
@@ -563,7 +553,7 @@
         },
         "description": "Bid history"
       },
-      "resp_015": {
+      "resp_014": {
         "content": {
           "application/json": {
             "schema": {
@@ -573,7 +563,7 @@
         },
         "description": "Session refreshed"
       },
-      "resp_016": {
+      "resp_015": {
         "content": {
           "application/json": {
             "schema": {
@@ -583,7 +573,7 @@
         },
         "description": "Unprocessable content"
       },
-      "resp_017": {
+      "resp_016": {
         "content": {
           "application/json": {
             "schema": {
@@ -593,7 +583,7 @@
         },
         "description": "Admin auctions"
       },
-      "resp_018": {
+      "resp_017": {
         "content": {
           "application/json": {
             "schema": {
@@ -603,7 +593,7 @@
         },
         "description": "Bid packs"
       },
-      "resp_019": {
+      "resp_018": {
         "content": {
           "application/json": {
             "schema": {
@@ -613,7 +603,7 @@
         },
         "description": "Payments"
       },
-      "resp_020": {
+      "resp_019": {
         "content": {
           "application/json": {
             "schema": {
@@ -623,7 +613,7 @@
         },
         "description": "Bad request"
       },
-      "resp_021": {
+      "resp_020": {
         "content": {
           "application/json": {
             "schema": {
@@ -633,7 +623,7 @@
         },
         "description": "An unexpected error occurred on the server. The server was unable to process the request."
       },
-      "resp_022": {
+      "resp_021": {
         "content": {
           "application/json": {
             "schema": {
@@ -643,7 +633,7 @@
         },
         "description": "Auctions"
       },
-      "resp_023": {
+      "resp_022": {
         "content": {
           "application/json": {
             "schema": {
@@ -653,7 +643,7 @@
         },
         "description": "Wallet balance"
       },
-      "resp_024": {
+      "resp_023": {
         "content": {
           "application/json": {
             "schema": {
@@ -663,7 +653,7 @@
         },
         "description": "Role updated"
       },
-      "resp_025": {
+      "resp_024": {
         "content": {
           "application/json": {
             "schema": {
@@ -673,7 +663,7 @@
         },
         "description": "Auction updated"
       },
-      "resp_026": {
+      "resp_025": {
         "content": {
           "application/json": {
             "schema": {
@@ -683,7 +673,7 @@
         },
         "description": "User updated"
       },
-      "resp_027": {
+      "resp_026": {
         "content": {
           "application/json": {
             "schema": {
@@ -693,7 +683,7 @@
         },
         "description": "Success"
       },
-      "resp_028": {
+      "resp_027": {
         "content": {
           "application/json": {
             "schema": {
@@ -703,7 +693,7 @@
         },
         "description": "Refund issued"
       },
-      "resp_029": {
+      "resp_028": {
         "content": {
           "application/json": {
             "schema": {
@@ -713,7 +703,7 @@
         },
         "description": "Accepted"
       },
-      "resp_030": {
+      "resp_029": {
         "content": {
           "application/json": {
             "schema": {
@@ -723,7 +713,7 @@
         },
         "description": "Success"
       },
-      "resp_031": {
+      "resp_030": {
         "content": {
           "application/json": {
             "schema": {
@@ -733,7 +723,7 @@
         },
         "description": "Wallet transactions"
       },
-      "resp_032": {
+      "resp_031": {
         "content": {
           "application/json": {
             "schema": {
@@ -743,7 +733,7 @@
         },
         "description": "Win claimed"
       },
-      "resp_033": {
+      "resp_032": {
         "content": {
           "application/json": {
             "schema": {
@@ -752,6 +742,16 @@
           }
         },
         "description": "Already processed"
+      },
+      "resp_033": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/a1915689d62452760d2d6379f731a54c"
+            }
+          }
+        },
+        "description": "Session valid"
       },
       "resp_034": {
         "content": {
@@ -2181,6 +2181,85 @@
         ],
         "type": "object"
       },
+      "LoggedInStatus": {
+        "description": "Session validity and context returned by GET /api/v1/logged_in.",
+        "properties": {
+          "is_admin": {
+            "type": "boolean"
+          },
+          "is_superuser": {
+            "type": "boolean"
+          },
+          "logged_in": {
+            "type": "boolean"
+          },
+          "redirect_path": {
+            "nullable": true,
+            "type": "string"
+          },
+          "seconds_remaining": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "session": {
+            "properties": {
+              "seconds_remaining": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "session_expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "session_token_id": {
+                "oneOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "session_token_id",
+              "session_expires_at",
+              "seconds_remaining"
+            ],
+            "type": "object"
+          },
+          "session_expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "session_token_id": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "logged_in",
+          "user",
+          "is_admin",
+          "is_superuser",
+          "redirect_path",
+          "session_token_id",
+          "session_expires_at",
+          "seconds_remaining",
+          "session"
+        ],
+        "type": "object"
+      },
       "LoginRequest": {
         "description": "Login payload accepted by /api/v1/login (nested or flat).",
         "oneOf": [
@@ -2600,6 +2679,9 @@
         "items": "wonauction",
         "type": "array"
       },
+      "a1915689d62452760d2d6379f731a54c": {
+        "$ref": "#/components/schemas/LoggedInStatus"
+      },
       "a5a373a545e3cb0ecbc6b5a1ef83a993": {
         "properties": {
           "maintenance": {
@@ -2760,7 +2842,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_022"
+            "$ref": "#/components/responses/resp_021"
           },
           "422": {
             "$ref": "#/components/responses/resp_043"
@@ -2790,10 +2872,10 @@
             "$ref": "#/components/responses/resp_042"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -2823,7 +2905,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -2856,10 +2938,10 @@
             "$ref": "#/components/responses/resp_042"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -2892,10 +2974,10 @@
             "$ref": "#/components/responses/resp_042"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -2927,7 +3009,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -2945,7 +3027,7 @@
         "operationId": "POST__api_v1_account_data_export",
         "responses": {
           "202": {
-            "$ref": "#/components/responses/resp_029"
+            "$ref": "#/components/responses/resp_028"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -2957,7 +3039,7 @@
             "$ref": "#/components/responses/resp_048"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -2989,13 +3071,13 @@
             "$ref": "#/components/responses/resp_046"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "429": {
             "$ref": "#/components/responses/resp_061"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3015,10 +3097,10 @@
         "operationId": "GET__api_v1_account_export",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_030"
+            "$ref": "#/components/responses/resp_029"
           },
           "202": {
-            "$ref": "#/components/responses/resp_029"
+            "$ref": "#/components/responses/resp_028"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3027,7 +3109,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3059,7 +3141,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3092,10 +3174,10 @@
             "$ref": "#/components/responses/resp_042"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3127,10 +3209,10 @@
             "$ref": "#/components/responses/resp_046"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3150,7 +3232,7 @@
         "operationId": "GET__api_v1_account_security",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_027"
+            "$ref": "#/components/responses/resp_026"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3162,7 +3244,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3191,7 +3273,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3218,7 +3300,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3247,7 +3329,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3284,10 +3366,10 @@
             "$ref": "#/components/responses/resp_042"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3333,7 +3415,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_017"
+            "$ref": "#/components/responses/resp_016"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3342,7 +3424,7 @@
             "$ref": "#/components/responses/resp_051"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3379,7 +3461,7 @@
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3414,7 +3496,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3434,7 +3516,7 @@
         "operationId": "GET__api_v1_admin_bid-packs",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_018"
+            "$ref": "#/components/responses/resp_017"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3443,7 +3525,7 @@
             "$ref": "#/components/responses/resp_051"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3464,7 +3546,7 @@
         },
         "responses": {
           "201": {
-            "$ref": "#/components/responses/resp_010"
+            "$ref": "#/components/responses/resp_009"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3476,7 +3558,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3505,7 +3587,7 @@
             "$ref": "#/components/responses/resp_051"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3545,7 +3627,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3580,7 +3662,7 @@
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3621,7 +3703,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3662,7 +3744,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3699,7 +3781,7 @@
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3730,7 +3812,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3761,7 +3843,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3792,7 +3874,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3824,7 +3906,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3853,7 +3935,7 @@
             "$ref": "#/components/responses/resp_036"
           },
           "400": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_019"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3868,7 +3950,7 @@
             "$ref": "#/components/responses/resp_048"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3893,7 +3975,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_019"
+            "$ref": "#/components/responses/resp_018"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3902,7 +3984,7 @@
             "$ref": "#/components/responses/resp_051"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3936,7 +4018,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -3964,7 +4046,7 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_028"
+            "$ref": "#/components/responses/resp_027"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -3979,7 +4061,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4010,7 +4092,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4039,7 +4121,7 @@
             "$ref": "#/components/responses/resp_051"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4067,7 +4149,7 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_026"
+            "$ref": "#/components/responses/resp_025"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4082,7 +4164,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4108,7 +4190,7 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_026"
+            "$ref": "#/components/responses/resp_025"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4123,7 +4205,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4163,7 +4245,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4188,7 +4270,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_024"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4203,7 +4285,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4228,7 +4310,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_024"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4243,7 +4325,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4268,7 +4350,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_024"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4283,7 +4365,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4308,7 +4390,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_024"
+            "$ref": "#/components/responses/resp_023"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4323,7 +4405,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4348,7 +4430,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_022"
+            "$ref": "#/components/responses/resp_021"
           },
           "422": {
             "$ref": "#/components/responses/resp_043"
@@ -4379,7 +4461,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4404,7 +4486,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_014"
+            "$ref": "#/components/responses/resp_013"
           },
           "404": {
             "$ref": "#/components/responses/resp_002"
@@ -4442,7 +4524,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4482,7 +4564,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4529,7 +4611,7 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_025"
+            "$ref": "#/components/responses/resp_024"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4544,7 +4626,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4570,7 +4652,7 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_025"
+            "$ref": "#/components/responses/resp_024"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4585,7 +4667,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4610,7 +4692,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_013"
+            "$ref": "#/components/responses/resp_012"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4625,7 +4707,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4659,7 +4741,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4691,7 +4773,7 @@
             "$ref": "#/components/responses/resp_048"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4711,7 +4793,7 @@
         "operationId": "GET__api_v1_bid_packs",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_018"
+            "$ref": "#/components/responses/resp_017"
           }
         },
         "summary": "List available bid packs",
@@ -4743,7 +4825,7 @@
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4771,7 +4853,7 @@
             "$ref": "#/components/responses/resp_056"
           },
           "208": {
-            "$ref": "#/components/responses/resp_033"
+            "$ref": "#/components/responses/resp_032"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4786,7 +4868,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4826,7 +4908,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4858,7 +4940,7 @@
             "$ref": "#/components/responses/resp_061"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4886,7 +4968,7 @@
             "$ref": "#/components/responses/resp_037"
           },
           "422": {
-            "$ref": "#/components/responses/resp_016"
+            "$ref": "#/components/responses/resp_015"
           }
         },
         "summary": "Verify an email verification token",
@@ -4901,7 +4983,7 @@
         "operationId": "GET__api_v1_logged_in",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_008"
+            "$ref": "#/components/responses/resp_033"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4910,7 +4992,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -4936,7 +5018,7 @@
             "$ref": "#/components/responses/resp_004"
           },
           "400": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_019"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -4972,7 +5054,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5022,7 +5104,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5050,7 +5132,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5079,7 +5161,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5099,7 +5181,7 @@
         "operationId": "GET__api_v1_me_purchases",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_012"
+            "$ref": "#/components/responses/resp_011"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5108,7 +5190,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5145,7 +5227,7 @@
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5165,7 +5247,7 @@
         "operationId": "GET__api_v1_me_wins",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_011"
+            "$ref": "#/components/responses/resp_010"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5174,7 +5256,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5211,7 +5293,7 @@
             "$ref": "#/components/responses/resp_002"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5236,7 +5318,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_032"
+            "$ref": "#/components/responses/resp_031"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5251,7 +5333,7 @@
             "$ref": "#/components/responses/resp_043"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5274,7 +5356,7 @@
             "$ref": "#/components/responses/resp_064"
           },
           "400": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_019"
           },
           "422": {
             "$ref": "#/components/responses/resp_048"
@@ -5295,7 +5377,7 @@
             "$ref": "#/components/responses/resp_003"
           },
           "400": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_019"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5325,10 +5407,10 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_015"
+            "$ref": "#/components/responses/resp_014"
           },
           "400": {
-            "$ref": "#/components/responses/resp_020"
+            "$ref": "#/components/responses/resp_019"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5349,7 +5431,7 @@
         "operationId": "GET__api_v1_session_remaining",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_009"
+            "$ref": "#/components/responses/resp_008"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5358,7 +5440,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5408,7 +5490,7 @@
             "$ref": "#/components/responses/resp_048"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5449,7 +5531,7 @@
         "operationId": "GET__api_v1_wallet",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_023"
+            "$ref": "#/components/responses/resp_022"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5461,7 +5543,7 @@
             "$ref": "#/components/responses/resp_042"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [
@@ -5489,7 +5571,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_030"
           },
           "401": {
             "$ref": "#/components/responses/resp_065"
@@ -5498,7 +5580,7 @@
             "$ref": "#/components/responses/resp_046"
           },
           "500": {
-            "$ref": "#/components/responses/resp_021"
+            "$ref": "#/components/responses/resp_020"
           }
         },
         "security": [

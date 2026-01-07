@@ -84,7 +84,7 @@ module Api
       # GET /api/v1/logged_in
       # @summary Check whether the provided token is valid
       # Returns session and user context if the token is valid.
-      # @response Session valid (200) [UserSession]
+      # @response Session valid (200) [LoggedInStatus]
       # @response Unauthorized (401) [Error]
       def logged_in?
         if @current_user
