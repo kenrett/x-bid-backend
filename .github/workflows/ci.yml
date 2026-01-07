@@ -165,11 +165,17 @@ jobs:
           set -euo pipefail
           found="$(find openapi-artifact -type f -name openapi.json | head -n 1)"
           if [[ -z "${found}" ]]; then
-            echo "::error::Unable to locate openapi.json in downloaded artifact"
+            echo "::error::Unable to locate openapi.json in downloaded artifact; this workflow downloads the backend OpenAPI artifact and sets OPENAPI_SPEC_PATH for frontend scripts."
             find openapi-artifact -maxdepth 4 -type f -print || true
             exit 1
           fi
           echo "path=${found}" >> "$GITHUB_OUTPUT"
+
+      - name: Export OPENAPI_SPEC_PATH for frontend steps
+        if: steps.openapi_changed.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          echo "OPENAPI_SPEC_PATH=${{ steps.openapi_path.outputs.path }}" >> "$GITHUB_ENV"
 
       - name: Validate frontend CI configuration
         if: steps.openapi_changed.outputs.changed == 'true'
@@ -216,12 +222,20 @@ jobs:
       - name: Run frontend OpenAPI type generation (if present)
         if: steps.openapi_changed.outputs.changed == 'true'
         working-directory: frontend
-        env:
-          BACKEND_OPENAPI_PATH: ${{ steps.openapi_path.outputs.path }}
         run: |
           set -euo pipefail
-          if [[ ! -f "$BACKEND_OPENAPI_PATH" ]]; then
-            echo "::error::Missing OpenAPI artifact at $BACKEND_OPENAPI_PATH"
+          if [[ -z "${OPENAPI_SPEC_PATH:-}" ]]; then
+            echo "::error::OPENAPI_SPEC_PATH is not set; it should be populated from the downloaded OpenAPI artifact."
+            exit 1
+          fi
+
+          if [[ "$OPENAPI_SPEC_PATH" =~ ^https?:// ]]; then
+            echo "::error::OPENAPI_SPEC_PATH must be a local file path (not a URL)."
+            exit 1
+          fi
+
+          if [[ ! -f "$OPENAPI_SPEC_PATH" ]]; then
+            echo "::error::Missing OpenAPI artifact at $OPENAPI_SPEC_PATH (downloaded artifact -> OPENAPI_SPEC_PATH)."
             exit 1
           fi
 
@@ -242,10 +256,23 @@ jobs:
       - name: Run frontend contract drift tests (CT-2)
         if: steps.openapi_changed.outputs.changed == 'true'
         working-directory: frontend
-        env:
-          BACKEND_OPENAPI_PATH: ${{ steps.openapi_path.outputs.path }}
         run: |
           set -euo pipefail
+          if [[ -z "${OPENAPI_SPEC_PATH:-}" ]]; then
+            echo "::error::OPENAPI_SPEC_PATH is not set; it should be populated from the downloaded OpenAPI artifact."
+            exit 1
+          fi
+
+          if [[ "$OPENAPI_SPEC_PATH" =~ ^https?:// ]]; then
+            echo "::error::OPENAPI_SPEC_PATH must be a local file path (not a URL)."
+            exit 1
+          fi
+
+          if [[ ! -f "$OPENAPI_SPEC_PATH" ]]; then
+            echo "::error::Missing OpenAPI artifact at $OPENAPI_SPEC_PATH (downloaded artifact -> OPENAPI_SPEC_PATH)."
+            exit 1
+          fi
+
           if [[ -f package.json ]]; then
             if node -e 'p=require("./package.json"); s=(p.scripts||{}); process.exit((s["ct-2"]||s["test:ct-2"]||s["test:ct2"])?0:1)'; then
               if [[ -f pnpm-lock.yaml ]]; then
