@@ -182,7 +182,7 @@ jobs:
           token: ${{ secrets.FRONTEND_CI_TOKEN || github.token }}
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ vars.FRONTEND_NODE_VERSION || '20' }}
 
