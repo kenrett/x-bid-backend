@@ -18,7 +18,9 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
   test "creates an audit log on login" do
     user = User.create!(name: "User", email_address: "audit_login@example.com", password: "password", bid_credits: 0)
 
-    post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password" } }, headers: ip_headers("1.2.3.4")
+    post "/api/v1/login",
+         params: { session: { email_address: user.email_address, password: "password" } },
+         headers: ip_headers("1.2.3.4").merge("User-Agent" => "Minitest UA")
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -29,6 +31,7 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("session_token_id"), log.session_token_id
     assert log.request_id.present?
     assert_equal "1.2.3.4", log.ip_address
+    assert_equal "Minitest UA", log.user_agent
   end
 
   test "creates an audit log when a payment is applied via checkout success" do
@@ -54,7 +57,9 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
     )
 
     Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success", params: { session_id: "cs_audit_1" }, headers: auth_headers(user, session_token)
+      get "/api/v1/checkout/success",
+          params: { session_id: "cs_audit_1" },
+          headers: auth_headers(user, session_token, user_agent: "Minitest UA")
     end
     assert_response :success
 
@@ -63,9 +68,47 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
     assert_equal user.id, log.actor_id
     assert_equal session_token.id, log.session_token_id
     assert log.request_id.present?
+    assert_equal "Minitest UA", log.user_agent
     assert_equal "pi_audit_1", log.payload["stripe_payment_intent_id"]
     assert_equal "cs_audit_1", log.payload["stripe_checkout_session_id"]
     assert log.payload["purchase_id"].present?
+  end
+
+  test "creates an audit log when a bid is placed" do
+    user = User.create!(
+      name: "Bidder",
+      email_address: "audit_bid@example.com",
+      password: "password",
+      role: :user,
+      bid_credits: 0,
+      email_verified_at: Time.current
+    )
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("audit_bid"), expires_at: 1.hour.from_now)
+    Credits::Apply.apply!(user: user, reason: "seed", amount: 2, idempotency_key: "audit:bid:seed:#{user.id}")
+
+    auction = Auction.create!(
+      title: "Audit Bid Auction",
+      description: "Desc",
+      start_date: 1.minute.ago,
+      end_time: 10.minutes.from_now,
+      current_price: BigDecimal("1.00"),
+      status: :active
+    )
+
+    post "/api/v1/auctions/#{auction.id}/bids",
+         headers: auth_headers(user, session_token, ip: "2.2.2.2", user_agent: "Minitest UA")
+
+    assert_response :success
+
+    log = AuditLog.order(:created_at).where(action: "auction.bid.placed", actor_id: user.id).last
+    assert log, "Expected an AuditLog for auction.bid.placed"
+    assert_equal user.id, log.user_id
+    assert_equal session_token.id, log.session_token_id
+    assert log.request_id.present?
+    assert_equal "2.2.2.2", log.ip_address
+    assert_equal "Minitest UA", log.user_agent
+    assert_equal auction.id, log.payload["auction_id"]
+    assert log.payload["bid_id"].present?
   end
 
   test "creates an audit log for an admin action" do
@@ -74,7 +117,7 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
 
     post "/api/v1/admin/audit",
          params: { audit: { action: "incident.test", target_type: "User", target_id: admin.id, payload: { "ok" => true } } },
-         headers: auth_headers(admin, session_token)
+         headers: auth_headers(admin, session_token, user_agent: "Minitest UA")
 
     assert_response :created
     log = AuditLog.order(:created_at).where(action: "incident.test", actor_id: admin.id).last
@@ -82,14 +125,17 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
     assert_equal admin.id, log.user_id
     assert_equal session_token.id, log.session_token_id
     assert log.request_id.present?
+    assert_equal "Minitest UA", log.user_agent
   end
 
   private
 
-  def auth_headers(user, session_token, exp: 1.hour.from_now.to_i, ip: "9.9.9.9")
+  def auth_headers(user, session_token, exp: 1.hour.from_now.to_i, ip: "9.9.9.9", user_agent: nil)
     payload = { user_id: user.id, session_token_id: session_token.id, exp: exp }
     token = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
-    ip_headers(ip).merge("Authorization" => "Bearer #{token}")
+    headers = ip_headers(ip).merge("Authorization" => "Bearer #{token}")
+    headers["User-Agent"] = user_agent if user_agent.present?
+    headers
   end
 
   def ip_headers(ip)

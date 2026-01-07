@@ -56,6 +56,8 @@ class ApplicationController < ActionController::API
 
   def set_request_context
     Current.request_id = request.request_id
+    Current.ip_address = request.remote_ip
+    Current.user_agent = request.user_agent
   end
 
   def set_request_id_header

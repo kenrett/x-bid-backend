@@ -10,8 +10,8 @@ class AuditLogger
       request_id: request_id || request&.request_id || Current.request_id,
       target: target,
       payload: payload || {},
-      ip_address: request&.remote_ip,
-      user_agent: request&.user_agent
+      ip_address: request&.remote_ip || Current.ip_address,
+      user_agent: request&.user_agent || Current.user_agent
     )
   rescue ActiveRecord::ActiveRecordError => e
     Rails.logger.error("AuditLogger failure: #{e.message}")
