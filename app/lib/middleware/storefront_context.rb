@@ -8,6 +8,7 @@ module Middleware
       request = ActionDispatch::Request.new(env)
       storefront_key = Storefront::Resolver.resolve(request)
       Current.storefront_key = storefront_key
+      ErrorReporting::StorefrontTagging.set!(storefront_key: storefront_key)
 
       # TODO: hook policy enforcement based on `Current.storefront_key` here.
 
@@ -18,6 +19,7 @@ module Middleware
         @app.call(env)
       end
     ensure
+      ErrorReporting::StorefrontTagging.clear!
       Current.storefront_key = nil
     end
   end
