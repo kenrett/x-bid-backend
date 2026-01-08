@@ -1,6 +1,10 @@
 module Auctions
   module Queries
     class PublicIndex < Base
+      def self.call(params: {}, relation: Auction.all)
+        new(params: params, relation: relation).call
+      end
+
       def initialize(params: {}, relation: Auction.all)
         super(params: params)
         @relation = relation

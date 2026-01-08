@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_06_000000) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_08_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -105,6 +105,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_000000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.bigint "winning_user_id"
+    t.boolean "is_adult", default: false, null: false
+    t.index ["is_adult"], name: "index_auctions_on_is_adult"
     t.index ["winning_user_id"], name: "index_auctions_on_winning_user_id"
     t.check_constraint "current_price >= 0::numeric", name: "auctions_current_price_non_negative"
   end
@@ -282,6 +284,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_000000) do
     t.text "user_agent"
     t.string "ip_address"
     t.datetime "last_seen_at"
+    t.datetime "age_verified_at"
     t.index ["expires_at"], name: "index_session_tokens_on_expires_at"
     t.index ["last_seen_at"], name: "index_session_tokens_on_last_seen_at"
     t.index ["token_digest"], name: "index_session_tokens_on_token_digest", unique: true

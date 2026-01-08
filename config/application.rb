@@ -47,7 +47,9 @@ module XBidBackend
     config.middleware.use Rack::Attack
     config.middleware.insert_after Rack::Attack, ::SecurityHeaders
     config.middleware.insert_after Rack::Attack, Middleware::RequestSizeLimiter
-    config.middleware.insert_after Middleware::RequestSizeLimiter, Middleware::StorefrontContext
+    # Must run after the executor wraps the request, otherwise Current.* can be reset
+    # and storefront_key won't be available to controllers.
+    config.middleware.insert_after ActionDispatch::Executor, Middleware::StorefrontContext
 
     config.middleware.insert_before Rack::Runtime, Rack::Timeout
     unless Rails.env.test?

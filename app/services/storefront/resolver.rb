@@ -19,7 +19,7 @@ module Storefront
         return DEFAULT_KEY
       end
 
-      host_key = resolve_from_host(request.host.to_s)
+      host_key = resolve_from_host(extract_host(request))
       return host_key if host_key
 
       DEFAULT_KEY
@@ -38,6 +38,19 @@ module Storefront
       end
 
       DEFAULT_KEY if %w[localhost 127.0.0.1 0.0.0.0].include?(normalized)
+    end
+
+    def self.extract_host(request)
+      forwarded = request.headers["X-Forwarded-Host"].to_s
+        .split(",")
+        .map(&:strip)
+        .reject(&:blank?)
+        .last
+
+      raw = forwarded.presence || request.get_header("HTTP_HOST").to_s
+      host = raw.to_s.strip.downcase
+      host = host.split(":").first if host.include?(":")
+      host.presence || request.host.to_s
     end
 
     def self.log_invalid_header_key(request:, invalid_key:)

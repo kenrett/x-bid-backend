@@ -3,6 +3,10 @@ module Auctions
     class PublicShow < Base
       attr_reader :record
 
+      def self.call(params: {}, relation: Auction.all)
+        new(params: params, relation: relation).call
+      end
+
       def initialize(params: {}, relation: Auction.all)
         super(params: params)
         @relation = relation
@@ -27,7 +31,8 @@ module Auctions
           :current_price,
           :image_url,
           :status,
-          :winning_user_id
+          :winning_user_id,
+          :is_adult
         )
       end
     end

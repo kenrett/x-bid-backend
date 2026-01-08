@@ -1,6 +1,7 @@
 class ApplicationController < ActionController::API
   include ErrorRenderer
   attr_reader :current_session_token
+  before_action :set_storefront_context
   before_action :set_request_context
   before_action :enforce_maintenance_mode
   after_action :set_request_id_header
@@ -53,6 +54,10 @@ class ApplicationController < ActionController::API
   end
 
   private
+
+  def set_storefront_context
+    Current.storefront_key ||= Storefront::Resolver.resolve(request)
+  end
 
   def set_request_context
     Current.request_id = request.request_id

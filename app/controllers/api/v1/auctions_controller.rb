@@ -13,14 +13,18 @@ module Api
       # @response Validation error (422) [Error]
       # @no_auth
       def index
+        storefront_key = Current.storefront_key
+        scoped = Storefront::Policy.scope_auctions(relation: Auction.all, storefront_key: storefront_key)
+        vary_on_storefront_key!
+
         ttl = public_index_cache_ttl
         expires_in ttl, public: true, must_revalidate: true, "s-maxage": ttl.to_i, stale_while_revalidate: public_index_swr
 
         last_modified = Auction.maximum(:updated_at)&.utc || Time.at(0).utc
-        etag = [ "auctions-index", params[:status].to_s, last_modified.to_i, Auction.count ]
+        etag = [ "auctions-index", storefront_key.to_s, params[:status].to_s, last_modified.to_i, Auction.count ]
         return unless stale?(etag: etag, last_modified: last_modified, public: true)
 
-        result = ::Auctions::Queries::PublicIndex.call(params: public_index_params)
+        result = ::Auctions::Queries::PublicIndex.call(params: public_index_params, relation: scoped)
         render json: result.records, each_serializer: Api::V1::AuctionSerializer
       end
 
@@ -31,15 +35,37 @@ module Api
       # @response Not found (404) [Error]
       # @no_auth
       def show
-        auction = Auction.select(:id, :status, :updated_at).find(params[:id])
+        storefront_key = Current.storefront_key
+        scoped = Storefront::Policy.scope_auctions(relation: Auction.all, storefront_key: storefront_key)
+        vary_on_storefront_key!
+
+        auction = scoped.select(:id, :status, :updated_at, :is_adult).find(params[:id])
+        if Storefront::Policy.adult_detail?(auction)
+          session_token = Auth::OptionalSession.session_token_from_request(request)
+          unless Storefront::Policy.can_view_adult_detail?(storefront_key: storefront_key, session_token: session_token, auction: auction)
+            expires_now
+            response.headers["Cache-Control"] = "no-store"
+            return render_error(
+              code: "AGE_GATE_REQUIRED",
+              message: "Age gate acceptance required to view this item.",
+              status: :forbidden
+            )
+          end
+
+          expires_now
+          response.headers["Cache-Control"] = "no-store"
+          result = ::Auctions::Queries::PublicShow.call(params: { id: params[:id] }, relation: scoped)
+          return render json: result.record, include: :bids, serializer: Api::V1::AuctionSerializer
+        end
+
         ttl = public_show_cache_ttl(auction)
         expires_in ttl, public: true, must_revalidate: true, "s-maxage": ttl.to_i, stale_while_revalidate: public_show_swr(ttl)
 
         last_modified = auction.updated_at&.utc || Time.at(0).utc
-        etag = [ "auctions-show", auction.id, auction.status, last_modified.to_i ]
+        etag = [ "auctions-show", storefront_key.to_s, auction.id, auction.status, last_modified.to_i ]
         return unless stale?(etag: etag, last_modified: last_modified, public: true)
 
-        result = ::Auctions::Queries::PublicShow.call(params: { id: params[:id] })
+        result = ::Auctions::Queries::PublicShow.call(params: { id: params[:id] }, relation: scoped)
         render json: result.record, include: :bids, serializer: Api::V1::AuctionSerializer
       rescue ActiveRecord::RecordNotFound
         render_error(code: :not_found, message: "Auction not found", status: :not_found)
@@ -133,8 +159,17 @@ module Api
           :status,
           :start_date,
           :end_time,
-          :current_price
+          :current_price,
+          :is_adult
         )
+      end
+
+      def vary_on_storefront_key!
+        vary = response.headers["Vary"].to_s
+        return response.headers["Vary"] = "X-Storefront-Key" if vary.blank?
+        return if vary.split(",").map(&:strip).include?("X-Storefront-Key")
+
+        response.headers["Vary"] = "#{vary}, X-Storefront-Key"
       end
 
       def normalized_auction_params

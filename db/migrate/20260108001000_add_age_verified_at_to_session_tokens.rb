@@ -1,0 +1,5 @@
+class AddAgeVerifiedAtToSessionTokens < ActiveRecord::Migration[8.0]
+  def change
+    add_column :session_tokens, :age_verified_at, :datetime
+  end
+end
