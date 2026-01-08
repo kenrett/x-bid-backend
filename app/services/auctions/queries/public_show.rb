@@ -32,7 +32,8 @@ module Auctions
           :image_url,
           :status,
           :winning_user_id,
-          :is_adult
+          :is_adult,
+          :is_artisan
         )
       end
     end

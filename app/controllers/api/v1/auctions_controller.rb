@@ -39,7 +39,11 @@ module Api
         scoped = Storefront::Policy.scope_auctions(relation: Auction.all, storefront_key: storefront_key)
         vary_on_storefront_key!
 
-        auction = scoped.select(:id, :status, :updated_at, :is_adult).find(params[:id])
+        auction = scoped.select(:id, :status, :updated_at, :is_adult, :is_artisan).find(params[:id])
+        unless Storefront::Policy.can_view_artisan_detail?(storefront_key: storefront_key, auction: auction)
+          raise ActiveRecord::RecordNotFound
+        end
+
         if Storefront::Policy.adult_detail?(auction)
           session_token = Auth::OptionalSession.session_token_from_request(request)
           unless Storefront::Policy.can_view_adult_detail?(storefront_key: storefront_key, session_token: session_token, auction: auction)
@@ -160,7 +164,8 @@ module Api
           :start_date,
           :end_time,
           :current_price,
-          :is_adult
+          :is_adult,
+          :is_artisan
         )
       end
 
