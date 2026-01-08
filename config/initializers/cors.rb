@@ -11,10 +11,18 @@ frontend_origins = FrontendOrigins.for_env!
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins frontend_origins.presence || "http://localhost:5173"
+    biddersweet_origins = %w[
+      https://biddersweet.app
+      https://afterdark.biddersweet.app
+      https://artisan.biddersweet.app
+      https://account.biddersweet.app
+    ]
+
+    allowed_origins = (frontend_origins.presence || [ "http://localhost:5173" ]) + biddersweet_origins
+    origins(*allowed_origins.uniq)
 
     resource "/api/*",
-      headers: %w[Authorization Content-Type Accept Origin],
+      headers: %w[Authorization Content-Type Accept Origin X-Storefront-Key],
       methods: [ :get, :post, :put, :patch, :delete, :options, :head ]
 
     resource "/cable",
