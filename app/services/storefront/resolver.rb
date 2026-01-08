@@ -15,7 +15,7 @@ module Storefront
       if header_value.present?
         return header_value if CANONICAL_KEYS.include?(header_value)
 
-        Rails.logger.warn("storefront.resolve.invalid_header_key key=#{header_value.inspect} defaulting=#{DEFAULT_KEY}")
+        log_invalid_header_key(request: request, invalid_key: header_value)
         return DEFAULT_KEY
       end
 
@@ -38,6 +38,24 @@ module Storefront
       end
 
       DEFAULT_KEY if %w[localhost 127.0.0.1 0.0.0.0].include?(normalized)
+    end
+
+    def self.log_invalid_header_key(request:, invalid_key:)
+      logger = Rails.logger
+      message = [
+        "storefront.resolve.invalid_header_key",
+        "invalid_key=#{invalid_key.inspect}",
+        "resolved_to=#{DEFAULT_KEY}",
+        "host=#{request.host.to_s.inspect}",
+        "path=#{request.fullpath.to_s.inspect}",
+        "request_id=#{request.request_id.to_s.inspect}"
+      ].join(" ")
+
+      if logger.respond_to?(:tagged)
+        logger.tagged("storefront=#{DEFAULT_KEY}") { logger.warn(message) }
+      else
+        logger.warn(message)
+      end
     end
   end
 end
