@@ -4,6 +4,8 @@ class MoneyEvent < ApplicationRecord
   belongs_to :user
   belongs_to :source, polymorphic: true, optional: true
 
+  include StorefrontKeyable
+
   enum :event_type, EVENT_TYPES.index_with(&:itself), validate: true
 
   validates :amount_cents, numericality: { only_integer: true }

@@ -7,6 +7,8 @@ class CreditTransaction < ApplicationRecord
   belongs_to :admin_actor, class_name: "User", optional: true
   belongs_to :stripe_event, optional: true
 
+  include StorefrontKeyable
+
   enum :kind, KINDS.index_with(&:itself)
 
   validates :kind, :reason, :idempotency_key, presence: true

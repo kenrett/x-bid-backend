@@ -3,6 +3,7 @@ module Admin
     class Upsert < Admin::BaseCommand
       def initialize(actor:, auction: nil, attrs:, request: nil)
         auction ||= ::Auction.new
+        auction.storefront_key ||= Current.storefront_key.to_s.presence
         normalized_attrs = normalize_status(attrs)
         super(actor: actor, auction: auction, attrs: normalized_attrs, request: request)
       end

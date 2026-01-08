@@ -5,7 +5,7 @@ module Credits
     class << self
       # Credits bid credits to a user for any reason (e.g., purchase, refund).
       # Uses the ledger as the source of truth and keeps the cached balance in sync.
-      def apply!(user:, reason:, amount:, idempotency_key:, kind: :grant, purchase: nil, auction: nil, admin_actor: nil, stripe_event: nil, stripe_payment_intent_id: nil, stripe_checkout_session_id: nil, metadata: {})
+      def apply!(user:, reason:, amount:, idempotency_key:, kind: :grant, purchase: nil, auction: nil, admin_actor: nil, stripe_event: nil, stripe_payment_intent_id: nil, stripe_checkout_session_id: nil, metadata: {}, storefront_key: nil)
         raise ArgumentError, "User must be provided" unless user
         raise ArgumentError, "Reason must be provided" if reason.blank?
         raise ArgumentError, "Amount must be non-zero" if amount.to_i == 0
@@ -42,6 +42,12 @@ module Credits
 
           Credits::Ledger.bootstrap!(user)
 
+          resolved_storefront_key =
+            storefront_key.to_s.presence ||
+              purchase&.storefront_key.to_s.presence ||
+              auction&.storefront_key.to_s.presence ||
+              Current.storefront_key.to_s.presence
+
           begin
             CreditTransaction.create!(
               user: user,
@@ -55,7 +61,8 @@ module Credits
               stripe_event: stripe_event,
               stripe_payment_intent_id: stripe_payment_intent_id,
               stripe_checkout_session_id: stripe_checkout_session_id,
-              metadata: metadata || {}
+              metadata: metadata || {},
+              storefront_key: resolved_storefront_key
             )
           rescue ActiveRecord::RecordNotUnique
             existing = CreditTransaction.find_by!(idempotency_key: idempotency_key)

@@ -42,7 +42,8 @@ module Payments
                 source_type: "StripePaymentIntent",
                 source_id: payment_intent_id,
                 occurred_at: Time.current,
-                metadata: { purchase_id: purchase.id, refund_id: refund_id, reason: reason, source: source }.compact
+                metadata: { purchase_id: purchase.id, refund_id: refund_id, reason: reason, source: source }.compact,
+                storefront_key: purchase.storefront_key
               )
             rescue ActiveRecord::RecordNotUnique
               nil
@@ -69,6 +70,7 @@ module Payments
                   idempotency_key: credit_key,
                   kind: :debit,
                   purchase: purchase,
+                  storefront_key: purchase.storefront_key,
                   stripe_payment_intent_id: payment_intent_id,
                   stripe_checkout_session_id: purchase.stripe_checkout_session_id,
                   metadata: { source: source, refund_id: refund_id, refunded_amount_cents: new_total_refunded, policy: "proportional_safe" }.compact

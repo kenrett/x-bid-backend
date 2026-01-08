@@ -3,6 +3,8 @@ class Purchase < ApplicationRecord
   belongs_to :bid_pack
   belongs_to :ledger_grant_credit_transaction, class_name: "CreditTransaction", optional: true
 
+  include StorefrontKeyable
+
   STATUSES = %w[pending completed partially_refunded refunded voided failed].freeze
   RECEIPT_STATUSES = { pending: 0, available: 1, unavailable: 2 }.freeze
 

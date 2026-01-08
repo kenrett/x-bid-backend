@@ -8,6 +8,8 @@ class Auction < ApplicationRecord
   has_many :auction_watches, dependent: :destroy
   has_one :settlement, class_name: "AuctionSettlement", dependent: :destroy
 
+  include StorefrontKeyable
+
   enum :status, { pending: 0, active: 1, ended: 2, cancelled: 3, inactive: 4 }
 
   validates :title, :description, :start_date, presence: true

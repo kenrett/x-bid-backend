@@ -19,7 +19,8 @@ module Credits
         amount: cached,
         reason: "opening balance snapshot",
         idempotency_key: "bootstrap:user:#{user.id}",
-        metadata: { bootstrap: true }
+        metadata: { bootstrap: true },
+        storefront_key: Current.storefront_key.to_s.presence
       )
     rescue ActiveRecord::RecordNotUnique
       # If two threads race to bootstrap, the unique idempotency_key prevents duplicates.

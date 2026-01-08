@@ -33,6 +33,7 @@ module Payments
               bid_pack: bid_pack,
               amount_cents: amount_cents.to_i,
               currency: currency.to_s,
+              storefront_key: purchase.storefront_key.presence || Current.storefront_key.to_s.presence,
               stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
               stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
               stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
@@ -56,6 +57,7 @@ module Payments
                 bid_pack: bid_pack,
                 amount_cents: amount_cents.to_i,
                 currency: currency.to_s,
+                storefront_key: purchase.storefront_key.presence || Current.storefront_key.to_s.presence,
                 stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id.presence,
                 stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || stripe_checkout_session_id.presence,
                 stripe_event_id: purchase.stripe_event_id.presence || stripe_event_id.presence,
@@ -77,6 +79,7 @@ module Payments
               amount_cents: amount_cents,
               currency: currency,
               stripe_payment_intent_id: stripe_payment_intent_id,
+              storefront_key: purchase.storefront_key,
               occurred_at: Time.current,
               metadata: {
                 purchase_id: purchase.id,
@@ -98,6 +101,7 @@ module Payments
               idempotency_key: credit_idempotency_key,
               purchase: purchase,
               stripe_event: stripe_event,
+              storefront_key: purchase.storefront_key,
               stripe_payment_intent_id: stripe_payment_intent_id,
               stripe_checkout_session_id: stripe_checkout_session_id,
               metadata: { source: source }
@@ -223,7 +227,7 @@ module Payments
         [ url, status, charge_id ]
       end
 
-      def record_purchase_money_event!(user:, amount_cents:, currency:, stripe_payment_intent_id:, occurred_at:, metadata:)
+      def record_purchase_money_event!(user:, amount_cents:, currency:, stripe_payment_intent_id:, storefront_key:, occurred_at:, metadata:)
         return if stripe_payment_intent_id.blank?
 
         MoneyEvent.transaction(requires_new: true) do
@@ -235,7 +239,8 @@ module Payments
             source_type: "StripePaymentIntent",
             source_id: stripe_payment_intent_id.to_s,
             occurred_at: occurred_at,
-            metadata: metadata
+            metadata: metadata,
+            storefront_key: storefront_key
           )
         end
       rescue ActiveRecord::RecordNotUnique

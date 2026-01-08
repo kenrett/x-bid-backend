@@ -80,11 +80,13 @@ module Auctions
       raise BidRaceLostError if current != @starting_price
       raise BidRaceLostError if current >= bid_amount
 
+      resolved_storefront_key = storefront_key_for_write
+
       debit_user_credits!
-      @bid = @auction.bids.create!(user: @user, amount: bid_amount)
+      @bid = @auction.bids.create!(user: @user, amount: bid_amount, storefront_key: resolved_storefront_key)
 
       @auction.update!(current_price: bid_amount, winning_user: @user)
-      record_bid_spent_money_event!
+      record_bid_spent_money_event!(storefront_key: resolved_storefront_key)
       AppLogger.log(event: "bid.saved", auction_id: @auction.id, bid_id: @bid.id, user_id: @user.id, amount: bid_amount)
       AuditLogger.log(
         action: "auction.bid.placed",
@@ -103,18 +105,20 @@ module Auctions
         user: @user,
         auction: @auction,
         idempotency_key: "bid_debit:user:#{@user.id}:auction:#{@auction.id}:amount:#{bid_amount}",
-        locked: true
+        locked: true,
+        storefront_key: storefront_key_for_write
       )
     end
 
-    def record_bid_spent_money_event!
+    def record_bid_spent_money_event!(storefront_key:)
       MoneyEvents::Record.call(
         user: @user,
         event_type: :bid_spent,
         amount_cents: -1,
         currency: "usd",
         source: @bid,
-        occurred_at: Time.current
+        occurred_at: Time.current,
+        storefront_key: storefront_key
       )
     end
 
@@ -163,6 +167,10 @@ module Auctions
         user_id: @user.id,
         auction_id: @auction.id
       )
+    end
+
+    def storefront_key_for_write
+      Current.storefront_key.to_s.presence || @auction.storefront_key.to_s.presence
     end
   end
 end

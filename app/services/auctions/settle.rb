@@ -26,7 +26,8 @@ module Auctions
         final_price: final_price,
         currency: "usd",
         status: status,
-        ended_at: Time.current
+        ended_at: Time.current,
+        storefront_key: auction.storefront_key
       )
 
       if settlement.pending_payment?
