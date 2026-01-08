@@ -1,0 +1,43 @@
+module Storefront
+  class Resolver
+    CANONICAL_KEYS = %w[main afterdark artisan].freeze
+    DEFAULT_KEY = "main"
+
+    HOST_MAPPING = {
+      "biddersweet.app" => "main",
+      "www.biddersweet.app" => "main",
+      "afterdark.biddersweet.app" => "afterdark",
+      "artisan.biddersweet.app" => "artisan"
+    }.freeze
+
+    def self.resolve(request)
+      header_value = request.headers["X-Storefront-Key"].to_s.strip.downcase
+      if header_value.present?
+        return header_value if CANONICAL_KEYS.include?(header_value)
+
+        Rails.logger.warn("storefront.resolve.invalid_header_key key=#{header_value.inspect} defaulting=#{DEFAULT_KEY}")
+        return DEFAULT_KEY
+      end
+
+      host_key = resolve_from_host(request.host.to_s)
+      return host_key if host_key
+
+      DEFAULT_KEY
+    end
+
+    def self.resolve_from_host(host)
+      normalized = host.to_s.strip.downcase
+      return DEFAULT_KEY if normalized.blank?
+
+      mapped = HOST_MAPPING[normalized]
+      return mapped if mapped
+
+      if normalized.end_with?(".localhost")
+        subdomain = normalized.delete_suffix(".localhost").split(".").first
+        return subdomain if CANONICAL_KEYS.include?(subdomain)
+      end
+
+      DEFAULT_KEY if %w[localhost 127.0.0.1 0.0.0.0].include?(normalized)
+    end
+  end
+end

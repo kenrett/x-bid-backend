@@ -13,6 +13,7 @@ require "action_text/engine"
 require "action_view/railtie"
 require "action_cable/engine"
 require_relative "../app/lib/middleware/request_size_limiter"
+require_relative "../app/lib/middleware/storefront_context"
 # require "rails/test_unit/railtie"
 require "rack/deflater"
 
@@ -46,6 +47,7 @@ module XBidBackend
     config.middleware.use Rack::Attack
     config.middleware.insert_after Rack::Attack, ::SecurityHeaders
     config.middleware.insert_after Rack::Attack, Middleware::RequestSizeLimiter
+    config.middleware.insert_after Middleware::RequestSizeLimiter, Middleware::StorefrontContext
 
     config.middleware.insert_before Rack::Runtime, Rack::Timeout
     unless Rails.env.test?
