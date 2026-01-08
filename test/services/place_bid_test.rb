@@ -1,6 +1,8 @@
 require "test_helper"
 
 class PlaceBidTest < ActiveSupport::TestCase
+  include ActiveSupport::Testing::TimeHelpers
+
   def setup
     @user1 = User.create!(name: "User 1", email_address: "user1@example.com", password: "password", bid_credits: 10, role: :user)
     @user2 = User.create!(name: "User 2", email_address: "user2@example.com", password: "password", bid_credits: 5, role: :user)
@@ -145,14 +147,16 @@ class PlaceBidTest < ActiveSupport::TestCase
   end
 
   test "should extend auction if bid arrives in last 10 seconds" do
-    # Set end time to be in the near future to trigger the extension logic.
-    @auction.update!(end_time: 5.seconds.from_now)
+    travel_to(Time.current) do
+      # Set end time to be in the near future to trigger the extension logic.
+      @auction.update!(end_time: 5.seconds.from_now)
 
-    Auctions::PlaceBid.new(user: @user1, auction: @auction).call
+      Auctions::PlaceBid.new(user: @user1, auction: @auction).call
 
-    extended_end_time = @auction.reload.end_time
-    expected_end_time = Time.current + Auctions::PlaceBid::EXTENSION_WINDOW
-    assert_in_delta expected_end_time, extended_end_time, 1.second, "Auction end time should be reset to 10 seconds from now"
+      extended_end_time = @auction.reload.end_time
+      expected_end_time = Time.current + Auctions::PlaceBid::EXTENSION_WINDOW
+      assert_in_delta expected_end_time, extended_end_time, 0.5.seconds, "Auction end time should be reset to 10 seconds from now"
+    end
   end
 
   test "should handle concurrent bids safely" do
