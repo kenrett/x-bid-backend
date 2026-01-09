@@ -7,8 +7,11 @@ class SecurityHeaders
   end
 
   def call(env)
+    request = ActionDispatch::Request.new(env)
     status, headers, body = @app.call(env)
     headers ||= {}
+
+    return [ status, headers, body ] unless api_response?(request, headers)
 
     script_nonce = SecureRandom.base64(16)
     expose_nonce_to_rails(env, script_nonce)
@@ -54,21 +57,36 @@ class SecurityHeaders
       "https://cloudflareinsights.com"
     ].join(" ")
 
+    json_csp = [
+      "default-src 'self'",
+      "script-src #{script_sources}",
+      "script-src-elem #{script_sources}",
+      "connect-src #{connect_sources}",
+      "frame-ancestors 'none'",
+      "base-uri 'none'",
+      "form-action 'self'"
+    ].join("; ")
+
     {
-      "Content-Security-Policy" => [
-        "default-src 'self'",
-        "script-src #{script_sources}",
-        "script-src-elem #{script_sources}",
-        "connect-src #{connect_sources}",
-        "frame-ancestors 'none'",
-        "base-uri 'none'",
-        "form-action 'self'"
-      ].join("; "),
+      "Content-Security-Policy" => json_csp,
       "Referrer-Policy" => "no-referrer",
       "Permissions-Policy" => "geolocation=(), microphone=(), camera=()",
       "X-Content-Type-Options" => "nosniff",
       "Cross-Origin-Opener-Policy" => "same-origin",
       "Cross-Origin-Resource-Policy" => "same-origin"
     }
+  end
+
+  def api_response?(request, headers)
+    return true if request.path.start_with?("/api")
+
+    content_type = (headers["Content-Type"] || request.content_type || "").to_s
+    json_content?(content_type)
+  end
+
+  def json_content?(content_type)
+    content_type.start_with?("application/json") ||
+      content_type.start_with?("application/vnd") ||
+      content_type.start_with?("text/event-stream")
   end
 end

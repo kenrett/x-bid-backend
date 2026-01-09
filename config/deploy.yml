@@ -52,6 +52,7 @@ env:
 
     # Log everything from Rails
     # RAILS_LOG_LEVEL: debug
+    REDIS_URL: redis://x_bid_backend-redis:6379/1
 
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.
@@ -62,7 +63,7 @@ aliases:
   dbc: app exec --interactive --reuse "bin/rails dbconsole"
 
 
-# Use a persistent storage volume for sqlite database files and local Active Storage files.
+# Use a persistent storage volume for postgres database files and local Active Storage files.
 # Recommended to change this to a mounted volume path that is backed up off server.
 volumes:
   - "x_bid_backend_storage:/rails/storage"
@@ -108,9 +109,9 @@ builder:
 #       - db/production.sql:/docker-entrypoint-initdb.d/setup.sql
 #     directories:
 #       - data:/var/lib/mysql
-#   redis:
-#     image: redis:7.0
-#     host: 192.168.0.2
-#     port: 6379
-#     directories:
-#       - data:/data
+  redis:
+    image: redis:7.0
+    host: 192.168.0.1
+    port: 6379
+    directories:
+      - x_bid_backend_redis_data:/data

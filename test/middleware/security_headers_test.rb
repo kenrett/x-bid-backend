@@ -2,7 +2,7 @@ require "test_helper"
 
 class SecurityHeadersTest < ActionDispatch::IntegrationTest
   test "adds baseline headers" do
-    get "/up"
+    get "/api/v1/auctions"
 
     csp = response.headers["Content-Security-Policy"]
 
@@ -19,7 +19,7 @@ class SecurityHeadersTest < ActionDispatch::IntegrationTest
 
   test "emits HSTS only over SSL in production" do
     Rails.stub(:env, ActiveSupport::EnvironmentInquirer.new("production")) do
-      get "/up", headers: { "HTTPS" => "on" }
+      get "/api/v1/auctions", headers: { "HTTPS" => "on" }
       assert_match(/max-age=/, response.headers["Strict-Transport-Security"])
     end
   end

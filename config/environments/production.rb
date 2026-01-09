@@ -46,8 +46,12 @@ Rails.application.configure do
   # -----------------------------
   # CACHE STORE (SAFE FOR RENDER)
   # -----------------------------
-  # Using memory store for now — simple, no external dependencies.
-  config.cache_store = :memory_store, { size: 64.megabytes }
+  # Use Redis for durable caching (required for Rack::Attack and rate limits)
+  config.cache_store = :redis_cache_store, {
+    url: ENV.fetch("REDIS_URL"),
+    namespace: "x-bid:cache",
+    error_handler: ->(method:, returning:, exception:) { Rails.logger.error("Redis cache error: #{exception}") }
+  }
 
   # -----------------------------
   # ACTIVE JOB BACKEND
@@ -99,4 +103,9 @@ Rails.application.configure do
     "localhost",
     "127.0.0.1"
   ].compact
+
+  # Fail fast if cache is not durable in production
+  if Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
+    raise "In-memory cache is not allowed in production. Check REDIS_URL."
+  end
 end
