@@ -1,7 +1,7 @@
 require_relative "with_storefront_context"
 
 class ApplicationJob < ActiveJob::Base
-  include Jobs::WithStorefrontContext
+  include WithStorefrontContext
   # Automatically retry jobs that encountered a deadlock
   # retry_on ActiveRecord::Deadlocked
 
