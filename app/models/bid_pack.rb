@@ -1,6 +1,8 @@
 class BidPack < ApplicationRecord
   has_many :purchases, dependent: :destroy
 
+  include StorefrontKeyable
+
   enum :status, { active: 0, retired: 1 }, default: :active
 
   scope :active, -> { where(status: statuses[:active]) }
@@ -16,7 +18,11 @@ class BidPack < ApplicationRecord
   # This ensures the API response matches the format expected by the front end.
   def as_json(options = {})
     # Get the default hash of attributes from the parent class.
-    super(options).merge(
+    options ||= {}
+    except = Array(options[:except]).map(&:to_s)
+    except << "storefront_key"
+
+    super(options.merge(except: except)).merge(
       "pricePerBid" => formatted_price_per_bid
     )
   end

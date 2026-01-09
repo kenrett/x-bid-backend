@@ -38,6 +38,10 @@ class StorefrontKeyAttributionTest < ActionDispatch::IntegrationTest
     money_event = MoneyEvent.where(user: user, event_type: "bid_spent", source_type: "Bid", source_id: bid.id.to_s).order(created_at: :desc).first
     assert money_event.present?
     assert_equal "afterdark", money_event.storefront_key
+
+    audit_log = AuditLog.where(action: "auction.bid.placed", user_id: user.id).order(created_at: :desc).first
+    assert audit_log.present?
+    assert_equal "afterdark", audit_log.storefront_key
   end
 
   test "background writes default storefront_key to main with warning" do

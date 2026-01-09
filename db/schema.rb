@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_08_003300) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -134,13 +134,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_003300) do
     t.string "request_id"
     t.bigint "session_token_id"
     t.bigint "user_id"
+    t.string "storefront_key"
     t.index ["action"], name: "index_audit_logs_on_action"
     t.index ["actor_id"], name: "index_audit_logs_on_actor_id"
     t.index ["created_at"], name: "index_audit_logs_on_created_at"
     t.index ["request_id"], name: "index_audit_logs_on_request_id"
     t.index ["session_token_id"], name: "index_audit_logs_on_session_token_id"
+    t.index ["storefront_key", "created_at"], name: "index_audit_logs_on_storefront_key_and_created_at"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
     t.index ["user_id"], name: "index_audit_logs_on_user_id"
+    t.check_constraint "storefront_key IS NOT NULL", name: "audit_logs_storefront_key_not_null"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "audit_logs_storefront_key_allowed"
   end
 
   create_table "bid_packs", force: :cascade do |t|
@@ -154,9 +158,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_003300) do
     t.boolean "active", default: true, null: false
     t.integer "status", default: 0, null: false
     t.string "sku"
+    t.string "storefront_key"
     t.index ["active"], name: "index_bid_packs_on_active"
     t.index ["sku"], name: "index_bid_packs_on_sku", unique: true
     t.index ["status"], name: "index_bid_packs_on_status"
+    t.index ["storefront_key"], name: "index_bid_packs_on_storefront_key"
+    t.check_constraint "storefront_key IS NOT NULL", name: "bid_packs_storefront_key_not_null"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "bid_packs_storefront_key_allowed"
   end
 
   create_table "bids", force: :cascade do |t|

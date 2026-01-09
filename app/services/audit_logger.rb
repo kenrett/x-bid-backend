@@ -8,6 +8,7 @@ class AuditLogger
       user_id: user_id,
       session_token_id: session_token_id || Current.session_token_id,
       request_id: request_id || request&.request_id || Current.request_id,
+      storefront_key: Current.storefront_key.to_s.presence,
       target: target,
       payload: payload || {},
       ip_address: request&.remote_ip || Current.ip_address,

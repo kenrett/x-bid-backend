@@ -11,6 +11,7 @@ module Admin
 
       def perform
         @bid_pack.assign_attributes(@attrs)
+        @bid_pack.storefront_key ||= Current.storefront_key.to_s.presence
 
         if @bid_pack.save
           AuditLogger.log(action: action_name, actor: @actor, target: @bid_pack, payload: @attrs, request: @request)
