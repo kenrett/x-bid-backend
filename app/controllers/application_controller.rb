@@ -10,25 +10,11 @@ class ApplicationController < ActionController::API
   rescue_from ActionDispatch::Http::Parameters::ParseError, with: :handle_parse_error
 
   def authenticate_request!
-    header = request.headers["Authorization"]
-    return render_error(code: :invalid_token, message: "Authorization header missing", status: :unauthorized) unless header
-
-    token = header.split(" ").last
-    return render_error(code: :invalid_token, message: "Token missing from Authorization header", status: :unauthorized) unless token
+    token = extract_authorization_token
+    return render_error(code: :invalid_token, message: "Authorization header missing", status: :unauthorized) unless token
 
     begin
-      decoded = JWT.decode(
-        token,
-        Rails.application.secret_key_base,
-        true,
-        {
-          algorithm: "HS256",
-          verify_expiration: true,
-          verify_iat: true,
-          verify_not_before: true
-        }
-      )[0]
-      session_token = SessionToken.find_by(id: decoded["session_token_id"])
+      session_token = session_token_from_jwt(token)
       unless session_token&.active?
         SessionEventBroadcaster.session_invalidated(session_token, reason: "expired") if session_token
         return render_error(code: :invalid_session, message: "Session has expired", status: :unauthorized)
@@ -121,22 +107,10 @@ class ApplicationController < ActionController::API
   end
 
   def maintenance_admin_override?
-    header = request.headers["Authorization"]
-    return false unless header
+    token = extract_authorization_token
+    return false unless token
 
-    token = header.split(" ").last
-    decoded = JWT.decode(
-      token,
-      Rails.application.secret_key_base,
-      true,
-      {
-        algorithm: "HS256",
-        verify_expiration: true,
-        verify_iat: true,
-        verify_not_before: true
-      }
-    ).first
-    session_token = SessionToken.find_by(id: decoded["session_token_id"])
+    session_token = session_token_from_jwt(token)
     return false unless session_token&.active?
 
     user = session_token.user
@@ -187,6 +161,28 @@ class ApplicationController < ActionController::API
     session_token.update_columns(updates)
   rescue StandardError => e
     AppLogger.error(event: "auth.session_token.track_failed", error: e, session_token_id: session_token&.id)
+  end
+
+  def extract_authorization_token
+    header = request.headers["Authorization"]
+    return nil if header.blank?
+
+    header.split(" ").last
+  end
+
+  def session_token_from_jwt(token)
+    decoded = JWT.decode(
+      token,
+      Rails.application.secret_key_base,
+      true,
+      {
+        algorithm: "HS256",
+        verify_expiration: true,
+        verify_iat: true,
+        verify_not_before: true
+      }
+    ).first
+    SessionToken.find(decoded["session_token_id"])
   end
 
   def handle_parameter_missing(exception)
