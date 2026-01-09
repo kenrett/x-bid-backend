@@ -25,7 +25,10 @@ class AuctionSettlementEmailNotificationsTest < ActiveSupport::TestCase
     end
 
     assert settlement.present?
-    assert_enqueued_with(job: AuctionWinEmailJob, args: [ settlement.id ])
+    assert_enqueued_with(
+      job: AuctionWinEmailJob,
+      args: [ settlement.id, { storefront_key: settlement.storefront_key } ]
+    )
 
     notification = Notification.find_by(user: user, kind: "auction_won")
     assert notification.present?

@@ -85,7 +85,10 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
         source: "test"
       )
     end
-    assert_enqueued_with(job: PurchaseReceiptEmailJob, args: [ result1.purchase.id ])
+    assert_enqueued_with(
+      job: PurchaseReceiptEmailJob,
+      args: [ result1.purchase.id, { storefront_key: result1.purchase.storefront_key } ]
+    )
     assert_equal 1, Notification.where(user: @user, kind: "purchase_completed").count
 
     result2 = nil
@@ -167,7 +170,10 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
         source: "test"
       )
     end
-    assert_enqueued_with(job: PurchaseReceiptEmailJob, args: [ result.purchase.id ])
+    assert_enqueued_with(
+      job: PurchaseReceiptEmailJob,
+      args: [ result.purchase.id, { storefront_key: result.purchase.storefront_key } ]
+    )
     assert_equal 1, Notification.where(user: @user, kind: "purchase_completed").count
 
     assert result.ok?

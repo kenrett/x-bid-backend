@@ -34,40 +34,31 @@ module Credits
         end
 
         user.with_lock do
-          existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
-          if existing
-            raise ArgumentError, "Idempotency key belongs to a different user" if existing.user_id != user.id
-            return Credits::RebuildBalance.call!(user: user, lock: false)
-          end
-
           Credits::Ledger.bootstrap!(user)
 
           resolved_storefront_key =
             storefront_key.to_s.presence ||
               purchase&.storefront_key.to_s.presence ||
-              auction&.storefront_key.to_s.presence ||
-              Current.storefront_key.to_s.presence
+              auction&.storefront_key.to_s.presence
 
-          begin
-            CreditTransaction.create!(
-              user: user,
-              kind: kind,
-              amount: amount.to_i,
-              reason: reason,
-              idempotency_key: idempotency_key,
-              purchase: purchase,
-              auction: auction,
-              admin_actor: admin_actor,
-              stripe_event: stripe_event,
-              stripe_payment_intent_id: stripe_payment_intent_id,
-              stripe_checkout_session_id: stripe_checkout_session_id,
-              metadata: metadata || {},
-              storefront_key: resolved_storefront_key
-            )
-          rescue ActiveRecord::RecordNotUnique
-            existing = CreditTransaction.find_by!(idempotency_key: idempotency_key)
-            raise ArgumentError, "Idempotency key belongs to a different user" if existing.user_id != user.id
-          end
+          result = Credits::Ledger::Writer.write!(
+            user: user,
+            kind: normalized_kind,
+            amount: normalized_amount,
+            reason: reason,
+            idempotency_key: idempotency_key,
+            purchase: purchase,
+            auction: auction,
+            admin_actor: admin_actor,
+            stripe_event: stripe_event,
+            stripe_payment_intent_id: stripe_payment_intent_id,
+            stripe_checkout_session_id: stripe_checkout_session_id,
+            metadata: metadata,
+            storefront_key: resolved_storefront_key,
+            entry_type: reason
+          )
+
+          return Credits::RebuildBalance.call!(user: user, lock: false) if result.existing?
 
           new_balance = Credits::RebuildBalance.call!(user: user, lock: false)
           AppLogger.log(

@@ -153,7 +153,7 @@ module Payments
         end
 
         unless result&.idempotent
-          PurchaseReceiptEmailJob.perform_later(result.purchase.id)
+        PurchaseReceiptEmailJob.perform_later(result.purchase.id, storefront_key: result.purchase.storefront_key)
           Notification.create!(
             user: user,
             kind: :purchase_completed,

@@ -63,4 +63,35 @@ class StorefrontKeyAttributionTest < ActionDispatch::IntegrationTest
 
     assert warnings.any? { |msg| msg.to_s.include?("storefront_key.defaulted") }
   end
+
+  test "artisan request persists storefront_key on bid ledger entries" do
+    user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
+
+    auction = Auction.create!(
+      title: "Artisan Auction",
+      description: "Desc",
+      start_date: 1.minute.ago,
+      end_time: 1.hour.from_now,
+      current_price: BigDecimal("1.00"),
+      status: :active,
+      storefront_key: "artisan"
+    )
+
+    host!("artisan.biddersweet.app")
+    Credits::Apply.apply!(
+      user: user,
+      reason: "seed_grant",
+      amount: 1,
+      idempotency_key: "test:storefront_key_attribution:seed:#{user.id}",
+      storefront_key: "artisan"
+    )
+
+    post "/api/v1/auctions/#{auction.id}/bids", headers: auth_headers_for(user)
+    assert_response :success
+
+    credit_tx = CreditTransaction.where(user: user, auction: auction, reason: "bid_placed").order(created_at: :desc).first
+    assert credit_tx.present?
+    assert_equal "artisan", credit_tx.storefront_key
+  end
 end

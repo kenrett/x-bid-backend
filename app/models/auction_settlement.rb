@@ -62,7 +62,7 @@ class AuctionSettlement < ApplicationRecord
   def enqueue_win_email
     return unless winning_user_id.present?
 
-    AuctionWinEmailJob.perform_later(id)
+    AuctionWinEmailJob.perform_later(id, storefront_key: storefront_key)
     Notification.create!(
       user_id: winning_user_id,
       kind: :auction_won,

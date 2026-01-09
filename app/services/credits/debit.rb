@@ -36,21 +36,17 @@ module Credits
         resolved_storefront_key =
           storefront_key.to_s.presence || Current.storefront_key.to_s.presence || auction.storefront_key.to_s.presence
 
-        begin
-          CreditTransaction.create!(
-            user: user,
-            auction: auction,
-            kind: :debit,
-            amount: -1,
-            reason: "bid_placed",
-            idempotency_key: idempotency_key,
-            metadata: {},
-            storefront_key: resolved_storefront_key
-          )
-        rescue ActiveRecord::RecordNotUnique
-          existing = CreditTransaction.find_by!(idempotency_key: idempotency_key)
-          raise ArgumentError, "Idempotency key belongs to a different user" if existing.user_id != user.id
-        end
+        Credits::Ledger::Writer.write!(
+          user: user,
+          auction: auction,
+          kind: :debit,
+          amount: -1,
+          reason: "bid_placed",
+          idempotency_key: idempotency_key,
+          storefront_key: resolved_storefront_key,
+          metadata: {},
+          entry_type: "bid_spend"
+        )
 
         remaining = Credits::RebuildBalance.call!(user: user, lock: false)
         log_debit(user:, auction:, remaining:)

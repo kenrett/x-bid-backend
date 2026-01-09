@@ -13,14 +13,15 @@ module Credits
       cached = user.bid_credits.to_i
       return if cached.zero?
 
-      CreditTransaction.create!(
+      Credits::Ledger::Writer.write!(
         user: user,
         kind: :grant,
         amount: cached,
         reason: "opening balance snapshot",
         idempotency_key: "bootstrap:user:#{user.id}",
         metadata: { bootstrap: true },
-        storefront_key: Current.storefront_key.to_s.presence
+        storefront_key: Current.storefront_key.to_s.presence,
+        entry_type: "bootstrap"
       )
     rescue ActiveRecord::RecordNotUnique
       # If two threads race to bootstrap, the unique idempotency_key prevents duplicates.

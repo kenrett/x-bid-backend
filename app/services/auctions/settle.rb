@@ -31,7 +31,9 @@ module Auctions
       )
 
       if settlement.pending_payment?
-        ExpireAuctionSettlementsJob.set(wait_until: settlement.retry_window_ends_at).perform_later
+        ExpireAuctionSettlementsJob
+          .set(wait_until: settlement.retry_window_ends_at)
+          .perform_later(storefront_key: settlement.storefront_key)
       end
 
       AppLogger.log(
