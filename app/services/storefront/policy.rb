@@ -2,11 +2,8 @@ module Storefront
   module Policy
     module_function
 
-    ADULT_CATALOG_STOREFRONT_KEY = "afterdark"
-    ARTISAN_STOREFRONT_KEY = "artisan"
-
     def can_access_adult_catalog?(storefront_key)
-      storefront_key.to_s == ADULT_CATALOG_STOREFRONT_KEY
+      Storefront::Capabilities.adult_catalog_enabled?(storefront_key)
     end
 
     def scope_auctions(relation:, storefront_key:)
@@ -14,14 +11,11 @@ module Storefront
 
       # TODO: Phase 4 UGC - add curated-inventory rules/metadata (e.g. collections, featured sets)
       # and enforce them here instead of using simple boolean flags.
-
       scoped = relation
 
-      if key == ARTISAN_STOREFRONT_KEY
-        # Artisan storefront is curated inventory only.
+      if Storefront::Capabilities.artisan_catalog_enabled?(key)
         scoped = scoped.where(is_artisan: true)
       else
-        # Artisan-only inventory must never leak to other storefronts.
         scoped = scoped.where(is_artisan: false)
       end
 
@@ -46,6 +40,8 @@ module Storefront
 
       session_token&.respond_to?(:age_verified_at) && session_token.age_verified_at.present?
     end
+
+    ARTISAN_STOREFRONT_KEY = "artisan"
 
     def can_view_artisan_detail?(storefront_key:, auction:)
       return true unless artisan_detail?(auction)
