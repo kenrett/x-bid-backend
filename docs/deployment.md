@@ -65,7 +65,7 @@ X-Bid must maintain strict separation across:
 
 ### Backend ENV vars (typical categories)
 - Auth secrets (JWT signing, rails secret key base)
-- Database credentials / `DATABASE_URL`
+- Database credentials / `DATABASE_URL` (see Database Config)
 - CORS allowed origins
 - Stripe secrets (live vs test)
 - Webhook signing secret (live vs test)
