@@ -185,6 +185,139 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal "pending", Purchase.find_by!(stripe_payment_intent_id: "pi_456").receipt_status
   end
 
+  test "duplicate deliveries with different stripe events stay idempotent" do
+    Payments::StripeReceiptLookup.stub(:lookup, ->(*) { [ :available, "https://stripe.example/receipts/dup", "ch_dup" ] }) do
+      first = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_dup",
+        stripe_payment_intent_id: "pi_dup",
+        stripe_event_id: "evt_dup_1",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      second = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_dup",
+        stripe_payment_intent_id: "pi_dup",
+        stripe_event_id: "evt_dup_2",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      assert first.ok?
+      assert second.ok?
+      assert second.idempotent
+      purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_dup")
+      assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+      assert_equal 100, @user.reload.bid_credits
+    end
+  end
+
+  test "out-of-order events still converge" do
+    Payments::StripeReceiptLookup.stub(:lookup, ->(*) { [ :available, "https://stripe.example/receipts/out", "ch_out" ] }) do
+      later = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_out",
+        stripe_payment_intent_id: "pi_out",
+        stripe_event_id: "evt_out_later",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      earlier = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_out",
+        stripe_payment_intent_id: "pi_out",
+        stripe_event_id: "evt_out_earlier",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      assert later.ok?
+      assert earlier.ok?
+      assert earlier.idempotent
+      assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_out").count
+    end
+  end
+
+  test "partial failure then replay converges" do
+    Payments::StripeReceiptLookup.stub(:lookup, ->(*) { [ :available, "https://stripe.example/receipts/partial", "ch_partial" ] }) do
+      applied = 0
+      real_apply = Credits::Apply.method(:apply!)
+
+      Credits::Apply.stub(:apply!, lambda { |**kwargs|
+        applied += 1
+        raise "boom" if applied == 1
+        real_apply.call(**kwargs)
+      }) do
+        first_failed = Payments::ApplyBidPackPurchase.call!(
+          user: @user,
+          bid_pack: @bid_pack,
+          stripe_checkout_session_id: "cs_partial",
+          stripe_payment_intent_id: "pi_partial",
+          stripe_event_id: "evt_partial",
+          amount_cents: 100,
+          currency: "usd",
+          source: "test"
+        )
+
+        refute first_failed.ok?
+      end
+
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: "cs_partial",
+        stripe_payment_intent_id: "pi_partial",
+        stripe_event_id: "evt_partial",
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+
+      assert result.ok?
+      assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_partial").count
+      assert_equal 1, CreditTransaction.where(stripe_payment_intent_id: "pi_partial").count
+    end
+  end
+
+  test "concurrent requests credit exactly once" do
+    Payments::StripeReceiptLookup.stub(:lookup, ->(*) { [ :available, "https://stripe.example/receipts/conc", "ch_conc" ] }) do
+      key = "evt_conc"
+      threads = []
+
+      2.times do
+        threads << Thread.new do
+          Payments::ApplyBidPackPurchase.call!(
+            user: @user,
+            bid_pack: @bid_pack,
+            stripe_checkout_session_id: "cs_conc",
+            stripe_payment_intent_id: "pi_conc",
+            stripe_event_id: key,
+            amount_cents: 100,
+            currency: "usd",
+            source: "test"
+          )
+        end
+      end
+
+      threads.each(&:join)
+
+      purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_conc")
+      assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
+      assert_equal 100, @user.reload.bid_credits
+    end
+  end
+
   test "partial failure does not apply state" do
     Credits::Apply.stub(:apply!, ->(**_) { raise "boom" }) do
       result = Payments::ApplyBidPackPurchase.call!(
