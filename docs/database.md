@@ -9,13 +9,14 @@ The application relies on `ENV["DATABASE_URL"]` for the production database conn
 
 ## Configuration
 
-In production (Kamal), this must be set in the `env` block or secrets.
+In production (Kamal), this is configured in `config/deploy.yml` to be injected from secrets.
 
-### Example `deploy.yml`
+### `config/deploy.yml`
 
 ```yaml
 env:
   secret:
+    - RAILS_MASTER_KEY
     - DATABASE_URL
 ```
 
