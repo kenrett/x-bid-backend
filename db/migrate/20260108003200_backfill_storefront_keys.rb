@@ -150,13 +150,51 @@ class BackfillStorefrontKeys < ActiveRecord::Migration[8.0]
   end
 
   def disable_money_events_mutation_triggers!
-    execute "ALTER TABLE money_events DISABLE TRIGGER money_events_prevent_update"
-    execute "ALTER TABLE money_events DISABLE TRIGGER money_events_prevent_delete"
+    execute <<~SQL
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = 'money_events_prevent_update'
+            AND tgrelid = 'money_events'::regclass
+        ) THEN
+          ALTER TABLE money_events DISABLE TRIGGER money_events_prevent_update;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = 'money_events_prevent_delete'
+            AND tgrelid = 'money_events'::regclass
+        ) THEN
+          ALTER TABLE money_events DISABLE TRIGGER money_events_prevent_delete;
+        END IF;
+      END;
+      $$;
+    SQL
   end
 
   def enable_money_events_mutation_triggers!
-    execute "ALTER TABLE money_events ENABLE TRIGGER money_events_prevent_update"
-    execute "ALTER TABLE money_events ENABLE TRIGGER money_events_prevent_delete"
+    execute <<~SQL
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = 'money_events_prevent_update'
+            AND tgrelid = 'money_events'::regclass
+        ) THEN
+          ALTER TABLE money_events ENABLE TRIGGER money_events_prevent_update;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = 'money_events_prevent_delete'
+            AND tgrelid = 'money_events'::regclass
+        ) THEN
+          ALTER TABLE money_events ENABLE TRIGGER money_events_prevent_delete;
+        END IF;
+      END;
+      $$;
+    SQL
   rescue StandardError => e
     say "Warning: failed to re-enable money_events mutation triggers: #{e.class}: #{e.message}"
   end
