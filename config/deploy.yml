@@ -64,7 +64,8 @@ aliases:
   dbc: app exec --interactive --reuse "bin/rails dbconsole"
 
 
-# Use a persistent storage volume for local Active Storage files.
+# Use a persistent storage volume for local Active Storage files (uploads).
+# This is NOT for the database (Production uses PostgreSQL via DATABASE_URL).
 # Recommended to change this to a mounted volume path that is backed up off server.
 volumes:
   - "x_bid_backend_storage:/rails/storage"
