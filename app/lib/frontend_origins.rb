@@ -39,8 +39,17 @@ module FrontendOrigins
     normalized
   end
 
+  def local_origins
+    %w[
+      http://localhost:5173
+      http://afterdark.localhost:5173
+      http://marketplace.localhost:5173
+      http://account.localhost:5173
+    ]
+  end
+
   def default_for(env_key)
-    return [ "http://localhost:5173" ] if env_key.in?(%w[test development])
+    return local_origins if env_key.in?(%w[test development])
 
     []
   end

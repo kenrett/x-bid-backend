@@ -3,7 +3,7 @@ require "test_helper"
 class FrontendOriginsTest < ActiveSupport::TestCase
   test "falls back to localhost origin in test env when credentials missing" do
     creds = Object.new
-    assert_equal [ "http://localhost:5173" ], FrontendOrigins.for_env!("test", credentials: creds)
+    assert_equal [ "http://localhost:5173", "http://afterdark.localhost:5173", "http://marketplace.localhost:5173", "http://account.localhost:5173" ], FrontendOrigins.for_env!("test", credentials: creds)
   end
 
   test "uses FRONTEND_ORIGINS env var when present" do
