@@ -1,4 +1,33 @@
 # -------------------------------
+# Helpers
+# -------------------------------
+def seed_storefronts!
+  puts "Seeding storefronts..."
+
+  biddersweet = Storefront.find_or_create_by!(key: "biddersweet") do |s|
+    s.name = "BidderSweet"
+    s.adult = false if s.respond_to?(:adult=)
+  end
+
+  after_dark = Storefront.find_or_create_by!(key: "after_dark") do |s|
+    s.name = "After Dark"
+    s.adult = true if s.respond_to?(:adult=)
+  end
+
+  marketplace = Storefront.find_or_create_by!(key: "marketplace") do |s|
+    s.name = "Marketplace"
+    s.adult = false if s.respond_to?(:adult=)
+  end
+
+  puts "  - Storefronts:"
+  puts "    * #{biddersweet.key}"
+  puts "    * #{after_dark.key}"
+  puts "    * #{marketplace.key}"
+
+  { biddersweet: biddersweet, after_dark: after_dark, marketplace: marketplace }
+end
+
+# -------------------------------
 # PRODUCTION SEEDS (Render, etc.)
 # -------------------------------
 if Rails.env.production?
@@ -6,8 +35,12 @@ if Rails.env.production?
   Auction.destroy_all
   BidPack.destroy_all
   User.destroy_all
+  # NOTE: only destroy storefronts in production if you truly want to reset them
+  # Storefront.destroy_all
 
   puts "Seeding production data..."
+
+  storefronts = seed_storefronts!
 
   # Users (idempotent)
   admin = User.find_or_create_by!(email_address: "admin@example.com") do |u|
@@ -50,41 +83,17 @@ if Rails.env.production?
 
   # Bid packs (idempotent)
   bid_packs_data = [
-    {
-      name: "The Flirt",
-      bids: 69,
-      price: 42.0,
-      highlight: false,
-      description: "A perfect start to get a feel for the action."
-    },
-    {
-      name: "The Rendezvous",
-      bids: 150,
-      price: 82.0,
-      highlight: false,
-      description: "For the bidder who's ready to commit to the chase."
-    },
-    {
-      name: "The All-Nighter",
-      bids: 300,
-      price: 150.0,
-      highlight: true,
-      description: "Our most popular pack. Dominate the auctions."
-    },
-    {
-      name: "The Affair",
-      bids: 600,
-      price: 270.0,
-      highlight: false,
-      description: "The ultimate arsenal for the serious player. Best value."
-    }
+    { name: "The Flirt",      bids: 69,  price: 42.0,  highlight: false, description: "A perfect start to get a feel for the action." },
+    { name: "The Rendezvous", bids: 150, price: 82.0,  highlight: false, description: "For the bidder who's ready to commit to the chase." },
+    { name: "The All-Nighter", bids: 300, price: 150.0, highlight: true,  description: "Our most popular pack. Dominate the auctions." },
+    { name: "The Affair",     bids: 600, price: 270.0, highlight: false, description: "The ultimate arsenal for the serious player. Best value." }
   ]
 
   bid_packs_data.each do |pack_data|
     pack = BidPack.find_or_create_by!(name: pack_data[:name]) do |p|
-      p.bids       = pack_data[:bids]
-      p.price      = pack_data[:price]
-      p.highlight  = pack_data[:highlight]
+      p.bids        = pack_data[:bids]
+      p.price       = pack_data[:price]
+      p.highlight   = pack_data[:highlight]
       p.description = pack_data[:description]
     end
     puts "  - Bid pack: #{pack.name}"
@@ -93,7 +102,9 @@ if Rails.env.production?
   if Auction.count == 0
     today = Date.today
 
+    # Put these in After Dark (based on your copy)
     Auction.create!(
+      storefront: storefronts[:after_dark],
       title: "Midnight Mystery Gadget",
       description: "A high-end mystery item for night owls who love the thrill.",
       current_price: 0,
@@ -104,6 +115,7 @@ if Rails.env.production?
     )
 
     Auction.create!(
+      storefront: storefronts[:after_dark],
       title: "Weekend Indulgence Bundle",
       description: "Everything you need for an unforgettable weekend.",
       current_price: 0,
@@ -113,7 +125,7 @@ if Rails.env.production?
       end_time:   today + 4.days
     )
 
-    puts "  - Seeded 2 sample auctions."
+    puts "  - Seeded 2 sample auctions (after_dark)."
   else
     puts "  - Skipped auctions: existing auctions detected (count: #{Auction.count})."
   end
@@ -125,14 +137,15 @@ end
 # --------------------------------
 # DEVELOPMENT / TEST SEEDS (Faker)
 # --------------------------------
-# Destructive + noisy + Faker-friendly, only outside production.
-
 puts "Seeding development/test data (destructive)…"
 
 Bid.destroy_all
 Auction.destroy_all
 BidPack.destroy_all
 User.destroy_all
+Storefront.destroy_all
+
+storefronts = seed_storefronts!
 
 User.create!(
   name: "Admin",
@@ -171,43 +184,29 @@ User.create!(
 )
 
 bid_packs_data = [
-  {
-    name: "The Flirt",
-    bids: 69,
-    price: 42.0,
-    highlight: false,
-    description: "A perfect start to get a feel for the action."
-  },
-  {
-    name: "The Rendezvous",
-    bids: 150,
-    price: 82.0,
-    highlight: false,
-    description: "For the bidder who's ready to commit to the chase."
-  },
-  {
-    name: "The All-Nighter",
-    bids: 300,
-    price: 150.0,
-    highlight: true,
-    description: "Our most popular pack. Dominate the auctions."
-  },
-  {
-    name: "The Affair",
-    bids: 600,
-    price: 270.0,
-    highlight: false,
-    description: "The ultimate arsenal for the serious player. Best value."
-  }
+  { name: "The Flirt",      bids: 69,  price: 42.0,  highlight: false, description: "A perfect start to get a feel for the action." },
+  { name: "The Rendezvous", bids: 150, price: 82.0,  highlight: false, description: "For the bidder who's ready to commit to the chase." },
+  { name: "The All-Nighter", bids: 300, price: 150.0, highlight: true,  description: "Our most popular pack. Dominate the auctions." },
+  { name: "The Affair",     bids: 600, price: 270.0, highlight: false, description: "The ultimate arsenal for the serious player. Best value." }
 ]
-
 bid_packs_data.each { |pack_data| BidPack.create!(pack_data) }
 
 today = Date.today
 
-20.times do |i|
+# Distribute Faker auctions across storefronts
+# (tweak weights however you like)
+storefront_pool = (
+  [ storefronts[:biddersweet] ] * 12 +
+  [ storefronts[:after_dark] ]  * 5 +
+  [ storefronts[:marketplace] ] * 3
+)
+
+20.times do
   start_date = Faker::Date.between(from: today + 1, to: today + 4)
+  sf = storefront_pool.sample
+
   Auction.create!(
+    storefront: sf,
     title: Faker::Commerce.product_name,
     description: Faker::Movie.quote,
     current_price: 0,
