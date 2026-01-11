@@ -1,23 +1,18 @@
 # -------------------------------
 # Helpers
 # -------------------------------
+StorefrontConfig = Struct.new(:key, :name, :is_adult, :is_artisan)
+
 def seed_storefronts!
   puts "Seeding storefronts..."
 
-  biddersweet = Storefront.find_or_create_by!(key: "biddersweet") do |s|
-    s.name = "BidderSweet"
-    s.adult = false if s.respond_to?(:adult=)
-  end
-
-  after_dark = Storefront.find_or_create_by!(key: "after_dark") do |s|
-    s.name = "After Dark"
-    s.adult = true if s.respond_to?(:adult=)
-  end
-
-  marketplace = Storefront.find_or_create_by!(key: "marketplace") do |s|
-    s.name = "Marketplace"
-    s.adult = false if s.respond_to?(:adult=)
-  end
+  # Map legacy seed keys to current schema constraints:
+  # biddersweet -> main
+  # after_dark  -> afterdark
+  # marketplace -> artisan
+  biddersweet = StorefrontConfig.new("main", "BidderSweet", false, false)
+  after_dark = StorefrontConfig.new("afterdark", "After Dark", true, false)
+  marketplace = StorefrontConfig.new("artisan", "Marketplace", false, true)
 
   puts "  - Storefronts:"
   puts "    * #{biddersweet.key}"
@@ -31,6 +26,8 @@ end
 # PRODUCTION SEEDS (Render, etc.)
 # -------------------------------
 if Rails.env.production?
+  AuctionFulfillment.destroy_all
+  AuctionSettlement.destroy_all
   Bid.destroy_all
   Auction.destroy_all
   BidPack.destroy_all
@@ -39,6 +36,10 @@ if Rails.env.production?
   # Storefront.destroy_all
 
   puts "Seeding production data..."
+
+  # Ensure global maintenance setting exists to prevent race conditions at runtime
+  # (MaintenanceSetting model must exist for this to work)
+  MaintenanceSetting.find_or_create_by!(key: "global") if defined?(MaintenanceSetting)
 
   storefronts = seed_storefronts!
 
@@ -104,7 +105,9 @@ if Rails.env.production?
 
     # Put these in After Dark (based on your copy)
     Auction.create!(
-      storefront: storefronts[:after_dark],
+      storefront_key: storefronts[:after_dark].key,
+      is_adult: storefronts[:after_dark].is_adult,
+      is_artisan: storefronts[:after_dark].is_artisan,
       title: "Midnight Mystery Gadget",
       description: "A high-end mystery item for night owls who love the thrill.",
       current_price: 0,
@@ -115,7 +118,9 @@ if Rails.env.production?
     )
 
     Auction.create!(
-      storefront: storefronts[:after_dark],
+      storefront_key: storefronts[:after_dark].key,
+      is_adult: storefronts[:after_dark].is_adult,
+      is_artisan: storefronts[:after_dark].is_artisan,
       title: "Weekend Indulgence Bundle",
       description: "Everything you need for an unforgettable weekend.",
       current_price: 0,
@@ -139,11 +144,13 @@ end
 # --------------------------------
 puts "Seeding development/test data (destructive)…"
 
+AuctionFulfillment.destroy_all
+AuctionSettlement.destroy_all
 Bid.destroy_all
 Auction.destroy_all
 BidPack.destroy_all
 User.destroy_all
-Storefront.destroy_all
+# Storefront.destroy_all
 
 storefronts = seed_storefronts!
 
@@ -206,7 +213,9 @@ storefront_pool = (
   sf = storefront_pool.sample
 
   Auction.create!(
-    storefront: sf,
+    storefront_key: sf.key,
+    is_adult: sf.is_adult,
+    is_artisan: sf.is_artisan,
     title: Faker::Commerce.product_name,
     description: Faker::Movie.quote,
     current_price: 0,

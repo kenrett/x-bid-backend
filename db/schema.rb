@@ -85,7 +85,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["winning_bid_id"], name: "index_auction_settlements_on_winning_bid_id"
     t.index ["winning_user_id"], name: "index_auction_settlements_on_winning_user_id"
     t.check_constraint "storefront_key IS NOT NULL", name: "auction_settlements_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "auction_settlements_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "auction_settlements_storefront_key_allowed"
   end
 
   create_table "auction_watches", force: :cascade do |t|
@@ -118,7 +118,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["winning_user_id"], name: "index_auctions_on_winning_user_id"
     t.check_constraint "current_price >= 0::numeric", name: "auctions_current_price_non_negative"
     t.check_constraint "storefront_key IS NOT NULL", name: "auctions_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "auctions_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "auctions_storefront_key_allowed"
   end
 
   create_table "audit_logs", force: :cascade do |t|
@@ -144,7 +144,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
     t.index ["user_id"], name: "index_audit_logs_on_user_id"
     t.check_constraint "storefront_key IS NOT NULL", name: "audit_logs_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "audit_logs_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "audit_logs_storefront_key_allowed"
   end
 
   create_table "bid_packs", force: :cascade do |t|
@@ -164,7 +164,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["status"], name: "index_bid_packs_on_status"
     t.index ["storefront_key"], name: "index_bid_packs_on_storefront_key"
     t.check_constraint "storefront_key IS NOT NULL", name: "bid_packs_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "bid_packs_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "bid_packs_storefront_key_allowed"
   end
 
   create_table "bids", force: :cascade do |t|
@@ -180,7 +180,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["user_id"], name: "index_bids_on_user_id"
     t.check_constraint "amount >= 0::numeric", name: "bids_amount_non_negative"
     t.check_constraint "storefront_key IS NOT NULL", name: "bids_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "bids_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "bids_storefront_key_allowed"
   end
 
   create_table "credit_transactions", force: :cascade do |t|
@@ -213,7 +213,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["user_id", "created_at"], name: "index_credit_transactions_on_user_id_created_at"
     t.index ["user_id"], name: "index_credit_transactions_on_user_id"
     t.check_constraint "storefront_key IS NOT NULL", name: "credit_transactions_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "credit_transactions_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "credit_transactions_storefront_key_allowed"
   end
 
   create_table "maintenance_settings", force: :cascade do |t|
@@ -243,9 +243,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.index ["user_id", "occurred_at"], name: "index_money_events_on_user_id_occurred_at"
     t.index ["user_id"], name: "index_money_events_on_user_id"
     t.check_constraint "char_length(currency::text) > 0", name: "money_events_currency_non_empty"
-    t.check_constraint "event_type::text = ANY (ARRAY['purchase'::character varying, 'bid_spent'::character varying, 'refund'::character varying, 'admin_adjustment'::character varying]::text[])", name: "money_events_event_type_check"
+    t.check_constraint "event_type::text = ANY (ARRAY['purchase'::character varying::text, 'bid_spent'::character varying::text, 'refund'::character varying::text, 'admin_adjustment'::character varying::text])", name: "money_events_event_type_check"
     t.check_constraint "storefront_key IS NOT NULL", name: "money_events_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "money_events_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "money_events_storefront_key_allowed"
   end
 
   create_table "notifications", force: :cascade do |t|
@@ -305,7 +305,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.check_constraint "amount_cents >= 0", name: "purchases_amount_cents_non_negative"
     t.check_constraint "refunded_cents >= 0", name: "purchases_refunded_cents_non_negative"
     t.check_constraint "storefront_key IS NOT NULL", name: "purchases_storefront_key_not_null"
-    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying, 'afterdark'::character varying, 'artisan'::character varying]::text[])", name: "purchases_storefront_key_allowed"
+    t.check_constraint "storefront_key::text = ANY (ARRAY['main'::character varying::text, 'afterdark'::character varying::text, 'artisan'::character varying::text])", name: "purchases_storefront_key_allowed"
   end
 
   create_table "session_tokens", force: :cascade do |t|

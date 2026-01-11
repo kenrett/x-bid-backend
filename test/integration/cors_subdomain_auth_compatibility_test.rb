@@ -4,7 +4,7 @@ class CorsSubdomainAuthCompatibilityTest < ActionDispatch::IntegrationTest
   BIDDERSWEET_ORIGINS = %w[
     https://biddersweet.app
     https://afterdark.biddersweet.app
-    https://artisan.biddersweet.app
+    https://marketplace.biddersweet.app
     https://account.biddersweet.app
   ].freeze
 

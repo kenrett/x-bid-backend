@@ -14,11 +14,20 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
     biddersweet_origins = %w[
       https://biddersweet.app
       https://afterdark.biddersweet.app
-      https://artisan.biddersweet.app
+      https://marketplace.biddersweet.app
       https://account.biddersweet.app
     ]
 
-    allowed_origins = (frontend_origins.presence || [ "http://localhost:5173" ]) + biddersweet_origins
+    local_origins = %w[
+      http://localhost:5173
+      http://afterdark.localhost:5173
+      http://marketplace.localhost:5173
+      http://account.localhost:5173
+    ]
+
+    allowed_origins = Array(frontend_origins) + biddersweet_origins
+    allowed_origins += local_origins if Rails.env.development? || Array(frontend_origins).empty?
+
     origins(*allowed_origins.uniq)
 
     resource "/api/*",
