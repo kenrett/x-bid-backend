@@ -24,6 +24,8 @@ Rack::Attack.throttled_responder = lambda do |request|
       "Too many bid attempts. Please wait before bidding again."
     when %r{\A/api/v1/checkout(?:s|/status|/success)?\z}
       "Too many checkout attempts. Please try again soon."
+    when %r{\A/api/v1/session/remaining\z}
+      "Too many session checks. Please try again later."
     else
       "Too many requests. Please try again later."
     end
@@ -134,7 +136,11 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_REQUESTS_IP_LIMIT", 300),
   period: RackAttackRules.env_seconds("RATE_LIMIT_REQUESTS_IP_PERIOD_SECONDS", 5.minutes.to_i)
 ) do |req|
-  req.ip
+  # Exclude session remaining checks from the global rate limit to prevent
+  # a frontend polling bug from locking the user out of the entire application.
+  if req.path != "/api/v1/session/remaining"
+    req.ip
+  end
 end
 
 Rack::Attack.throttle(
@@ -239,4 +245,12 @@ Rack::Attack.throttle(
   period: RackAttackRules.env_seconds("RATE_LIMIT_CHECKOUT_IP_PERIOD_SECONDS", 10.minutes.to_i)
 ) do |req|
   req.ip if RackAttackRules.checkout?(req)
+end
+
+Rack::Attack.throttle(
+  "session_remaining/ip",
+  limit: RackAttackRules.env_int("RATE_LIMIT_SESSION_REMAINING_IP_LIMIT", 60),
+  period: RackAttackRules.env_seconds("RATE_LIMIT_SESSION_REMAINING_IP_PERIOD_SECONDS", 1.minute.to_i)
+) do |req|
+  req.ip if req.path == "/api/v1/session/remaining"
 end

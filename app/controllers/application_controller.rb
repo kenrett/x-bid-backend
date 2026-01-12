@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::API
   include ErrorRenderer
+  include ActionController::Cookies
   attr_reader :current_session_token
   before_action :set_storefront_context
   before_action :set_request_context
@@ -8,6 +9,9 @@ class ApplicationController < ActionController::API
   rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
   rescue_from ActiveRecord::RecordNotFound, with: :handle_record_not_found
   rescue_from ActionDispatch::Http::Parameters::ParseError, with: :handle_parse_error
+
+  CABLE_SESSION_COOKIE_NAME = "cable_session"
+  CABLE_SESSION_COOKIE_PATH = "/cable"
 
   def authenticate_request!
     token = extract_authorization_token
@@ -195,6 +199,30 @@ class ApplicationController < ActionController::API
 
   def handle_parse_error(_exception)
     render_error(code: :bad_request, message: "Malformed JSON", status: :bad_request)
+  end
+
+  def set_cable_session_cookie(session_token)
+    return unless session_token
+
+    cookies.signed[CABLE_SESSION_COOKIE_NAME] = {
+      value: session_token.id,
+      expires: session_token.expires_at,
+      httponly: true,
+      secure: Rails.env.production?,
+      same_site: :lax,
+      path: CABLE_SESSION_COOKIE_PATH
+    }
+  end
+
+  def clear_cable_session_cookie
+    cookies.signed[CABLE_SESSION_COOKIE_NAME] = {
+      value: "",
+      expires: 1.day.ago,
+      httponly: true,
+      secure: Rails.env.production?,
+      same_site: :lax,
+      path: CABLE_SESSION_COOKIE_PATH
+    }
   end
 
   def encode_jwt(payload = {}, expires_at: nil, **kwargs)

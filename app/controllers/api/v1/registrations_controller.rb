@@ -20,6 +20,7 @@ module Api
 
         session_token, refresh_token = SessionToken.generate_for(user: user)
         track_session_token!(session_token)
+        set_cable_session_cookie(session_token)
         render json: Auth::SessionResponseBuilder.build(
           user: user,
           session_token: session_token,

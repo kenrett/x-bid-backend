@@ -24,6 +24,7 @@ module Api
         if user&.authenticate(login_params[:password])
           session_token, refresh_token = SessionToken.generate_for(user:)
           track_session_token!(session_token)
+          set_cable_session_cookie(session_token)
           AuditLogger.log(
             action: "auth.login",
             actor: user,
@@ -60,6 +61,7 @@ module Api
 
         new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
         track_session_token!(new_session_token)
+        set_cable_session_cookie(new_session_token)
         AuditLogger.log(
           action: "auth.refresh",
           actor: session_token.user,
@@ -121,6 +123,7 @@ module Api
           )
         end
 
+        clear_cable_session_cookie
         render json: { status: "Logged out successfully" }, status: :ok
       end
 

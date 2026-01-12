@@ -45,6 +45,7 @@ module XBidBackend
     config.eager_load_paths << Rails.root.join("app/queries")
 
     config.middleware.use Rack::Attack
+    config.middleware.use ActionDispatch::Cookies
     config.middleware.insert_after Rack::Attack, ::SecurityHeaders
     config.middleware.insert_after Rack::Attack, Middleware::RequestSizeLimiter
     # Must run after the executor wraps the request, otherwise Current.* can be reset

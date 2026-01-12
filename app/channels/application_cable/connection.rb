@@ -2,38 +2,42 @@ require "jwt"
 
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_user, :current_session_token_id
+    identified_by :current_user, :current_session_token
 
     def connect
-      self.current_user, self.current_session_token_id = authenticate_connection
+      session_token = authenticate_connection
+      self.current_session_token = session_token
+      self.current_user = session_token.user
     end
 
     private
 
     def authenticate_connection
-      token = websocket_token
-      unless token
-        Rails.logger.warn("ActionCable connection rejected: no token provided via Authorization header, token query param, or secure cookie")
+      session_token = session_token_from_cable_cookie || session_token_from_authorization_header
+      unless session_token&.active?
+        log_rejected_connection(session_token ? "inactive_session" : "missing_cookie")
         reject_unauthorized_connection
       end
 
-      decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
-      session_token = SessionToken.find_by(id: decoded["session_token_id"])
-
-      reject_unauthorized_connection unless session_token&.active?
-      if request.params[:session_token_id].present? && request.params[:session_token_id].to_s != session_token.id.to_s
-        reject_unauthorized_connection
-      end
-
-      [ session_token.user, session_token.id ]
+      session_token
     rescue JWT::DecodeError, ActiveRecord::RecordNotFound
+      log_rejected_connection("invalid_token")
       reject_unauthorized_connection
     end
 
-    def websocket_token
-      # Browsers cannot set custom WebSocket headers, so support query param auth.
-      # Prefer Authorization header when present; otherwise accept `?token=...` or a secure encrypted cookie.
-      authorization_header_token || request.params[:token].presence || cookies.encrypted[:jwt]
+    def session_token_from_cable_cookie
+      session_token_id = cookies.signed[:cable_session]
+      return if session_token_id.blank?
+
+      SessionToken.find_by(id: session_token_id)
+    end
+
+    def session_token_from_authorization_header
+      token = authorization_header_token
+      return if token.blank?
+
+      decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" }).first
+      SessionToken.find_by(id: decoded["session_token_id"])
     end
 
     def authorization_header_token
@@ -41,6 +45,15 @@ module ApplicationCable
       return if header.blank?
 
       header.split(" ").last
+    end
+
+    def log_rejected_connection(reason)
+      session_token_id = cookies.signed[:cable_session]
+      if session_token_id.present?
+        Rails.logger.warn("ActionCable connection rejected: reason=#{reason} session_token_id=#{session_token_id}")
+      else
+        Rails.logger.warn("ActionCable connection rejected: reason=#{reason}")
+      end
     end
   end
 end
