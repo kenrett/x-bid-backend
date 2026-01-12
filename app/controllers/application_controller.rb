@@ -15,10 +15,17 @@ class ApplicationController < ActionController::API
 
   def authenticate_request!
     token = extract_authorization_token
-    return render_error(code: :invalid_token, message: "Authorization header missing", status: :unauthorized) unless token
 
     begin
-      session_token = session_token_from_jwt(token)
+      session_token = token ? session_token_from_jwt(token) : session_token_from_cookie
+      unless session_token
+        return render_error(
+          code: :invalid_token,
+          message: "Authorization header or cable session cookie missing",
+          status: :unauthorized
+        )
+      end
+
       unless session_token&.active?
         SessionEventBroadcaster.session_invalidated(session_token, reason: "expired") if session_token
         return render_error(code: :invalid_session, message: "Session has expired", status: :unauthorized)
@@ -112,9 +119,7 @@ class ApplicationController < ActionController::API
 
   def maintenance_admin_override?
     token = extract_authorization_token
-    return false unless token
-
-    session_token = session_token_from_jwt(token)
+    session_token = token ? session_token_from_jwt(token) : session_token_from_cookie
     return false unless session_token&.active?
 
     user = session_token.user
@@ -187,6 +192,13 @@ class ApplicationController < ActionController::API
       }
     ).first
     SessionToken.find(decoded["session_token_id"])
+  end
+
+  def session_token_from_cookie
+    session_token_id = cookies.signed[CABLE_SESSION_COOKIE_NAME]
+    return nil if session_token_id.blank?
+
+    SessionToken.find_by(id: session_token_id)
   end
 
   def handle_parameter_missing(exception)
