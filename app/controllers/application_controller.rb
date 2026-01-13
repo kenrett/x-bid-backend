@@ -302,7 +302,8 @@ class ApplicationController < ActionController::API
       httponly: true,
       secure: Rails.env.production?,
       same_site: :lax,
-      domain: CookieDomainResolver.domain_for(request.host)
+      domain: CookieDomainResolver.domain_for(request.host),
+      path: "/"
     }.compact
   end
 
@@ -324,7 +325,8 @@ class ApplicationController < ActionController::API
       httponly: true,
       secure: Rails.env.production?,
       same_site: :lax,
-      domain: CookieDomainResolver.domain_for(request.host)
+      domain: CookieDomainResolver.domain_for(request.host),
+      path: "/"
     }.compact
   end
 

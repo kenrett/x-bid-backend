@@ -1,0 +1,59 @@
+require "test_helper"
+
+class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
+  setup do
+    @user = User.create!(
+      name: "Cookie User",
+      email_address: "browser-cookie@example.com",
+      password: "password",
+      bid_credits: 0
+    )
+  end
+
+  test "login sets browser session cookie" do
+    Rails.stub(:env, ActiveSupport::StringInquirer.new("development")) do
+      host! "api.lvh.me"
+      post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+    end
+
+    assert_response :success
+    set_cookie = set_cookie_header
+    assert_includes set_cookie, "bs_session_id="
+    assert_match(/httponly/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/path=\//i, set_cookie)
+    assert_match(/domain=\.lvh\.me/i, set_cookie)
+  end
+
+  test "logout clears browser session cookie" do
+    Rails.stub(:env, ActiveSupport::StringInquirer.new("development")) do
+      host! "api.lvh.me"
+      post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+      assert_response :success
+      login_body = JSON.parse(response.body)
+
+      SessionEventBroadcaster.stub(:session_invalidated, nil) do
+        delete "/api/v1/logout", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }
+      end
+    end
+
+    assert_response :success
+    set_cookie = set_cookie_header
+    assert_includes set_cookie, "bs_session_id="
+    assert_match(/expires=/i, set_cookie)
+    assert_match(/path=\//i, set_cookie)
+  end
+
+  private
+
+  def bearer(access_token)
+    "Bearer #{access_token}"
+  end
+
+  def set_cookie_header
+    header = response.headers["Set-Cookie"]
+    return header.join("\n") if header.is_a?(Array)
+
+    header.to_s
+  end
+end
