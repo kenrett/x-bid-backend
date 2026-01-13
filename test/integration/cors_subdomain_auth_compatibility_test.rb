@@ -24,11 +24,10 @@ class CorsSubdomainAuthCompatibilityTest < ActionDispatch::IntegrationTest
   test "auth endpoints reflect allow-origin for biddersweet origins" do
     user = User.create!(name: "CORS User", email_address: "cors_user@example.com", password: "password", bid_credits: 0)
 
+    csrf = csrf_headers(origin: "https://afterdark.biddersweet.app")
     post "/api/v1/login",
          params: { session: { email_address: user.email_address, password: "password" } },
-         headers: {
-           "Origin" => "https://afterdark.biddersweet.app"
-         }
+         headers: csrf
 
     assert_response :success
     assert_equal "https://afterdark.biddersweet.app", response.headers["Access-Control-Allow-Origin"]

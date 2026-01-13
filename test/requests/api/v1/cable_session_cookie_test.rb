@@ -46,7 +46,8 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_response :success
     login_body = JSON.parse(response.body)
 
-    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }, headers: headers
 
     assert_response :success
     set_cookie = set_cookie_header

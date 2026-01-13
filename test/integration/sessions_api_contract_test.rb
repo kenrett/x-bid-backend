@@ -29,7 +29,8 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
   test "POST /api/v1/session/refresh accepts flat payload (refresh_token)" do
     session_token, refresh_token = SessionToken.generate_for(user: @user)
 
-    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }, headers: headers
 
     assert_response :success
     body = JSON.parse(response.body)

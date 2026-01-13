@@ -36,6 +36,16 @@ module AuthHelpers
     { "Authorization" => "Bearer #{jwt}" }
   end
 
+  def csrf_headers(origin: nil)
+    headers = {}
+    headers["Origin"] = origin if origin.present?
+    get "/api/v1/csrf", headers: headers
+    assert_response :success
+    token = JSON.parse(response.body).fetch("csrf_token")
+    headers["X-CSRF-Token"] = token
+    headers
+  end
+
   def assert_forbidden(test_response = response)
     assert_equal 403, test_response.status, "Expected 403 Forbidden, got #{test_response.status}.\nBody: #{test_response.body}"
   end

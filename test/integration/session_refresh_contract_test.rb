@@ -5,7 +5,8 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
     user = create_actor(role: :user)
     old_session_token, refresh_token = SessionToken.generate_for(user: user)
 
-    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }, headers: headers
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -25,10 +26,11 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
     user = create_actor(role: :user)
     _old_session_token, refresh_token = SessionToken.generate_for(user: user)
 
-    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }, headers: headers
     assert_response :success
 
-    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }
+    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }, headers: headers
     assert_response :unauthorized
     body = JSON.parse(response.body)
     assert_equal "invalid_session", body.dig("error", "code").to_s
@@ -39,7 +41,8 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
     user.update!(status: :disabled)
     session_token, refresh_token = SessionToken.generate_for(user: user)
 
-    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: refresh_token }, headers: headers
 
     assert_response :forbidden
     body = JSON.parse(response.body)

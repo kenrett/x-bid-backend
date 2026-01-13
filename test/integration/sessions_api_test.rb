@@ -28,7 +28,8 @@ class SessionsApiTest < ActionDispatch::IntegrationTest
   test "refresh response includes is_admin and is_superuser flags" do
     session_token, refresh_token = SessionToken.generate_for(user: @superadmin)
 
-    post "/api/v1/session/refresh", params: { session: { refresh_token: refresh_token } }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { session: { refresh_token: refresh_token } }, headers: headers
 
     assert_response :success
     body = JSON.parse(response.body)

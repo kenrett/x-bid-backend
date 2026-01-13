@@ -28,12 +28,13 @@ class AuthContractV1Test < ActionDispatch::IntegrationTest
     assert_response :success
     login_body = JSON.parse(response.body)
 
-    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }, headers: headers
     assert_response :success
     refresh_body = JSON.parse(response.body)
     assert_auth_v1_shape!(refresh_body, label: "POST /api/v1/session/refresh response")
 
-    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }
+    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }, headers: headers
     assert_response :unauthorized
   end
 
@@ -52,7 +53,8 @@ class AuthContractV1Test < ActionDispatch::IntegrationTest
     delete "/api/v1/logout", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }
     assert_response :success
 
-    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }, headers: headers
     assert_response :unauthorized
   end
 
@@ -64,11 +66,12 @@ class AuthContractV1Test < ActionDispatch::IntegrationTest
       bid_credits: 0
     )
 
-    post "/api/v1/session/refresh", params: { refresh_token: "not-a-real-token" }
+    headers = csrf_headers
+    post "/api/v1/session/refresh", params: { refresh_token: "not-a-real-token" }, headers: headers
     assert_response :unauthorized
 
     _expired_session_token, expired_refresh_token = SessionToken.generate_for(user: user, ttl: -1.second)
-    post "/api/v1/session/refresh", params: { refresh_token: expired_refresh_token }
+    post "/api/v1/session/refresh", params: { refresh_token: expired_refresh_token }, headers: headers
     assert_response :unauthorized
   end
 

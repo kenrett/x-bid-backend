@@ -4,6 +4,7 @@ class ApplicationController < ActionController::API
   attr_reader :current_session_token
   before_action :set_storefront_context
   before_action :set_request_context
+  before_action :verify_csrf_token, if: :csrf_protection_needed?
   before_action :enforce_maintenance_mode
   after_action :set_request_id_header
   rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
@@ -220,6 +221,29 @@ class ApplicationController < ActionController::API
     render_error(code: :bad_request, message: "Malformed JSON", status: :bad_request)
   end
 
+  def verify_csrf_token
+    header_token = request.headers["X-CSRF-Token"].to_s
+    cookie_token = cookies.signed[:csrf_token].to_s
+
+    if header_token.blank? || cookie_token.blank?
+      return render_auth_failure!(
+        code: :invalid_token,
+        reason: :csrf_failed,
+        message: "CSRF token verification failed",
+        status: :unauthorized
+      )
+    end
+
+    return if secure_token_compare(header_token, cookie_token)
+
+    render_auth_failure!(
+      code: :invalid_token,
+      reason: :csrf_failed,
+      message: "CSRF token verification failed",
+      status: :unauthorized
+    )
+  end
+
   def render_auth_failure!(code:, reason:, message:, status:, log_details: {})
     log_auth_failure(code: code, reason: reason, log_details: log_details)
     render_error(
@@ -228,6 +252,21 @@ class ApplicationController < ActionController::API
       status: status,
       details: auth_failure_response_details(reason)
     )
+  end
+
+  def csrf_protection_needed?
+    unsafe = request.post? || request.put? || request.patch? || request.delete?
+    return false unless unsafe
+    return false if request.headers["Authorization"].present?
+
+    request.headers["Origin"].present? || browser_session_cookie_present?
+  end
+
+  def secure_token_compare(left, right)
+    return false if left.blank? || right.blank?
+    return false unless left.bytesize == right.bytesize
+
+    ActiveSupport::SecurityUtils.secure_compare(left, right)
   end
 
   def auth_failure_response_details(reason)
