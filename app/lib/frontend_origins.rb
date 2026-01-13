@@ -1,6 +1,9 @@
 module FrontendOrigins
   module_function
 
+  PROD_SUBDOMAIN_REGEX = %r{\Ahttps://([a-z0-9-]+\.)+biddersweet\.app\z}i
+  DEV_SUBDOMAIN_REGEX = %r{\Ahttp://([a-z0-9-]+\.)*lvh\.me:5173\z}i
+
   BIDDERSWEET_ORIGINS = %w[
     https://biddersweet.app
     https://afterdark.biddersweet.app
@@ -27,6 +30,7 @@ module FrontendOrigins
     return false if origin.to_s.strip.empty?
 
     normalized = RequestDiagnostics.normalize_origin(origin)
+    return true if wildcard_origin_allowed?(normalized, env: env)
     allowed_origins(env: env, credentials: credentials).include?(normalized)
   rescue StandardError
     false
@@ -76,6 +80,7 @@ module FrontendOrigins
       http://afterdark.localhost:5173
       http://marketplace.localhost:5173
       http://account.localhost:5173
+      http://lvh.me:5173
     ]
   end
 
@@ -83,5 +88,13 @@ module FrontendOrigins
     return local_origins if env_key.in?(%w[test development])
 
     []
+  end
+
+  def wildcard_origin_allowed?(origin, env: Rails.env)
+    env_key = env.to_s
+    return true if env_key == "production" && origin.match?(PROD_SUBDOMAIN_REGEX)
+    return true if env_key.in?(%w[test development]) && origin.match?(DEV_SUBDOMAIN_REGEX)
+
+    false
   end
 end

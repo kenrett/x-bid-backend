@@ -8,13 +8,10 @@
 require Rails.root.join("app/lib/frontend_origins")
 
 allowed_headers = %w[
-  Origin
   Content-Type
-  Accept
   Authorization
   X-Requested-With
   X-CSRF-Token
-  X-Storefront-Key
 ].freeze
 exposed_headers = %w[Authorization X-Request-Id].freeze
 allowed_methods = [ :get, :post, :put, :patch, :delete, :options ].freeze
@@ -23,7 +20,9 @@ cable_methods = [ :get, :options ].freeze
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins(*FrontendOrigins.allowed_origins)
+    origins do |origin, _env|
+      FrontendOrigins.allowed_origin?(origin)
+    end
 
     resource "/api/*",
       headers: allowed_headers,

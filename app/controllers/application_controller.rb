@@ -242,6 +242,8 @@ class ApplicationController < ActionController::API
     cookie_header_present = request.headers["Cookie"].present?
     cable_cookie_present = cookies.signed[CABLE_SESSION_COOKIE_NAME].present?
     browser_cookie_present = browser_session_cookie_present?
+    origin = request.headers["Origin"]
+    origin_allowed = origin.present? ? FrontendOrigins.allowed_origin?(origin) : nil
 
     AppLogger.log(
       event: "auth.failure",
@@ -254,7 +256,8 @@ class ApplicationController < ActionController::API
       action: action_name,
       method: request.request_method,
       path: request.fullpath,
-      origin: request.headers["Origin"],
+      origin: origin,
+      origin_allowed: origin_allowed,
       host: request.host,
       cookie_present: cookie_header_present,
       authorization_present: auth_header_present,
@@ -270,6 +273,11 @@ class ApplicationController < ActionController::API
     cookie_header_present = request.headers["Cookie"].present?
     cable_cookie_present = cookies.signed[CABLE_SESSION_COOKIE_NAME].present?
     browser_cookie_present = browser_session_cookie_present?
+    origin = request.headers["Origin"]
+
+    if origin.present? && !FrontendOrigins.allowed_origin?(origin)
+      return :origin_not_allowed
+    end
 
     return :bad_token_format if auth_header_present && extract_authorization_token.blank?
     return :unknown_session if auth_header_present
