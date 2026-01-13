@@ -17,13 +17,19 @@ class ApplicationController < ActionController::API
 
   def authenticate_request!
     begin
-      session_token = Auth::AuthenticateRequest.call(request)
+      result = Auth::AuthenticateRequest.call(request)
+      session_token = result.session_token
       unless session_token
+        log_details = {}
+        if request.headers["Authorization"].present? && !Auth::AuthenticateRequest.bearer_allowed?
+          log_details[:bearer_disabled] = true
+        end
         return render_auth_failure!(
           code: :invalid_token,
           reason: missing_credentials_reason,
           message: "Authorization header or session cookie missing",
-          status: :unauthorized
+          status: :unauthorized,
+          log_details: log_details
         )
       end
 
@@ -41,6 +47,19 @@ class ApplicationController < ActionController::API
       @current_user = session_token.user
       set_authenticated_request_context!
       track_session_token!(session_token)
+      if result.method == :bearer
+        response.set_header("X-Auth-Deprecation", "bearer")
+        AppLogger.log(
+          event: "auth.bearer.used",
+          request_id: request.request_id,
+          controller_action: "#{controller_name}##{action_name}",
+          method: request.request_method,
+          path: request.fullpath,
+          origin: request.headers["Origin"],
+          host: request.host,
+          storefront_key: Current.storefront_key
+        )
+      end
       if @current_user.disabled?
         session_token.revoke! unless session_token.revoked_at?
         AppLogger.log(event: "auth.session.revoked", user_id: @current_user.id, session_token_id: session_token.id, reason: "user_disabled")
@@ -140,7 +159,7 @@ class ApplicationController < ActionController::API
   end
 
   def maintenance_admin_override?
-    session_token = Auth::AuthenticateRequest.call(request)
+    session_token = Auth::AuthenticateRequest.call(request).session_token
     return false unless session_token&.active?
 
     user = session_token.user
