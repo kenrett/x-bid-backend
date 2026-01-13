@@ -1,5 +1,3 @@
-require "jwt"
-
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
     identified_by :current_user, :current_session_token
@@ -21,79 +19,21 @@ module ApplicationCable
     private
 
     def authenticate_connection
-      token = websocket_token
-      session_token =
-        if token.present?
-          Auth::SessionTokenDecoder.session_token_from_jwt(token)
-        else
-          session_token_from_cable_cookie
-        end
+      session_token_id = cookies.signed[:bs_session_id]
+      session_token = SessionToken.find_by(id: session_token_id)
 
       unless session_token
-        reason =
-          if token.present?
-            :unknown_session
-          elsif cookies.signed[:cable_session].present?
-            :unknown_session
-          else
-            :missing_session_cookie
-          end
+        reason = session_token_id.present? ? :unknown_session : :missing_session_cookie
         log_rejected_connection(reason)
         reject_unauthorized_connection
       end
 
       unless session_token.active?
-        log_rejected_connection(:expired_session)
+        log_rejected_connection(:unknown_session)
         reject_unauthorized_connection
       end
 
       session_token
-    rescue JWT::ExpiredSignature
-      log_rejected_connection(:expired_session)
-      reject_unauthorized_connection
-    rescue JWT::DecodeError, JWT::VerificationError
-      log_rejected_connection(:bad_token_format)
-      reject_unauthorized_connection
-    rescue ActiveRecord::RecordNotFound
-      log_rejected_connection(:unknown_session)
-      reject_unauthorized_connection
-    end
-
-    def session_token_from_cable_cookie
-      session_token_id = cookies.signed[:cable_session]
-      return if session_token_id.blank?
-
-      SessionToken.find_by(id: session_token_id)
-    end
-
-    def websocket_token
-      query_param_token || query_param_authorization || subprotocol_token
-    end
-
-    def query_param_token
-      request.params[:token].presence
-    end
-
-    def query_param_authorization
-      raw = request.params[:authorization].presence || request.params[:auth].presence
-      return if raw.blank?
-
-      raw.to_s.split(" ").last
-    end
-
-    def subprotocol_token
-      raw = request.headers["Sec-WebSocket-Protocol"].to_s
-      return if raw.blank?
-
-      protocols = raw.split(",").map(&:strip).reject(&:blank?)
-      protocols.each do |protocol|
-        return protocol.delete_prefix("jwt.") if protocol.start_with?("jwt.")
-        return protocol.delete_prefix("bearer.") if protocol.start_with?("bearer.")
-        return protocol.delete_prefix("token=") if protocol.start_with?("token=")
-      end
-
-      jwt_like = protocols.find { |protocol| protocol.count(".") == 2 }
-      jwt_like
     end
 
     def set_storefront_context!
@@ -117,19 +57,18 @@ module ApplicationCable
         level: :warn,
         reason: reason.to_s,
         **connection_log_context,
-        token_present: websocket_token.present?
+        token_present: false
       )
     end
 
     def log_connection_diagnostics
       env_keys = request.env.keys.grep(/\AHTTP_|^action_dispatch\.|^rack\.|^REQUEST_|^REMOTE_|^SERVER_/).sort
-      auth_token = websocket_token
       AppLogger.log(
         event: "action_cable.connect.diagnostics",
         **connection_log_context,
         env_keys: env_keys,
         param_keys: request.params.keys.sort,
-        token_present: auth_token.present?
+        token_present: false
       )
     end
 
@@ -146,6 +85,7 @@ module ApplicationCable
         cookie_present: request.headers["Cookie"].present?,
         authorization_present: request.headers["Authorization"].present?,
         cable_session_cookie_present: cookies.signed[:cable_session].present?,
+        browser_session_cookie_present: cookies.signed[:bs_session_id].present?,
         storefront_key: Current.storefront_key
       }
     end
