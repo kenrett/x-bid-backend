@@ -1,10 +1,10 @@
 # ActionCable Authentication
 
 ## Why cookie auth
-Browsers cannot set custom headers for WebSocket connections, so we authenticate ActionCable using a short-lived, HttpOnly cookie scoped to `/cable`.
+Browsers cannot reliably set custom headers for WebSocket connections, so ActionCable accepts a JWT via query param (or subprotocol) and can fall back to a short-lived, HttpOnly cookie scoped to `/cable`.
 
 ## Cookie details
-- Name: `cable_session`
+- Name: `cable_session` (cookie fallback)
 - Value: `SessionToken` primary key (signed)
 - Path: `/cable`
 - HttpOnly: `true`
@@ -15,7 +15,7 @@ Browsers cannot set custom headers for WebSocket connections, so we authenticate
 The cookie is rotated on login/signup/refresh and cleared on logout or session revocation.
 
 ## Connection behavior
-`ApplicationCable::Connection` reads `cable_session`, loads the `SessionToken`, verifies it is active and not expired, and sets `current_user` and `current_session_token`.
+`ApplicationCable::Connection` reads a JWT from `?token=...` (or subprotocol) as the primary path. If no token is provided, it falls back to the `cable_session` cookie. It loads the `SessionToken`, verifies it is active and not expired, and sets `current_user` and `current_session_token`.
 
 ## Option A: single shared Cable host
 Storefronts must always connect WebSocket to the API host (`API_HOST`), not the storefront subdomain.
@@ -31,4 +31,5 @@ Recommended:
 - Does the cookie include `Path=/cable` and `SameSite=Lax`?
 - Is `Secure` missing in production?
 - Is the ActionCable URL pointing to the API host?
+- Is the `token` query param present for the WebSocket connection?
 - Has the session token been revoked or expired?
