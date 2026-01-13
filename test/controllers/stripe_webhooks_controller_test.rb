@@ -48,9 +48,12 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
     payload = { id: "evt_bad" }.to_json
 
     Stripe::Webhook.stub(:construct_event, ->(*_) { raise Stripe::SignatureVerificationError.new("bad", "payload") }) do
+      observed = []
       AppLogger.stub(:log, lambda { |event:, **context|
-        assert_equal "stripe.webhook.invalid_signature", event
-        assert_includes context[:error_message].to_s, "bad"
+        observed << [ event, context ]
+        if event == "stripe.webhook.invalid_signature"
+          assert_includes context[:error_message].to_s, "bad"
+        end
       }) do
         post "/api/v1/stripe/webhooks", params: payload, headers: { "Stripe-Signature" => "sig_header" }
         assert_response :bad_request
@@ -58,6 +61,7 @@ class StripeWebhooksControllerTest < ActionDispatch::IntegrationTest
         assert_equal "stripe_webhook_invalid_signature", body.dig("error", "code").to_s
         assert_equal "Invalid webhook signature", body.dig("error", "message")
       end
+      assert observed.any? { |(event, _)| event == "stripe.webhook.invalid_signature" }
     end
   end
 

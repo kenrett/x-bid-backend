@@ -23,6 +23,15 @@ module FrontendOrigins
     normalize!(allowed.uniq, env_key)
   end
 
+  def allowed_origin?(origin, env: Rails.env, credentials: Rails.application.credentials)
+    return false if origin.to_s.strip.empty?
+
+    normalized = RequestDiagnostics.normalize_origin(origin)
+    allowed_origins(env: env, credentials: credentials).include?(normalized)
+  rescue StandardError
+    false
+  end
+
   def for_env!(env = Rails.env, credentials: Rails.application.credentials)
     env_key = env.to_s
 

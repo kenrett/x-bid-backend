@@ -19,6 +19,7 @@ class ApplicationController < ActionController::API
     begin
       session_token = token ? session_token_from_jwt(token) : session_token_from_cookie
       unless session_token
+        log_missing_auth_inputs
         return render_error(
           code: :invalid_token,
           message: "Authorization header or cable session cookie missing",
@@ -133,6 +134,7 @@ class ApplicationController < ActionController::API
 
   def path_allowed_during_maintenance?
     return true if request.path == "/up"
+    return true if request.path == "/api/v1/health"
     return true if request.path == "/api/v1/login"
     return true if request.path == "/api/v1/signup"
     return true if request.path == "/api/v1/email_verifications/verify"
@@ -200,6 +202,22 @@ class ApplicationController < ActionController::API
 
   def handle_parse_error(_exception)
     render_error(code: :bad_request, message: "Malformed JSON", status: :bad_request)
+  end
+
+  def log_missing_auth_inputs
+    auth_header = request.headers["Authorization"]
+    cookie_header = request.headers["Cookie"]
+    AppLogger.log(
+      event: "auth.invalid_token.missing_credentials",
+      request_id: request.request_id,
+      controller: controller_name,
+      action: action_name,
+      path: request.fullpath,
+      authorization_present: auth_header.present?,
+      authorization_redacted: RequestDiagnostics.redact_authorization_header(auth_header),
+      cookie_present: cookie_header.present?,
+      cookie_names: RequestDiagnostics.cookie_names_from_header(cookie_header)
+    )
   end
 
   def set_cable_session_cookie(session_token)

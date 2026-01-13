@@ -7,18 +7,51 @@
 
 require Rails.root.join("app/lib/frontend_origins")
 
+allowed_headers = %w[
+  Origin
+  Content-Type
+  Accept
+  Authorization
+  X-Requested-With
+  X-CSRF-Token
+  X-Storefront-Key
+].freeze
+exposed_headers = %w[Authorization X-Request-Id].freeze
+allowed_methods = [ :get, :post, :put, :patch, :delete, :options ].freeze
+cable_headers = %w[Authorization Origin].freeze
+cable_methods = [ :get, :options ].freeze
+
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     origins(*FrontendOrigins.allowed_origins)
 
     resource "/api/*",
-      headers: %w[Origin Content-Type Accept Authorization X-Requested-With X-CSRF-Token X-Storefront-Key],
-      expose: %w[Authorization X-Request-Id],
-      methods: [ :get, :post, :put, :patch, :delete, :options ],
+      headers: allowed_headers,
+      expose: exposed_headers,
+      methods: allowed_methods,
       credentials: true
 
     resource "/cable",
-      headers: %w[Authorization Origin],
-      methods: [ :get, :options ]
+      headers: cable_headers,
+      methods: cable_methods
+  end
+end
+
+Rails.application.config.middleware.insert_before Rack::Cors, Middleware::RequestDiagnosticsLogger
+
+if %w[production staging].include?(Rails.env)
+  begin
+    AppLogger.log(
+      event: "cors.config",
+      origins: FrontendOrigins.allowed_origins,
+      credentials: true,
+      allowed_headers: allowed_headers,
+      allowed_methods: allowed_methods,
+      exposed_headers: exposed_headers,
+      cable_headers: cable_headers,
+      cable_methods: cable_methods
+    )
+  rescue StandardError => e
+    AppLogger.error(event: "cors.config_failed", error: e)
   end
 end
