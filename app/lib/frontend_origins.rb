@@ -1,6 +1,28 @@
 module FrontendOrigins
   module_function
 
+  BIDDERSWEET_ORIGINS = %w[
+    https://biddersweet.app
+    https://afterdark.biddersweet.app
+    https://marketplace.biddersweet.app
+    https://account.biddersweet.app
+  ].freeze
+
+  def allowed_origins(env: Rails.env, credentials: Rails.application.credentials)
+    env_key = env.to_s
+    env_override = ENV["CORS_ALLOWED_ORIGINS"].to_s.strip
+    base_origins = if env_override.present?
+      normalize!(env_override.split(",").map(&:strip), env_key)
+    else
+      for_env!(env, credentials: credentials)
+    end
+
+    allowed = Array(base_origins) + BIDDERSWEET_ORIGINS
+    allowed += local_origins if env_key.in?(%w[test development])
+
+    normalize!(allowed.uniq, env_key)
+  end
+
   def for_env!(env = Rails.env, credentials: Rails.application.credentials)
     env_key = env.to_s
 

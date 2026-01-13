@@ -15,6 +15,19 @@ class CorsCredentialsTest < ActionDispatch::IntegrationTest
     assert_equal "true", response.headers["Access-Control-Allow-Credentials"]
   end
 
+  test "cable preflight from allowed origin includes cors headers" do
+    origin = "http://marketplace.localhost:5173"
+
+    options "/cable",
+      headers: {
+        "Origin" => origin,
+        "Access-Control-Request-Method" => "GET"
+      }
+
+    assert_includes [ 200, 204 ], response.status
+    assert_equal origin, response.headers["Access-Control-Allow-Origin"]
+  end
+
   test "preflight from disallowed origin omits cors headers" do
     options "/api/v1/login",
       headers: {

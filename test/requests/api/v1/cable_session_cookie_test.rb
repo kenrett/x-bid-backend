@@ -22,6 +22,41 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_match(/path=\/cable/i, set_cookie)
   end
 
+  test "signup sets cable session cookie with expected flags" do
+    post "/api/v1/signup", params: {
+      user: {
+        name: "Signup User",
+        email_address: "signup-cookie@example.com",
+        password: "password",
+        password_confirmation: "password"
+      }
+    }
+
+    assert_response :created
+    set_cookie = set_cookie_header
+    assert set_cookie.present?, "Expected Set-Cookie header to be present"
+    assert_includes set_cookie, "cable_session="
+    assert_match(/httponly/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/path=\/cable/i, set_cookie)
+  end
+
+  test "refresh sets cable session cookie with expected flags" do
+    post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+    assert_response :success
+    login_body = JSON.parse(response.body)
+
+    post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }
+
+    assert_response :success
+    set_cookie = set_cookie_header
+    assert set_cookie.present?, "Expected Set-Cookie header to be present"
+    assert_includes set_cookie, "cable_session="
+    assert_match(/httponly/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/path=\/cable/i, set_cookie)
+  end
+
   test "login sets Secure on cable session cookie in production" do
     Rails.stub(:env, ActiveSupport::StringInquirer.new("production")) do
       https!

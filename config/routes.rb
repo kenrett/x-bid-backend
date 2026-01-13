@@ -114,6 +114,7 @@ Rails.application.routes.draw do
   # Quiet missing favicon to avoid log noise
   get "/favicon.ico", to: proc { [ 204, { "Content-Type" => "image/x-icon" }, [] ] }
 
+  get "/cable/health", to: "cable_health#show"
   mount ActionCable.server => "/cable"
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

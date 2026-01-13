@@ -221,6 +221,7 @@ class ApplicationController < ActionController::API
       expires: session_token.expires_at,
       httponly: true,
       secure: Rails.env.production?,
+      # SameSite=Lax keeps the cookie on same-site subdomains while preventing cross-site leakage.
       same_site: :lax,
       path: CABLE_SESSION_COOKIE_PATH
     }
