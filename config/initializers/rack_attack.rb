@@ -11,6 +11,21 @@ Rack::Attack.cache.store =
 Rack::Attack.throttled_responder = lambda do |request|
   match_data = request.env["rack.attack.match_data"] || {}
   retry_after = (match_data[:period] || match_data["period"]).to_i
+  begin
+    AppLogger.log(
+      event: "rack_attack.throttled",
+      request_id: request.env["action_dispatch.request_id"],
+      path: request.path,
+      method: request.request_method,
+      ip: RackAttackRules.client_ip(request),
+      match_name: request.env["rack.attack.matched"],
+      match_discriminator: match_data[:discriminator] || match_data["discriminator"],
+      match_period: match_data[:period] || match_data["period"],
+      match_limit: match_data[:limit] || match_data["limit"]
+    )
+  rescue StandardError => e
+    AppLogger.error(event: "rack_attack.throttled_log_failed", error: e)
+  end
 
   message =
     case request.path

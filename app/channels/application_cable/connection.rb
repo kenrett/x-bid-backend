@@ -5,13 +5,16 @@ module ApplicationCable
     identified_by :current_user, :current_session_token
 
     def connect
-      log_connection_diagnostics
       set_storefront_context!
+      log_connection_diagnostics
       session_token = authenticate_connection
       self.current_session_token = session_token
       self.current_user = session_token.user
-      Rails.logger.info(
-        "ActionCable connection accepted: user_id=#{current_user.id} session_token_id=#{current_session_token.id} host=#{request.host} origin=#{request.headers['Origin']} storefront_key=#{Current.storefront_key}"
+      AppLogger.log(
+        event: "action_cable.connect.accepted",
+        **connection_log_context,
+        user_id: current_user.id,
+        session_token_id: current_session_token.id
       )
     end
 
@@ -27,28 +30,32 @@ module ApplicationCable
         end
 
       unless session_token
-        if token.present?
-          reason = "invalid_token"
-        elsif cookies.signed[:cable_session].present?
-          reason = "invalid_cookie"
-        else
-          reason = "missing_token"
-        end
+        reason =
+          if token.present?
+            :unknown_session
+          elsif cookies.signed[:cable_session].present?
+            :unknown_session
+          else
+            :missing_session_cookie
+          end
         log_rejected_connection(reason)
         reject_unauthorized_connection
       end
 
       unless session_token.active?
-        log_rejected_connection("inactive_session")
+        log_rejected_connection(:expired_session)
         reject_unauthorized_connection
       end
 
       session_token
     rescue JWT::ExpiredSignature
-      log_rejected_connection("expired_token")
+      log_rejected_connection(:expired_session)
       reject_unauthorized_connection
-    rescue JWT::DecodeError, JWT::VerificationError, ActiveRecord::RecordNotFound
-      log_rejected_connection("invalid_token")
+    rescue JWT::DecodeError, JWT::VerificationError
+      log_rejected_connection(:bad_token_format)
+      reject_unauthorized_connection
+    rescue ActiveRecord::RecordNotFound
+      log_rejected_connection(:unknown_session)
       reject_unauthorized_connection
     end
 
@@ -105,40 +112,42 @@ module ApplicationCable
     end
 
     def log_rejected_connection(reason)
-      cookie_present = request.headers["Cookie"].present?
-      cookie_names = RequestDiagnostics.cookie_names_from_header(request.headers["Cookie"])
-      origin = request.headers["Origin"]
-      storefront_key = Current.storefront_key if defined?(Current)
-
-      details = [
-        "reason=#{reason}",
-        "host=#{request.host}",
-        "path=#{request.path}",
-        "origin=#{origin.presence || 'none'}",
-        "cookie_present=#{cookie_present}",
-        "cookie_names=#{cookie_names.join(',')}",
-        "storefront_key=#{storefront_key.presence || 'unknown'}"
-      ]
-      Rails.logger.warn("ActionCable connection rejected: #{details.join(' ')}")
+      AppLogger.log(
+        event: "action_cable.connect.rejected",
+        level: :warn,
+        reason: reason.to_s,
+        **connection_log_context,
+        token_present: websocket_token.present?
+      )
     end
 
     def log_connection_diagnostics
       env_keys = request.env.keys.grep(/\AHTTP_|^action_dispatch\.|^rack\.|^REQUEST_|^REMOTE_|^SERVER_/).sort
-      cookie_header = request.headers["Cookie"]
       auth_token = websocket_token
       AppLogger.log(
         event: "action_cable.connect.diagnostics",
+        **connection_log_context,
+        env_keys: env_keys,
+        param_keys: request.params.keys.sort,
+        token_present: auth_token.present?
+      )
+    end
+
+    def connection_log_context
+      {
         request_id: request.request_id,
+        controller_action: "#{self.class.name}#connect",
+        controller: self.class.name,
+        action: "connect",
+        method: request.request_method,
         path: request.path,
         origin: request.headers["Origin"],
         host: request.host,
-        env_keys: env_keys,
-        cookie_present: cookie_header.present?,
-        cookie_names: RequestDiagnostics.cookie_names_from_header(cookie_header),
-        param_keys: request.params.keys.sort,
-        token_present: auth_token.present?,
-        token_redacted: RequestDiagnostics.redact_token(auth_token)
-      )
+        cookie_present: request.headers["Cookie"].present?,
+        authorization_present: request.headers["Authorization"].present?,
+        cable_session_cookie_present: cookies.signed[:cable_session].present?,
+        storefront_key: Current.storefront_key
+      }
     end
   end
 end

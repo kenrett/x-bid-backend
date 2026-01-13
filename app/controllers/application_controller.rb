@@ -19,9 +19,9 @@ class ApplicationController < ActionController::API
     begin
       session_token = token ? session_token_from_jwt(token) : session_token_from_cookie
       unless session_token
-        log_missing_auth_inputs
-        return render_error(
+        return render_auth_failure!(
           code: :invalid_token,
+          reason: missing_credentials_reason,
           message: "Authorization header or cable session cookie missing",
           status: :unauthorized
         )
@@ -29,7 +29,12 @@ class ApplicationController < ActionController::API
 
       unless session_token&.active?
         SessionEventBroadcaster.session_invalidated(session_token, reason: "expired") if session_token
-        return render_error(code: :invalid_session, message: "Session has expired", status: :unauthorized)
+        return render_auth_failure!(
+          code: :invalid_session,
+          reason: :expired_session,
+          message: "Session has expired",
+          status: :unauthorized
+        )
       end
 
       @current_session_token = session_token
@@ -43,11 +48,27 @@ class ApplicationController < ActionController::API
         render_error(code: :account_disabled, message: "User account disabled", status: :forbidden)
       end
     rescue JWT::ExpiredSignature
-      render_error(code: :invalid_token, message: "Token has expired", status: :unauthorized)
-    rescue JWT::DecodeError => e
-      render_error(code: :invalid_token, message: "Invalid token: #{e.message}", status: :unauthorized)
+      render_auth_failure!(
+        code: :invalid_token,
+        reason: :expired_session,
+        message: "Token has expired",
+        status: :unauthorized
+      )
+    rescue JWT::DecodeError, JWT::VerificationError => e
+      render_auth_failure!(
+        code: :invalid_token,
+        reason: :bad_token_format,
+        message: "Invalid token: #{e.message}",
+        status: :unauthorized,
+        log_details: { error_class: e.class.name }
+      )
     rescue ActiveRecord::RecordNotFound
-      render_error(code: :invalid_token, message: "Unauthorized", status: :unauthorized)
+      render_auth_failure!(
+        code: :invalid_token,
+        reason: :unknown_session,
+        message: "Unauthorized",
+        status: :unauthorized
+      )
     end
   end
 
@@ -204,20 +225,60 @@ class ApplicationController < ActionController::API
     render_error(code: :bad_request, message: "Malformed JSON", status: :bad_request)
   end
 
-  def log_missing_auth_inputs
-    auth_header = request.headers["Authorization"]
-    cookie_header = request.headers["Cookie"]
+  def render_auth_failure!(code:, reason:, message:, status:, log_details: {})
+    log_auth_failure(code: code, reason: reason, log_details: log_details)
+    render_error(
+      code: code,
+      message: message,
+      status: status,
+      details: auth_failure_response_details(reason)
+    )
+  end
+
+  def auth_failure_response_details(reason)
+    details = { reason: reason.to_s, request_id: request.request_id }
+    storefront_key = Current.storefront_key if defined?(Current)
+    details[:storefront_key] = storefront_key if storefront_key.present?
+    details
+  end
+
+  def log_auth_failure(code:, reason:, log_details: {})
+    auth_header_present = request.headers["Authorization"].present?
+    cookie_header_present = request.headers["Cookie"].present?
+    cable_cookie_present = cookies.signed[CABLE_SESSION_COOKIE_NAME].present?
+
     AppLogger.log(
-      event: "auth.invalid_token.missing_credentials",
+      event: "auth.failure",
+      level: :warn,
+      code: code.to_s,
+      reason: reason.to_s,
       request_id: request.request_id,
+      controller_action: "#{controller_name}##{action_name}",
       controller: controller_name,
       action: action_name,
+      method: request.request_method,
       path: request.fullpath,
-      authorization_present: auth_header.present?,
-      authorization_redacted: RequestDiagnostics.redact_authorization_header(auth_header),
-      cookie_present: cookie_header.present?,
-      cookie_names: RequestDiagnostics.cookie_names_from_header(cookie_header)
+      origin: request.headers["Origin"],
+      host: request.host,
+      cookie_present: cookie_header_present,
+      authorization_present: auth_header_present,
+      cable_session_cookie_present: cable_cookie_present,
+      storefront_key: Current.storefront_key,
+      **log_details
     )
+  end
+
+  def missing_credentials_reason
+    auth_header_present = request.headers["Authorization"].present?
+    cookie_header_present = request.headers["Cookie"].present?
+    cable_cookie_present = cookies.signed[CABLE_SESSION_COOKIE_NAME].present?
+
+    return :bad_token_format if auth_header_present && extract_authorization_token.blank?
+    return :unknown_session if auth_header_present
+    return :unknown_session if cable_cookie_present
+    return :missing_session_cookie if cookie_header_present
+
+    :missing_authorization_header
   end
 
   def set_cable_session_cookie(session_token)
