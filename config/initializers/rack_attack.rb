@@ -127,6 +127,14 @@ module RackAttackRules
   rescue JWT::DecodeError, JWT::VerificationError, ArgumentError
     nil
   end
+
+  def self.client_ip(req)
+    forwarded_for = req.get_header("HTTP_X_FORWARDED_FOR").to_s
+    forwarded = forwarded_for.split(",").map(&:strip).reject(&:blank?)
+    return forwarded.first if forwarded.any?
+
+    req.get_header("REMOTE_ADDR") || req.ip
+  end
 end
 
 Rack::Attack.safelist("allow-healthcheck") { |req| req.path == "/up" }
@@ -139,7 +147,7 @@ Rack::Attack.throttle(
   # Exclude session remaining checks from the global rate limit to prevent
   # a frontend polling bug from locking the user out of the entire application.
   if req.path != "/api/v1/session/remaining"
-    req.ip
+    RackAttackRules.client_ip(req)
   end
 end
 
@@ -148,7 +156,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_EXPENSIVE_IP_SHORT_LIMIT", 25),
   period: RackAttackRules.env_seconds("RATE_LIMIT_EXPENSIVE_IP_SHORT_PERIOD_SECONDS", 1.minute.to_i)
 ) do |req|
-  req.ip if RackAttackRules.expensive?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.expensive?(req)
 end
 
 Rack::Attack.throttle(
@@ -156,7 +164,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_EXPENSIVE_IP_LONG_LIMIT", 150),
   period: RackAttackRules.env_seconds("RATE_LIMIT_EXPENSIVE_IP_LONG_PERIOD_SECONDS", 1.hour.to_i)
 ) do |req|
-  req.ip if RackAttackRules.expensive?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.expensive?(req)
 end
 
 Rack::Attack.throttle(
@@ -164,7 +172,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_LOGIN_IP_SHORT_LIMIT", 20),
   period: RackAttackRules.env_seconds("RATE_LIMIT_LOGIN_IP_SHORT_PERIOD_SECONDS", 30.seconds.to_i)
 ) do |req|
-  req.ip if RackAttackRules.login?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.login?(req)
 end
 
 Rack::Attack.throttle(
@@ -180,7 +188,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_SIGNUP_IP_LIMIT", 10),
   period: RackAttackRules.env_seconds("RATE_LIMIT_SIGNUP_IP_PERIOD_SECONDS", 10.minutes.to_i)
 ) do |req|
-  req.ip if RackAttackRules.signup?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.signup?(req)
 end
 
 Rack::Attack.throttle(
@@ -192,7 +200,8 @@ Rack::Attack.throttle(
 end
 
 Rack::Attack.blocklist("lockout/login/ip") do |req|
-  Rack::Attack::Allow2Ban.filter("lockout:login:ip:#{req.ip}", maxretry: 12, findtime: 15.minutes, bantime: 1.hour) do
+  ip = RackAttackRules.client_ip(req)
+  Rack::Attack::Allow2Ban.filter("lockout:login:ip:#{ip}", maxretry: 12, findtime: 15.minutes, bantime: 1.hour) do
     RackAttackRules.login?(req)
   end
 end
@@ -211,7 +220,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_PASSWORD_RESET_IP_LIMIT", 10),
   period: RackAttackRules.env_seconds("RATE_LIMIT_PASSWORD_RESET_IP_PERIOD_SECONDS", 10.minutes.to_i)
 ) do |req|
-  req.ip if RackAttackRules.password_reset?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.password_reset?(req)
 end
 
 Rack::Attack.throttle(
@@ -228,7 +237,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_BIDS_IP_LIMIT", 50),
   period: RackAttackRules.env_seconds("RATE_LIMIT_BIDS_IP_PERIOD_SECONDS", 1.minute.to_i)
 ) do |req|
-  req.ip if RackAttackRules.bidding?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.bidding?(req)
 end
 
 Rack::Attack.throttle(
@@ -244,7 +253,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_CHECKOUT_IP_LIMIT", 15),
   period: RackAttackRules.env_seconds("RATE_LIMIT_CHECKOUT_IP_PERIOD_SECONDS", 10.minutes.to_i)
 ) do |req|
-  req.ip if RackAttackRules.checkout?(req)
+  RackAttackRules.client_ip(req) if RackAttackRules.checkout?(req)
 end
 
 Rack::Attack.throttle(
@@ -252,5 +261,5 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_SESSION_REMAINING_IP_LIMIT", 60),
   period: RackAttackRules.env_seconds("RATE_LIMIT_SESSION_REMAINING_IP_PERIOD_SECONDS", 1.minute.to_i)
 ) do |req|
-  req.ip if req.path == "/api/v1/session/remaining"
+  RackAttackRules.client_ip(req) if req.path == "/api/v1/session/remaining"
 end
