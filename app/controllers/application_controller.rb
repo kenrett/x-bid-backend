@@ -12,17 +12,16 @@ class ApplicationController < ActionController::API
 
   CABLE_SESSION_COOKIE_NAME = "cable_session"
   CABLE_SESSION_COOKIE_PATH = "/cable"
+  BROWSER_SESSION_COOKIE_NAME = "bs_session_id"
 
   def authenticate_request!
-    token = extract_authorization_token
-
     begin
-      session_token = token ? session_token_from_jwt(token) : session_token_from_cookie
+      session_token = Auth::AuthenticateRequest.call(request)
       unless session_token
         return render_auth_failure!(
           code: :invalid_token,
           reason: missing_credentials_reason,
-          message: "Authorization header or cable session cookie missing",
+          message: "Authorization header or session cookie missing",
           status: :unauthorized
         )
       end
@@ -140,8 +139,7 @@ class ApplicationController < ActionController::API
   end
 
   def maintenance_admin_override?
-    token = extract_authorization_token
-    session_token = token ? session_token_from_jwt(token) : session_token_from_cookie
+    session_token = Auth::AuthenticateRequest.call(request)
     return false unless session_token&.active?
 
     user = session_token.user
@@ -206,11 +204,8 @@ class ApplicationController < ActionController::API
     Auth::SessionTokenDecoder.session_token_from_jwt(token)
   end
 
-  def session_token_from_cookie
-    session_token_id = cookies.signed[CABLE_SESSION_COOKIE_NAME]
-    return nil if session_token_id.blank?
-
-    SessionToken.find_by(id: session_token_id)
+  def browser_session_cookie_present?
+    request.cookies.key?(BROWSER_SESSION_COOKIE_NAME)
   end
 
   def handle_parameter_missing(exception)
@@ -246,6 +241,7 @@ class ApplicationController < ActionController::API
     auth_header_present = request.headers["Authorization"].present?
     cookie_header_present = request.headers["Cookie"].present?
     cable_cookie_present = cookies.signed[CABLE_SESSION_COOKIE_NAME].present?
+    browser_cookie_present = browser_session_cookie_present?
 
     AppLogger.log(
       event: "auth.failure",
@@ -263,6 +259,7 @@ class ApplicationController < ActionController::API
       cookie_present: cookie_header_present,
       authorization_present: auth_header_present,
       cable_session_cookie_present: cable_cookie_present,
+      browser_session_cookie_present: browser_cookie_present,
       storefront_key: Current.storefront_key,
       **log_details
     )
@@ -272,10 +269,11 @@ class ApplicationController < ActionController::API
     auth_header_present = request.headers["Authorization"].present?
     cookie_header_present = request.headers["Cookie"].present?
     cable_cookie_present = cookies.signed[CABLE_SESSION_COOKIE_NAME].present?
+    browser_cookie_present = browser_session_cookie_present?
 
     return :bad_token_format if auth_header_present && extract_authorization_token.blank?
     return :unknown_session if auth_header_present
-    return :unknown_session if cable_cookie_present
+    return :unknown_session if cable_cookie_present || browser_cookie_present
     return :missing_session_cookie if cookie_header_present
 
     :missing_authorization_header
@@ -295,6 +293,19 @@ class ApplicationController < ActionController::API
     }
   end
 
+  def set_browser_session_cookie(session_token)
+    return unless session_token
+
+    cookies.signed[BROWSER_SESSION_COOKIE_NAME] = {
+      value: session_token.id,
+      expires: session_token.expires_at,
+      httponly: true,
+      secure: Rails.env.production?,
+      same_site: :lax,
+      domain: CookieDomainResolver.domain_for(request.host)
+    }.compact
+  end
+
   def clear_cable_session_cookie
     cookies.signed[CABLE_SESSION_COOKIE_NAME] = {
       value: "",
@@ -304,6 +315,17 @@ class ApplicationController < ActionController::API
       same_site: :lax,
       path: CABLE_SESSION_COOKIE_PATH
     }
+  end
+
+  def clear_browser_session_cookie
+    cookies.signed[BROWSER_SESSION_COOKIE_NAME] = {
+      value: "",
+      expires: 1.day.ago,
+      httponly: true,
+      secure: Rails.env.production?,
+      same_site: :lax,
+      domain: CookieDomainResolver.domain_for(request.host)
+    }.compact
   end
 
   def encode_jwt(payload = {}, expires_at: nil, **kwargs)
