@@ -12,6 +12,8 @@ allowed_headers = %w[
   Authorization
   X-Requested-With
   X-CSRF-Token
+  X-Request-Id
+  X-Storefront-Key
 ].freeze
 exposed_headers = %w[Authorization X-Request-Id].freeze
 allowed_methods = [ :get, :post, :put, :patch, :delete, :options ].freeze
