@@ -8,12 +8,19 @@
 require Rails.root.join("app/lib/frontend_origins")
 
 allowed_headers = %w[
-  Content-Type
   Authorization
+  Content-Type
   X-Requested-With
   X-CSRF-Token
   X-Request-Id
   X-Storefront-Key
+  authorization
+  content-type
+  x-csrf-token
+  x-request-id
+  x-storefront-key
+  sentry-trace
+  baggage
 ].freeze
 exposed_headers = %w[Authorization X-Request-Id].freeze
 allowed_methods = [ :get, :post, :put, :patch, :delete, :options ].freeze
@@ -32,7 +39,8 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 
     resource "/cable",
       headers: cable_headers,
-      methods: cable_methods
+      methods: cable_methods,
+      credentials: true
   end
 end
 
