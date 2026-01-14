@@ -19,4 +19,12 @@ class FrontendOriginsTest < ActiveSupport::TestCase
   ensure
     ENV.delete("FRONTEND_ORIGINS")
   end
+
+  test "matches biddersweet www and subdomains but rejects lookalikes" do
+    creds = Struct.new(:frontend_origins).new({ "production" => [ "https://biddersweet.app" ] })
+
+    assert FrontendOrigins.allowed_origin?("https://www.biddersweet.app", env: "production", credentials: creds)
+    assert FrontendOrigins.allowed_origin?("https://random-subdomain.biddersweet.app", env: "production", credentials: creds)
+    refute FrontendOrigins.allowed_origin?("https://biddersweet.app.evil.com", env: "production", credentials: creds)
+  end
 end

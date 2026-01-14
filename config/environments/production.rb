@@ -88,7 +88,7 @@ Rails.application.configure do
   # -----------------------------
   require Rails.root.join("app/lib/frontend_origins")
   config.action_cable.url = ENV.fetch("ACTION_CABLE_URL", "wss://x-bid-backend.onrender.com/cable")
-  config.action_cable.allowed_request_origins = FrontendOrigins.allowed_origins
+  config.action_cable.allowed_request_origins = FrontendOrigins.allowed_origin_patterns
 
   # Enable DNS rebinding protection and other host header attacks.
   config.hosts = [

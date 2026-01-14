@@ -1,7 +1,7 @@
 require Rails.root.join("app/lib/frontend_origins")
 
 Rails.application.config.after_initialize do
-  origins = FrontendOrigins.allowed_origins
+  origins = FrontendOrigins.allowed_origin_patterns
 
   if ActionCable.server
     existing = Array(ActionCable.server.config.allowed_request_origins)

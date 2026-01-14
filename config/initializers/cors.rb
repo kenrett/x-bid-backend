@@ -20,9 +20,7 @@ cable_methods = [ :get, :options ].freeze
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins do |origin, _env|
-      FrontendOrigins.allowed_origin?(origin)
-    end
+    origins(*FrontendOrigins.allowed_origin_patterns)
 
     resource "/api/*",
       headers: allowed_headers,
@@ -42,7 +40,7 @@ if %w[production staging].include?(Rails.env)
   begin
     AppLogger.log(
       event: "cors.config",
-      origins: FrontendOrigins.allowed_origins,
+      origins: FrontendOrigins.allowed_origin_patterns,
       credentials: true,
       allowed_headers: allowed_headers,
       allowed_methods: allowed_methods,

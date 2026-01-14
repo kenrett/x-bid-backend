@@ -36,7 +36,18 @@ module Middleware
       cookie_header = request.headers["Cookie"]
       origin = request.headers["Origin"]
 
+      pattern_match = origin.present? ? FrontendOrigins.allowed_origin_pattern_match(origin) : nil
       origin_allowed = origin.present? ? FrontendOrigins.allowed_origin?(origin) : nil
+      origin_pattern_match = if pattern_match.is_a?(Regexp)
+        pattern_match.source
+      else
+        pattern_match
+      end
+      origin_pattern_type = if pattern_match.is_a?(Regexp)
+        "regex"
+      elsif pattern_match.is_a?(String)
+        "string"
+      end
 
       options_requested_method = nil
       options_requested_headers = nil
@@ -65,6 +76,8 @@ module Middleware
         status: status,
         origin: origin,
         origin_allowed: origin_allowed,
+        origin_pattern_match: origin_pattern_match,
+        origin_pattern_type: origin_pattern_type,
         host: request.host,
         user_agent: request.user_agent,
         remote_ip: request.remote_ip,
