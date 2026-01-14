@@ -84,10 +84,17 @@ module ApplicationCable
         host: request.host,
         cookie_present: request.headers["Cookie"].present?,
         authorization_present: request.headers["Authorization"].present?,
-        cable_session_cookie_present: cookies.signed[:cable_session].present?,
+        cable_session_cookie_present: cookies.encrypted[:cable_session].present?,
         browser_session_cookie_present: cookies.signed[:bs_session_id].present?,
-        storefront_key: Current.storefront_key
+        storefront_key: Current.storefront_key,
+        storefront_key_param_present: storefront_key_param_present?
       }
+    end
+
+    def storefront_key_param_present?
+      request.params[:storefront].present? ||
+        request.params[:storefront_key].present? ||
+        request.params[:x_storefront].present?
     end
   end
 end
