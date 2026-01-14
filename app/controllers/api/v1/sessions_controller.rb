@@ -26,6 +26,7 @@ module Api
           track_session_token!(session_token)
           set_cable_session_cookie(session_token)
           set_browser_session_cookie(session_token)
+          response.set_header("X-Auth-Mode", "cookie")
           AuditLogger.log(
             action: "auth.login",
             actor: user,
@@ -64,6 +65,7 @@ module Api
         track_session_token!(new_session_token)
         set_cable_session_cookie(new_session_token)
         set_browser_session_cookie(new_session_token)
+        response.set_header("X-Auth-Mode", "cookie")
         AuditLogger.log(
           action: "auth.refresh",
           actor: session_token.user,

@@ -362,13 +362,22 @@ class ApplicationController < ActionController::API
   def set_browser_session_cookie(session_token)
     return unless session_token
 
+    cookie_domain = CookieDomainResolver.domain_for(request.host)
+    AppLogger.log(
+      event: "auth.session_cookie_set",
+      level: :debug,
+      host: request.host,
+      env: Rails.env,
+      cookie_domain: cookie_domain
+    )
+
     cookies.signed[BROWSER_SESSION_COOKIE_NAME] = {
       value: session_token.id,
       expires: session_token.expires_at,
       httponly: true,
       secure: Rails.env.production?,
       same_site: :lax,
-      domain: CookieDomainResolver.domain_for(request.host),
+      domain: cookie_domain,
       path: "/"
     }.compact
   end
