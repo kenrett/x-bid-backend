@@ -348,60 +348,63 @@ class ApplicationController < ActionController::API
   def set_cable_session_cookie(session_token)
     return unless session_token
 
+    cookie_options = CookieDomainResolver.cookie_options(request.host, path: CABLE_SESSION_COOKIE_PATH)
+    AppLogger.log(
+      event: "auth.cable_cookie_set",
+      level: :debug,
+      host: request.host,
+      cookie_domain: cookie_options[:domain],
+      same_site: cookie_options[:same_site],
+      secure: cookie_options[:secure]
+    )
+
     cookies.signed[CABLE_SESSION_COOKIE_NAME] = {
       value: session_token.id,
       expires: session_token.expires_at,
       httponly: true,
-      secure: Rails.env.production?,
-      # SameSite=Lax keeps the cookie on same-site subdomains while preventing cross-site leakage.
-      same_site: :lax,
-      path: CABLE_SESSION_COOKIE_PATH
-    }
+      **cookie_options
+    }.compact
   end
 
   def set_browser_session_cookie(session_token)
     return unless session_token
 
-    cookie_domain = CookieDomainResolver.domain_for(request.host)
+    cookie_options = CookieDomainResolver.cookie_options(request.host)
     AppLogger.log(
       event: "auth.session_cookie_set",
       level: :debug,
       host: request.host,
       env: Rails.env,
-      cookie_domain: cookie_domain
+      cookie_domain: cookie_options[:domain],
+      same_site: cookie_options[:same_site],
+      secure: cookie_options[:secure]
     )
 
     cookies.signed[BROWSER_SESSION_COOKIE_NAME] = {
       value: session_token.id,
       expires: session_token.expires_at,
       httponly: true,
-      secure: Rails.env.production?,
-      same_site: :lax,
-      domain: cookie_domain,
-      path: "/"
+      **cookie_options
     }.compact
   end
 
   def clear_cable_session_cookie
+    cookie_options = CookieDomainResolver.cookie_options(request.host, path: CABLE_SESSION_COOKIE_PATH)
     cookies.signed[CABLE_SESSION_COOKIE_NAME] = {
       value: "",
       expires: 1.day.ago,
       httponly: true,
-      secure: Rails.env.production?,
-      same_site: :lax,
-      path: CABLE_SESSION_COOKIE_PATH
-    }
+      **cookie_options
+    }.compact
   end
 
   def clear_browser_session_cookie
+    cookie_options = CookieDomainResolver.cookie_options(request.host)
     cookies.signed[BROWSER_SESSION_COOKIE_NAME] = {
       value: "",
       expires: 1.day.ago,
       httponly: true,
-      secure: Rails.env.production?,
-      same_site: :lax,
-      domain: CookieDomainResolver.domain_for(request.host),
-      path: "/"
+      **cookie_options
     }.compact
   end
 

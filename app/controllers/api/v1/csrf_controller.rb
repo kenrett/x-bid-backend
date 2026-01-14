@@ -7,13 +7,19 @@ module Api
       # @no_auth
       def show
         token = SecureRandom.base64(32)
+        cookie_options = CookieDomainResolver.cookie_options(request.host)
+        AppLogger.log(
+          event: "auth.csrf_cookie_set",
+          level: :debug,
+          host: request.host,
+          cookie_domain: cookie_options[:domain],
+          same_site: cookie_options[:same_site],
+          secure: cookie_options[:secure]
+        )
         cookies.signed[:csrf_token] = {
           value: token,
           httponly: false,
-          secure: Rails.env.production?,
-          same_site: :lax,
-          domain: CookieDomainResolver.domain_for(request.host),
-          path: "/"
+          **cookie_options
         }.compact
         render json: { csrf_token: token }, status: :ok
       end
