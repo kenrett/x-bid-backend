@@ -53,6 +53,7 @@ Rails.application.routes.draw do
       get "/session/remaining", to: "sessions#remaining"
       delete "/logout", to: "sessions#destroy"
       get "/logged_in", to: "sessions#logged_in?"
+      get "/diagnostics/auth", to: "diagnostics#auth"
       get "/csrf", to: "csrf#show"
       get "/health", to: "health#show"
       post "/password/forgot", to: "password_resets#create"
