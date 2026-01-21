@@ -3,6 +3,7 @@ module Api
     class DiagnosticsController < ApplicationController
       before_action :ensure_diagnostics_enabled
 
+      # @summary Report auth-related diagnostics for the current request
       def auth
         origin = request.headers["Origin"]
         render json: {
