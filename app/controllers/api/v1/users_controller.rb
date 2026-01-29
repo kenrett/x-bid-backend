@@ -21,6 +21,8 @@ module Api
         session_token, refresh_token = SessionToken.generate_for(user: user)
         track_session_token!(session_token)
         set_cable_session_cookie(session_token)
+        set_browser_session_cookie(session_token)
+        response.set_header("X-Auth-Mode", "cookie")
         render json: Auth::SessionResponseBuilder.build(
           user: user,
           session_token: session_token,

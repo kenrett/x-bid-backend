@@ -54,7 +54,8 @@ class SecurityHeaders
 
     connect_sources = [
       "'self'",
-      "https://cloudflareinsights.com"
+      "https://cloudflareinsights.com",
+      "https://api.biddersweet.app"
     ].join(" ")
 
     json_csp = [

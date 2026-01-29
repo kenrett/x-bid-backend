@@ -31,7 +31,8 @@ class OpenapiContractTest < ActionDispatch::IntegrationTest
     assert_response :created
     assert_openapi_response_schema!(method: :post, path: "/api/v1/signup", status: response.status)
 
-    post "/api/v1/signup", params: { user: { email_address: "openapi_signup_bad@example.com" } }
+    headers = csrf_headers
+    post "/api/v1/signup", params: { user: { email_address: "openapi_signup_bad@example.com" } }, headers: headers
 
     assert_response :unprocessable_content
     assert_openapi_response_schema!(method: :post, path: "/api/v1/signup", status: response.status)

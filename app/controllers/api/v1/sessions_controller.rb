@@ -150,18 +150,10 @@ module Api
 
       def build_logged_in_response(user, session_token)
         flags = Auth::SessionResponseBuilder.flags_for(user)
-        session = Auth::SessionResponseBuilder.session_data(session_token)
-
         {
           logged_in: true,
           user: Auth::SessionResponseBuilder.user_data(user, flags: flags),
-          is_admin: flags[:is_admin],
-          is_superuser: flags[:is_superuser],
-          redirect_path: Auth::SessionResponseBuilder.redirect_path_for(user),
-          session_token_id: session[:session_token_id],
-          session_expires_at: session[:session_expires_at],
-          seconds_remaining: session[:seconds_remaining],
-          session: session
+          session_expires_at: session_token&.expires_at&.iso8601
         }
       end
 

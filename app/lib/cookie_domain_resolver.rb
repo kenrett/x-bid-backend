@@ -6,12 +6,13 @@ module CookieDomainResolver
     if env_override.present?
       host_value = host.to_s
       override_host = env_override.delete_prefix(".")
-      return env_override if host_value.end_with?(override_host)
+      allow_override = env_override != ".biddersweet.app" || Rails.env.production?
+      return env_override if allow_override && host_value.end_with?(override_host)
     end
     return nil if Rails.env.test?
     host_value = host.to_s
     return ".lvh.me" if host_value.end_with?("lvh.me")
-    return ".biddersweet.app" if host_value.end_with?("biddersweet.app")
+    return ".biddersweet.app" if Rails.env.production? && host_value.end_with?("biddersweet.app")
 
     nil
   end

@@ -94,6 +94,8 @@ Rails.application.configure do
   config.hosts = [
     "x-bid-backend.onrender.com",
     ENV["CUSTOM_DOMAIN"],
+    "api.biddersweet.app",
+    "www.biddersweet.app",
     "localhost",
     "127.0.0.1"
   ].compact

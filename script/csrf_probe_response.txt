@@ -1,0 +1,19 @@
+HTTP/2 403 
+date: Sun, 18 Jan 2026 00:13:42 GMT
+content-type: text/html; charset=UTF-8
+speculation-rules: "/cdn-cgi/speculation"
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SSqnCW8nSmk28%2FkM34phjm6%2Biofs%2F3BaGT%2FUVpFKp7G7cRDIuDmnriKconVEClJyiUTmFk%2FS9ppFwQ5kGgoP%2BkNe1Pr56JCUK%2FkRik2jiFz1fmA%3D"}]}
+server: cloudflare
+access-control-allow-credentials: true
+access-control-allow-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+access-control-allow-origin: https://www.biddersweet.app
+access-control-expose-headers: Authorization, X-Request-Id
+access-control-max-age: 7200
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+rndr-id: 3f4a0d86-a68d-45fa
+vary: Origin
+vary: Accept-Encoding
+x-render-origin-server: Render
+cf-cache-status: DYNAMIC
+cf-ray: 9bf9e350bafecec5-SJC
+

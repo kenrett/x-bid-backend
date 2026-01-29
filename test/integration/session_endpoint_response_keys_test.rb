@@ -10,14 +10,8 @@ class SessionEndpointResponseKeysTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal(
       %w[
-        is_admin
-        is_superuser
         logged_in
-        redirect_path
-        seconds_remaining
-        session
         session_expires_at
-        session_token_id
         user
       ].sort,
       body.keys.sort

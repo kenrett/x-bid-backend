@@ -21,6 +21,10 @@ module Api
           httponly: false,
           **cookie_options
         }.compact
+        if ENV["DEBUG_CSRF_PROBE"] == "1"
+          response.set_header("X-CSRF-Probe", "ok")
+          response.set_header("X-CSRF-Cookie-Present", cookies.signed[:csrf_token].present?.to_s)
+        end
         render json: { csrf_token: token }, status: :ok
       end
     end

@@ -179,6 +179,7 @@ class ApplicationController < ActionController::API
     return true if request.path == "/api/v1/email_verifications/verify"
     return true if request.path == "/api/v1/admin/maintenance"
     return true if request.path == "/api/v1/maintenance"
+    return true if request.path == "/api/v1/csrf"
     return true if request.path == "/api/v1/stripe/webhooks"
 
     false
