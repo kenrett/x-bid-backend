@@ -26,6 +26,21 @@ class CorsCredentialsTest < ActionDispatch::IntegrationTest
 
     assert_includes [ 200, 204 ], response.status
     assert_equal origin, response.headers["Access-Control-Allow-Origin"]
+    assert_equal "true", response.headers["Access-Control-Allow-Credentials"]
+  end
+
+  test "preflight from production origin includes explicit allowlist headers" do
+    origin = "https://biddersweet.app"
+
+    options "/api/v1/login",
+      headers: {
+        "Origin" => origin,
+        "Access-Control-Request-Method" => "POST"
+      }
+
+    assert_includes [ 200, 204 ], response.status
+    assert_equal origin, response.headers["Access-Control-Allow-Origin"]
+    assert_equal "true", response.headers["Access-Control-Allow-Credentials"]
   end
 
   test "preflight from disallowed origin omits cors headers" do
