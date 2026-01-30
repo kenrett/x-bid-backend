@@ -14,13 +14,7 @@ class OpenapiLoggedInStatusSchemaTest < ActionDispatch::IntegrationTest
     expected_keys = %w[
       logged_in
       user
-      is_admin
-      is_superuser
-      redirect_path
-      session_token_id
       session_expires_at
-      seconds_remaining
-      session
     ]
 
     assert_equal expected_keys.sort, properties.keys.sort

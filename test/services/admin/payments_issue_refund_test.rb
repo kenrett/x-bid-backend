@@ -12,7 +12,7 @@ class AdminPaymentsIssueRefundTest < ActiveSupport::TestCase
       currency: "usd",
       stripe_checkout_session_id: "cs_123",
       stripe_payment_intent_id: "pi_123",
-      status: "completed"
+      status: "applied"
     )
 
     Credits::Apply.apply!(

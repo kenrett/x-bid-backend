@@ -45,7 +45,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert result.success?, "Expected processing to succeed"
     purchase = Purchase.find_by(stripe_payment_intent_id: "pi_123")
     assert_not_nil purchase, "Purchase should be created"
-    assert_equal "completed", purchase.status
+    assert_equal "applied", purchase.status
     assert_equal @bid_pack.id, purchase.bid_pack_id
     assert_equal @user.id, purchase.user_id
     assert_equal @bid_pack.bids, @user.reload.bid_credits
@@ -62,7 +62,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
       amount_cents: 500,
       currency: "usd",
       stripe_payment_intent_id: "pi_123",
-      status: "completed"
+      status: "applied"
     )
 
     Credits::Apply.apply!(
@@ -113,7 +113,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
       amount_cents: 500,
       currency: "usd",
       stripe_payment_intent_id: "pi_123",
-      status: "completed"
+      status: "applied"
     )
 
     Credits::Apply.apply!(
@@ -239,63 +239,39 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert_equal 2, StripeEvent.where(stripe_event_id: [ "evt_123", "evt_124" ]).count
   end
 
-  test "webhook and checkout success are idempotent regardless of order" do
-    checkout_result = Payments::ApplyBidPackPurchase.call!(
+  test "webhook applies against an existing checkout purchase" do
+    Purchase.create!(
       user: @user,
       bid_pack: @bid_pack,
-      stripe_checkout_session_id: "cs_123",
-      stripe_payment_intent_id: "pi_123",
-      stripe_event_id: nil,
       amount_cents: 500,
       currency: "usd",
-      source: "checkout_success"
+      stripe_checkout_session_id: "cs_existing",
+      status: "created"
     )
-    assert checkout_result.ok?
-    assert_equal 500, @user.reload.bid_credits
-    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
 
-    webhook_payload = @event_payload.deep_dup
-    webhook_payload[:id] = "evt_125"
-    webhook_event = FakeStripeEvent.new(webhook_payload)
-    webhook_result = Stripe::WebhookEvents::Process.call(event: webhook_event)
-    assert webhook_result.ok?
-    assert_equal 500, @user.reload.bid_credits
-    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
+    payload = {
+      id: "evt_cs_existing",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_existing",
+          payment_status: "paid",
+          payment_intent: "pi_existing",
+          metadata: { user_id: @user.id, bid_pack_id: @bid_pack.id },
+          amount_total: 500,
+          currency: "usd"
+        }
+      }
+    }
 
-    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
-    purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_123")
+    result = Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
+    assert result.ok?
+
+    purchase = Purchase.find_by!(stripe_checkout_session_id: "cs_existing")
+    assert_equal "applied", purchase.status
+    assert_equal "pi_existing", purchase.stripe_payment_intent_id
+    assert_equal @bid_pack.bids, @user.reload.bid_credits
     assert_equal 1, CreditTransaction.where(idempotency_key: "purchase:#{purchase.id}:grant").count
-  end
-
-  test "webhook then checkout success does not double-credit" do
-    user = User.create!(name: "Buyer 2", email_address: "buyer2@example.com", password: "password", bid_credits: 0, role: :user)
-    bid_pack = BidPack.create!(name: "Starter Pack 2", bids: 500, price: 5.00, active: true, status: :active)
-
-    payload = @event_payload.deep_dup
-    payload[:id] = "evt_126"
-    payload[:data][:object][:metadata] = { user_id: user.id, bid_pack_id: bid_pack.id }
-    event = FakeStripeEvent.new(payload)
-
-    webhook_result = Stripe::WebhookEvents::Process.call(event: event)
-    assert webhook_result.ok?
-    assert_equal 500, user.reload.bid_credits
-    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
-
-    checkout_result = Payments::ApplyBidPackPurchase.call!(
-      user: user,
-      bid_pack: bid_pack,
-      stripe_checkout_session_id: "cs_456",
-      stripe_payment_intent_id: "pi_123",
-      stripe_event_id: "evt_126",
-      amount_cents: 500,
-      currency: "usd",
-      source: "checkout_success"
-    )
-
-    assert checkout_result.ok?
-    assert_equal 500, user.reload.bid_credits
-    assert_equal 1, MoneyEvent.where(event_type: :purchase, source_type: "StripePaymentIntent", source_id: "pi_123").count
-    assert_equal 1, Purchase.where(stripe_payment_intent_id: "pi_123").count
   end
 
   test "creates purchase and credits user on checkout.session.completed" do
@@ -319,7 +295,7 @@ class StripeWebhookEventsProcessTest < ActiveSupport::TestCase
     assert result.success?, "Expected processing to succeed"
     purchase = Purchase.find_by(stripe_checkout_session_id: "cs_123")
     assert_not_nil purchase, "Purchase should be created"
-    assert_equal "completed", purchase.status
+    assert_equal "applied", purchase.status
     assert_equal "pi_cs_123", purchase.stripe_payment_intent_id
     assert_equal 600, purchase.amount_cents
     assert_equal @bid_pack.id, purchase.bid_pack_id

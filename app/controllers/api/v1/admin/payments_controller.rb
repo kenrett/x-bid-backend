@@ -38,7 +38,7 @@ module Api
 
         # POST /api/v1/admin/payments/:id/repair_credits
         # @summary Repair missing purchase credits
-        # Ensures the ledger grant exists for a completed purchase without double-crediting.
+        # Ensures the ledger grant exists for an applied purchase without double-crediting.
         def repair_credits
           payment = Purchase.find(params[:id])
           result = ::Admin::Payments::RepairCredits.new(actor: @current_user, purchase: payment, request: request).call

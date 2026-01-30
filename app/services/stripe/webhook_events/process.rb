@@ -17,6 +17,11 @@ module Stripe
       end
 
       def call
+        AppLogger.log(
+          event: "stripe.webhook.received",
+          stripe_event_id: event.respond_to?(:id) ? event.id : nil,
+          stripe_event_type: event.respond_to?(:type) ? event.type : nil
+        )
         return ServiceResult.ok(code: :ignored, message: "Unhandled event type: #{event.type}") unless supported_event?
 
         stripe_event = ensure_stripe_event_record!
@@ -81,6 +86,7 @@ module Stripe
         metadata = (session_data[:metadata] || {}).with_indifferent_access
         user_id = metadata[:user_id]
         bid_pack_id = metadata[:bid_pack_id]
+        purchase_id = metadata[:purchase_id]
         return ServiceResult.fail("Missing metadata on checkout session", code: :missing_metadata) if user_id.blank? || bid_pack_id.blank?
 
         user = User.find_by(id: user_id)
@@ -91,6 +97,29 @@ module Stripe
         stripe_event_id = event.respond_to?(:id) ? event.id : nil
         checkout_session_id = session_data[:id].presence
         stripe_payment_intent_id = session_data[:payment_intent].presence
+
+        if purchase_id.present?
+          purchase = Purchase.find_by(id: purchase_id)
+          return ServiceResult.fail("Purchase not found for checkout session", code: :not_found) unless purchase
+          if purchase.user_id != user.id || purchase.bid_pack_id != bid_pack.id
+            AppLogger.log(
+              event: "stripe.checkout.purchase_mismatch",
+              level: :error,
+              purchase_id: purchase.id,
+              user_id: user.id,
+              bid_pack_id: bid_pack.id,
+              stripe_event_id: stripe_event_id,
+              checkout_session_id: checkout_session_id,
+              payment_intent_id: stripe_payment_intent_id
+            )
+            return ServiceResult.fail("Purchase mismatch for checkout session", code: :invalid_state)
+          end
+
+          purchase.update!(
+            stripe_checkout_session_id: purchase.stripe_checkout_session_id.presence || checkout_session_id,
+            stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || stripe_payment_intent_id
+          )
+        end
 
         amount_total = session_data[:amount_total]
         amount_cents = amount_total.present? ? amount_total.to_i : (bid_pack.price.to_d * 100).to_i
@@ -145,10 +174,30 @@ module Stripe
           return handle_auction_settlement_payment_succeeded(metadata:, payment_intent_id: payment_intent_id)
         end
 
+        purchase_id = metadata[:purchase_id]
         user = User.find_by(id: metadata[:user_id])
         bid_pack = BidPack.find_by(id: metadata[:bid_pack_id])
         return ServiceResult.fail("User not found for Stripe payment", code: :user_not_found) unless user
         return ServiceResult.fail("Bid pack not found for Stripe payment", code: :bid_pack_not_found) unless bid_pack
+
+        if purchase_id.present?
+          purchase = Purchase.find_by(id: purchase_id)
+          return ServiceResult.fail("Purchase not found for Stripe payment", code: :not_found) unless purchase
+          if purchase.user_id != user.id || purchase.bid_pack_id != bid_pack.id
+            AppLogger.log(
+              event: "stripe.payment.purchase_mismatch",
+              level: :error,
+              purchase_id: purchase.id,
+              user_id: user.id,
+              bid_pack_id: bid_pack.id,
+              stripe_event_id: event.id,
+              payment_intent_id: payment_intent_id
+            )
+            return ServiceResult.fail("Purchase mismatch for Stripe payment", code: :invalid_state)
+          end
+
+          purchase.update!(stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || payment_intent_id)
+        end
 
         amount_cents = data[:amount_received] || data["amount_received"] || (bid_pack.price.to_d * 100).to_i
         currency = (data[:currency] || data["currency"] || "usd").to_s
@@ -339,6 +388,11 @@ module Stripe
       end
 
       def duplicate_result
+        AppLogger.log(
+          event: "stripe.webhook.duplicate",
+          stripe_event_id: event.respond_to?(:id) ? event.id : nil,
+          stripe_event_type: event.respond_to?(:type) ? event.type : nil
+        )
         ServiceResult.ok(code: :duplicate, message: "Event already processed", data: { idempotent: true })
       end
 

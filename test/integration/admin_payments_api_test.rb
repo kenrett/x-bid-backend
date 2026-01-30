@@ -118,7 +118,7 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
         assert_equal "refunded", purchase.reload.status
       else
         assert_nil captured_kwargs
-        assert_equal "completed", purchase.reload.status
+        assert_equal "applied", purchase.reload.status
       end
     end
   end
@@ -278,7 +278,7 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
       currency: "usd",
       stripe_checkout_session_id: SecureRandom.uuid,
       stripe_payment_intent_id: SecureRandom.uuid,
-      status: "completed"
+      status: "applied"
     )
   end
 end

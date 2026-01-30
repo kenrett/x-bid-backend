@@ -9,7 +9,7 @@ class PaymentsIssueRefundTest < ActiveSupport::TestCase
       bid_pack: @bid_pack,
       amount_cents: 500,
       currency: "usd",
-      status: "completed",
+      status: "applied",
       stripe_payment_intent_id: "pi_123"
     )
   end

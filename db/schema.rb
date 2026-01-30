@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_29_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -293,6 +293,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_09_000300) do
     t.string "stripe_charge_id"
     t.bigint "ledger_grant_credit_transaction_id"
     t.string "storefront_key"
+    t.datetime "applied_at"
+    t.index ["applied_at"], name: "index_purchases_on_applied_at"
     t.index ["bid_pack_id"], name: "index_purchases_on_bid_pack_id"
     t.index ["ledger_grant_credit_transaction_id"], name: "index_purchases_on_ledger_grant_credit_transaction_id"
     t.index ["receipt_status"], name: "index_purchases_on_receipt_status"

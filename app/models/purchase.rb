@@ -5,7 +5,15 @@ class Purchase < ApplicationRecord
 
   include StorefrontKeyable
 
-  STATUSES = %w[pending completed partially_refunded refunded voided failed].freeze
+  STATUSES = %w[
+    created
+    paid_pending_apply
+    applied
+    failed
+    partially_refunded
+    refunded
+    voided
+  ].freeze
   RECEIPT_STATUSES = { pending: 0, available: 1, unavailable: 2 }.freeze
 
   enum :receipt_status, RECEIPT_STATUSES, default: :pending

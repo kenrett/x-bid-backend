@@ -12,7 +12,7 @@ class IdorUserScopedEndpointsTest < ActionDispatch::IntegrationTest
       amount_cents: 100,
       currency: "usd",
       stripe_payment_intent_id: "pi_idor_#{SecureRandom.hex(4)}",
-      status: "completed"
+      status: "applied"
     )
     CreditTransaction.create!(
       user: user_b,

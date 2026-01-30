@@ -32,7 +32,7 @@ module Activity
       # - "auction_watched" (AuctionWatch create only; no "watch_removed" history, data: { watch_id })
       # - "auction_won"     (computed from ended auctions where winning_user_id=user.id)
       # - "auction_lost"    (computed from ended auctions where user bid but did not win)
-      # - "purchase_completed" (completed Purchase, data includes bid pack and payment details)
+      # - "purchase_completed" (applied Purchase, data includes bid pack and payment details)
       # - "fulfillment_status_changed" (persisted ActivityEvent emitted on AuctionFulfillment transitions)
       # - "watch_removed" (persisted ActivityEvent emitted when a watch is removed)
       #

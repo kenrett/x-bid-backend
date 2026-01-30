@@ -16,7 +16,7 @@ class PurchaseReceiptBackfillJobTest < ActiveJob::TestCase
       currency: "usd",
       stripe_payment_intent_id: "pi_1",
       receipt_status: :pending,
-      status: "completed",
+      status: "applied",
       created_at: 2.days.ago,
       updated_at: 2.days.ago
     )
@@ -42,7 +42,7 @@ class PurchaseReceiptBackfillJobTest < ActiveJob::TestCase
       currency: "usd",
       stripe_payment_intent_id: "pi_2",
       receipt_status: :pending,
-      status: "completed",
+      status: "applied",
       created_at: 2.days.ago,
       updated_at: 2.days.ago
     )
@@ -68,7 +68,7 @@ class PurchaseReceiptBackfillJobTest < ActiveJob::TestCase
       currency: "usd",
       stripe_payment_intent_id: "pi_3",
       receipt_status: :pending,
-      status: "completed",
+      status: "applied",
       created_at: 2.days.ago,
       updated_at: 2.days.ago
     )

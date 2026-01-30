@@ -1,7 +1,15 @@
 module OasSchemas
   STATUSES = %w[inactive scheduled active complete cancelled].freeze
   BID_PACK_STATUSES = %w[active retired].freeze
-  PURCHASE_STATUSES = %w[pending completed partially_refunded refunded voided failed].freeze
+  PURCHASE_STATUSES = %w[
+    created
+    paid_pending_apply
+    applied
+    failed
+    partially_refunded
+    refunded
+    voided
+  ].freeze
 
   SCHEMAS = {
     "Auction" => {
@@ -135,43 +143,9 @@ module OasSchemas
       properties: {
         logged_in: { type: "boolean" },
         user: { "$ref" => "#/components/schemas/User" },
-        is_admin: { type: "boolean" },
-        is_superuser: { type: "boolean" },
-        redirect_path: { type: "string", nullable: true },
-        session_token_id: {
-          oneOf: [
-            { type: "integer" },
-            { type: "string" }
-          ]
-        },
-        session_expires_at: { type: "string", format: "date-time" },
-        seconds_remaining: { type: "integer", minimum: 0 },
-        session: {
-          type: "object",
-          properties: {
-            session_token_id: {
-              oneOf: [
-                { type: "integer" },
-                { type: "string" }
-              ]
-            },
-            session_expires_at: { type: "string", format: "date-time" },
-            seconds_remaining: { type: "integer", minimum: 0 }
-          },
-          required: %w[session_token_id session_expires_at seconds_remaining]
-        }
+        session_expires_at: { type: "string", format: "date-time", nullable: true }
       },
-      required: %w[
-        logged_in
-        user
-        is_admin
-        is_superuser
-        redirect_path
-        session_token_id
-        session_expires_at
-        seconds_remaining
-        session
-      ]
+      required: %w[logged_in user session_expires_at]
     },
     "CheckoutSession" => {
       type: "object",
@@ -184,6 +158,21 @@ module OasSchemas
         updated_bid_credits: { type: "integer", nullable: true }
       },
       required: %w[clientSecret]
+    },
+    "CheckoutStatus" => {
+      type: "object",
+      description: "Read-only checkout status returned by GET /api/v1/checkout/success.",
+      properties: {
+        status: { type: "string", enum: %w[pending applied failed] },
+        purchase_id: {
+          oneOf: [
+            { type: "integer" },
+            { type: "string" }
+          ]
+        },
+        message: { type: "string", nullable: true }
+      },
+      required: %w[status purchase_id]
     },
     "Purchase" => {
       type: "object",

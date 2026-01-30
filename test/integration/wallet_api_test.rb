@@ -120,7 +120,7 @@ class WalletApiTest < ActionDispatch::IntegrationTest
     )
 
     bid_pack = BidPack.create!(name: "Starter", description: "Desc", bids: 100, price: 1.0, active: true)
-    purchase = Purchase.create!(user: @user, bid_pack: bid_pack, status: "completed", amount_cents: 100, currency: "usd")
+    purchase = Purchase.create!(user: @user, bid_pack: bid_pack, status: "applied", amount_cents: 100, currency: "usd")
 
     admin = User.create!(name: "Admin", email_address: "admin_wallet@example.com", password: "password", role: :admin, bid_credits: 0)
 

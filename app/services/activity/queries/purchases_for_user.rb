@@ -20,7 +20,7 @@ module Activity
       def call
         purchases = (relation || Purchase.all)
           .includes(:bid_pack)
-          .where(user_id: user.id, status: "completed")
+          .where(user_id: user.id, status: %w[applied completed])
           .order(created_at: :desc, id: :desc)
           .to_a
 

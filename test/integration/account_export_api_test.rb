@@ -29,7 +29,7 @@ class AccountExportApiTest < ActionDispatch::IntegrationTest
       amount_cents: 999,
       currency: "usd",
       stripe_payment_intent_id: "pi_export_1",
-      status: "completed"
+      status: "applied"
     )
     Purchase.create!(
       user: other,
@@ -37,7 +37,7 @@ class AccountExportApiTest < ActionDispatch::IntegrationTest
       amount_cents: 999,
       currency: "usd",
       stripe_payment_intent_id: "pi_export_2",
-      status: "completed"
+      status: "applied"
     )
 
     get "/api/v1/account/export", headers: auth_headers(user, session_token)

@@ -14,9 +14,19 @@ class Api::V1::CheckoutsController < ApplicationController
   # @response Validation error (422) [Error]
   def create
     bid_pack = BidPack.active.find(params[:bid_pack_id])
+    purchase = nil
     begin
       origin = resolve_frontend_origin
       return_url = "#{origin}/purchase-status?session_id={CHECKOUT_SESSION_ID}"
+
+      purchase = Purchase.create!(
+        user: @current_user,
+        bid_pack: bid_pack,
+        amount_cents: (bid_pack.price.to_d * 100).to_i,
+        currency: "usd",
+        status: "created",
+        storefront_key: Current.storefront_key
+      )
 
       AppLogger.log(
         event: "checkout.create.started",
@@ -45,9 +55,21 @@ class Api::V1::CheckoutsController < ApplicationController
         customer_email: @current_user.email_address, # Pre-fill customer email
         metadata: {
           user_id: @current_user.id,
-          bid_pack_id: bid_pack.id
+          bid_pack_id: bid_pack.id,
+          purchase_id: purchase.id
+        },
+        payment_intent_data: {
+          metadata: {
+            user_id: @current_user.id,
+            bid_pack_id: bid_pack.id,
+            purchase_id: purchase.id
+          }
         }
       })
+      purchase.update!(
+        stripe_checkout_session_id: @session.id,
+        stripe_payment_intent_id: purchase.stripe_payment_intent_id.presence || (@session.payment_intent if @session.respond_to?(:payment_intent))
+      )
       AuditLogger.log(
         action: "checkout.created",
         actor: @current_user,
@@ -62,10 +84,21 @@ class Api::V1::CheckoutsController < ApplicationController
       AppLogger.log(
         event: "checkout.create.succeeded",
         bid_pack_id: bid_pack.id,
-        stripe_checkout_session_id: (@session.id if @session.respond_to?(:id))
+        stripe_checkout_session_id: (@session.id if @session.respond_to?(:id)),
+        purchase_id: purchase.id
+      )
+      AppLogger.log(
+        event: "purchase.created",
+        purchase_id: purchase.id,
+        user_id: @current_user.id,
+        bid_pack_id: bid_pack.id,
+        stripe_checkout_session_id: purchase.stripe_checkout_session_id,
+        stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+        status: purchase.status
       )
       render json: { clientSecret: @session.client_secret }, status: :ok
     rescue Stripe::InvalidRequestError => e
+      purchase&.update!(status: "failed") if purchase&.persisted? && purchase.status != "failed"
       AppLogger.error(event: "checkout.create.failed", error: e, bid_pack_id: bid_pack&.id)
       render_error(code: :stripe_error, message: e.message, status: :unprocessable_content)
     rescue ActiveRecord::RecordNotFound
@@ -99,135 +132,41 @@ class Api::V1::CheckoutsController < ApplicationController
   end
 
   # @summary Handle successful checkout callbacks and credit the user
-  # Idempotently processes a paid checkout session and credits the user with purchased bids.
+  # Returns the current status of the checkout session without mutating state.
   # @parameter session_id(query) [String] ID of the Stripe checkout session
-  # @response Purchase applied (200) [CheckoutSession]
-  # @response Already processed (208) [CheckoutSession]
+  # @response Checkout status (200) [CheckoutStatus]
   # @response Unauthorized (401) [Error]
   # @response Not found (404) [Error]
-  # @response Validation error (422) [Error]
   def success
-    session = Stripe::Checkout::Session.retrieve(params[:session_id])
-    metadata = session.respond_to?(:metadata) ? session.metadata : nil
-    metadata_user_id = metadata&.respond_to?(:user_id) ? metadata.user_id.to_s.presence : nil
-    metadata_bid_pack_id = metadata&.respond_to?(:bid_pack_id) ? metadata.bid_pack_id.to_s.presence : nil
+    session_id = params[:session_id].to_s
+    purchase = Purchase.find_by(stripe_checkout_session_id: session_id)
+    if purchase.blank? || purchase.user_id != @current_user.id
+      return render_error(code: :not_found, message: "Purchase not found", status: :not_found)
+    end
+
+    status = case purchase.status.to_s
+    when "applied", "refunded", "partially_refunded", "completed"
+               "applied"
+    when "failed", "voided"
+               "failed"
+    else
+               "pending"
+    end
 
     AppLogger.log(
-      event: "checkout.success.requested",
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: session.payment_intent,
-      user_id: @current_user&.id,
-      bid_pack_id: metadata_bid_pack_id,
-      metadata_user_id: metadata_user_id
+      event: "checkout.success.status",
+      purchase_id: purchase.id,
+      user_id: @current_user.id,
+      stripe_checkout_session_id: purchase.stripe_checkout_session_id,
+      stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+      status: status
     )
-    unless session.payment_status == "paid"
-      return render_error(code: :payment_not_completed, message: "Payment not completed.", status: :unprocessable_content)
-    end
 
-    if metadata_user_id.blank? || metadata_bid_pack_id.blank?
-      return render_error(code: :missing_metadata, message: "Checkout session is missing required metadata.", status: :unprocessable_content)
-    end
-
-    ownership_error = validate_checkout_session_ownership(session)
-    if ownership_error
-      return render_error(code: :forbidden, message: ownership_error, status: :forbidden)
-    end
-
-    payment_intent_id = session.payment_intent
-    requested_bid_pack_id = params[:bid_pack_id].to_s.presence || metadata_bid_pack_id
-    bid_pack = BidPack.active.find(requested_bid_pack_id)
-
-    if bid_pack.id.to_s != metadata_bid_pack_id
-      AppLogger.log(
-        event: "stripe.checkout.bid_pack_mismatch",
-        level: :error,
-        user_id: @current_user.id,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: payment_intent_id,
-        requested_bid_pack_id: requested_bid_pack_id,
-        metadata_bid_pack_id: metadata_bid_pack_id
-      )
-      return render_error(code: :bid_pack_mismatch, message: "Checkout session bid pack mismatch.", status: :unprocessable_content)
-    end
-
-    expected_amount_cents = (bid_pack.price.to_d * 100).to_i
-    amount_total = session.respond_to?(:amount_total) ? session.amount_total : nil
-    amount_subtotal = session.respond_to?(:amount_subtotal) ? session.amount_subtotal : nil
-    amount_from_session = amount_total || amount_subtotal
-    amount_cents = amount_from_session.present? ? amount_from_session.to_i : expected_amount_cents
-
-    if amount_cents != expected_amount_cents
-      AppLogger.log(
-        event: "stripe.checkout.amount_mismatch",
-        level: :error,
-        user_id: @current_user.id,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: payment_intent_id,
-        bid_pack_id: bid_pack.id,
-        expected_amount_cents: expected_amount_cents,
-        stripe_amount_cents: amount_cents
-      )
-      return render_error(code: :amount_mismatch, message: "Checkout session amount mismatch.", status: :unprocessable_content)
-    end
-
-    currency = session.respond_to?(:currency) ? session.currency.to_s.presence : nil
-    currency ||= "usd"
-
-    begin
-      result = Payments::ApplyBidPackPurchase.call!(
-        user: @current_user,
-        bid_pack: bid_pack,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: payment_intent_id,
-        stripe_event_id: nil,
-        amount_cents: amount_cents,
-        currency: currency,
-        source: "checkout_success"
-      )
-    rescue ActiveRecord::RecordNotUnique
-      result = Payments::ApplyBidPackPurchase.call!(
-        user: @current_user,
-        bid_pack: bid_pack,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: payment_intent_id,
-        stripe_event_id: nil,
-        amount_cents: amount_cents,
-        currency: currency,
-        source: "checkout_success"
-      )
-    end
-
-    if result.ok?
-      AppLogger.log(
-        event: "checkout.success.applied",
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: payment_intent_id,
-        purchase_id: result.purchase.id,
-        idempotent: !!result.idempotent,
-        bid_pack_id: bid_pack.id
-      )
-      render json: {
-        status: "success",
-        idempotent: !!result.idempotent,
-        purchaseId: result.purchase.id,
-        updated_bid_credits: @current_user.reload.bid_credits
-      }, status: :ok
-    else
-      AppLogger.log(
-        event: "checkout.success.apply_failed",
-        level: :error,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: payment_intent_id,
-        bid_pack_id: bid_pack.id,
-        code: result.code,
-        message: result.error
-      )
-      render_error(code: result.code || :checkout_error, message: result.error || "Purchase could not be applied", status: result.http_status)
-    end
-  rescue Stripe::InvalidRequestError => e
-    render_error(code: :not_found, message: "Invalid session ID: #{e.message}", status: :not_found)
-  rescue ActiveRecord::RecordNotFound
-    render_error(code: :not_found, message: "Bid pack not found or inactive.", status: :not_found)
+    render json: {
+      status: status,
+      purchase_id: purchase.id,
+      message: (status == "pending" ? "Payment is still processing." : nil)
+    }.compact, status: :ok
   end
 
   def validate_checkout_session_ownership(session)

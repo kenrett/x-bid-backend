@@ -29,7 +29,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     end
 
     purchase = Purchase.find_by!(stripe_payment_intent_id: "pi_happy")
-    assert_equal "completed", purchase.status
+    assert_equal "applied", purchase.status
     assert_equal @bid_pack.id, purchase.bid_pack_id
     assert_equal 100, purchase.amount_cents
     assert_equal "usd", purchase.currency
@@ -152,7 +152,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
       amount_cents: 100,
       currency: "usd",
       stripe_payment_intent_id: "pi_456",
-      status: "completed"
+      status: "applied"
     )
 
     assert_equal 0, CreditTransaction.where(purchase_id: purchase.id).count
@@ -350,7 +350,7 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
       currency: "usd",
       stripe_payment_intent_id: "pi_shared",
       stripe_checkout_session_id: "cs_shared",
-      status: "completed"
+      status: "applied"
     )
 
     errors = []

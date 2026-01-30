@@ -12,7 +12,7 @@ class PurchaseTest < ActiveSupport::TestCase
       bid_pack: @bid_pack,
       amount_cents: 100,
       currency: "usd",
-      status: "completed",
+      status: "applied",
       receipt_url: nil
     )
 

@@ -24,9 +24,9 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/me/purchases returns only current user's purchases (newest first)" do
-    older = create_purchase(user: @user, status: "pending", created_at: 2.days.ago)
-    newer = create_purchase(user: @user, status: "completed", created_at: 1.day.ago)
-    create_purchase(user: @other_user, status: "completed", created_at: 1.hour.ago)
+    older = create_purchase(user: @user, status: "created", created_at: 2.days.ago)
+    newer = create_purchase(user: @user, status: "applied", created_at: 1.day.ago)
+    create_purchase(user: @other_user, status: "applied", created_at: 1.hour.ago)
 
     get "/api/v1/me/purchases", headers: auth_headers(@user, @session_token)
 
@@ -37,8 +37,8 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
     assert_equal 2, body.length
     assert_equal newer.id, body[0]["id"]
     assert_equal older.id, body[1]["id"]
-    assert_equal "completed", body[0]["status"]
-    assert_equal "pending", body[1]["status"]
+    assert_equal "applied", body[0]["status"]
+    assert_equal "created", body[1]["status"]
 
     assert_equal (@bid_pack.price * 100).to_i, body[0]["amount_cents"]
     assert_equal "usd", body[0]["currency"]
@@ -49,7 +49,7 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/me/purchases/:id denies access to other user's purchase" do
-    purchase = create_purchase(user: @other_user, status: "completed")
+    purchase = create_purchase(user: @other_user, status: "applied")
 
     get "/api/v1/me/purchases/#{purchase.id}", headers: auth_headers(@user, @session_token)
 

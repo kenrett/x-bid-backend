@@ -12,7 +12,7 @@ class TransactionalMailerTest < ActiveSupport::TestCase
       bid_pack: @bid_pack,
       amount_cents: 100,
       currency: "usd",
-      status: "completed",
+      status: "applied",
       receipt_url: "https://example.com/receipt",
       receipt_status: :pending
     )

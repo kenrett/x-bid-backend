@@ -14,7 +14,7 @@ module Billing
 
       ActiveRecord::Base.transaction do
         purchase = find_purchase
-        if purchase&.status == "completed"
+        if purchase&.status.in?(%w[applied completed])
           return ServiceResult.ok(code: :already_processed, message: "Payment already applied", data: { purchase: purchase, idempotent: true })
         end
 
@@ -26,7 +26,8 @@ module Billing
           currency: "usd",
           stripe_checkout_session_id: @checkout_session_id,
           stripe_payment_intent_id: @payment_intent_id,
-          status: "completed"
+          status: "applied",
+          applied_at: Time.current
         )
         purchase.save!
 

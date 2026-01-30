@@ -33,7 +33,7 @@ This document explains how money moves through the X‑Bid backend so an enginee
 
 **Processing:**
 - Creates (or finds) exactly one `Purchase` for the Stripe identifiers (idempotent by Stripe ids).
-- Sets `Purchase#status = "completed"`.
+- Sets `Purchase#status = "applied"`.
 - Sets `Purchase#receipt_status`:
   - `available` if a real `receipt_url` was obtained
   - otherwise `pending` (receipt may become available later)

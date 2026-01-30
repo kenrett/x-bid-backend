@@ -3,17 +3,20 @@ require "jwt"
 require "ostruct"
 
 class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
-  FakeCheckoutSession = Struct.new(
-    :id,
-    :payment_status,
-    :payment_intent,
-    :customer_email,
-    :metadata,
-    :amount_total,
-    :amount_subtotal,
-    :currency,
-    keyword_init: true
-  )
+  class FakeStripeEvent
+    attr_reader :id, :type, :data
+
+    def initialize(payload)
+      @id = payload[:id]
+      @type = payload[:type]
+      @payload = payload
+      @data = OpenStruct.new(object: payload[:data][:object])
+    end
+
+    def to_hash
+      @payload
+    end
+  end
 
   test "creates an audit log on login" do
     user = User.create!(name: "User", email_address: "audit_login@example.com", password: "password", bid_credits: 0)
@@ -34,7 +37,7 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
     assert_equal "Minitest UA", log.user_agent
   end
 
-  test "creates an audit log when a payment is applied via checkout success" do
+  test "creates an audit log when a payment is applied via webhook" do
     user = User.create!(
       name: "Buyer",
       email_address: "audit_payment@example.com",
@@ -43,32 +46,30 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
       bid_credits: 0,
       email_verified_at: Time.current
     )
-    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("audit_payment"), expires_at: 1.hour.from_now)
     bid_pack = BidPack.create!(name: "Pack", bids: 10, price: BigDecimal("9.99"), highlight: false, description: "test pack", active: true)
 
-    checkout_session = FakeCheckoutSession.new(
-      id: "cs_audit_1",
-      payment_status: "paid",
-      payment_intent: "pi_audit_1",
-      customer_email: user.email_address,
-      metadata: OpenStruct.new(bid_pack_id: bid_pack.id, user_id: user.id),
-      amount_total: 999,
-      currency: "usd"
-    )
+    payload = {
+      id: "evt_cs_audit",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_audit_1",
+          payment_status: "paid",
+          payment_intent: "pi_audit_1",
+          metadata: { user_id: user.id, bid_pack_id: bid_pack.id },
+          amount_total: 999,
+          currency: "usd"
+        }
+      }
+    }
 
-    Stripe::Checkout::Session.stub(:retrieve, ->(_id) { checkout_session }) do
-      get "/api/v1/checkout/success",
-          params: { session_id: "cs_audit_1" },
-          headers: auth_headers(user, session_token, user_agent: "Minitest UA")
+    Payments::StripeReceiptLookup.stub(:lookup, ->(payment_intent_id:) { [ :pending, nil, nil ] }) do
+      Stripe::WebhookEvents::Process.call(event: FakeStripeEvent.new(payload))
     end
-    assert_response :success
 
     log = AuditLog.order(:created_at).where(action: "payment.applied", user_id: user.id).last
     assert log, "Expected an AuditLog for payment.applied"
-    assert_equal user.id, log.actor_id
-    assert_equal session_token.id, log.session_token_id
-    assert log.request_id.present?
-    assert_equal "Minitest UA", log.user_agent
+    assert_nil log.actor_id
     assert_equal "pi_audit_1", log.payload["stripe_payment_intent_id"]
     assert_equal "cs_audit_1", log.payload["stripe_checkout_session_id"]
     assert log.payload["purchase_id"].present?

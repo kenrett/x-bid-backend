@@ -2,7 +2,7 @@ require "test_helper"
 require "ostruct"
 
 class EmailVerificationRequiredTest < ActionDispatch::IntegrationTest
-  FakeCheckoutCreateSession = Struct.new(:client_secret, keyword_init: true)
+  FakeCheckoutCreateSession = Struct.new(:id, :client_secret, :payment_intent, keyword_init: true)
 
   test "blocks bidding when email is unverified" do
     user = create_actor(role: :user)
@@ -60,7 +60,7 @@ class EmailVerificationRequiredTest < ActionDispatch::IntegrationTest
     user.update!(email_verified_at: Time.current)
     bid_pack = BidPack.create!(name: "Allowed Pack", bids: 10, price: BigDecimal("9.99"), highlight: false, description: "test", active: true)
 
-    Stripe::Checkout::Session.stub(:create, ->(_attrs) { FakeCheckoutCreateSession.new(client_secret: "cs_secret_123") }) do
+    Stripe::Checkout::Session.stub(:create, ->(_attrs) { FakeCheckoutCreateSession.new(id: "cs_allowed", client_secret: "cs_secret_123", payment_intent: "pi_allowed") }) do
       post "/api/v1/checkouts", params: { bid_pack_id: bid_pack.id }, headers: auth_headers_for(user)
     end
 

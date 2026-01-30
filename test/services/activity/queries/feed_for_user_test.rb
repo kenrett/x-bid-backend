@@ -14,7 +14,7 @@ class ActivityQueriesFeedForUserTest < ActiveSupport::TestCase
     purchase = Purchase.create!(
       user: user,
       bid_pack: bid_pack,
-      status: "completed",
+      status: "applied",
       amount_cents: 123,
       currency: "usd",
       stripe_payment_intent_id: stripe_payment_intent_id,
@@ -36,7 +36,7 @@ class ActivityQueriesFeedForUserTest < ActiveSupport::TestCase
     other_purchase = Purchase.create!(
       user: other_user,
       bid_pack: bid_pack,
-      status: "completed",
+      status: "applied",
       amount_cents: 999,
       currency: "usd",
       stripe_payment_intent_id: other_stripe_payment_intent_id
@@ -57,7 +57,7 @@ class ActivityQueriesFeedForUserTest < ActiveSupport::TestCase
     assert_equal bid_pack.bids, data.fetch(:credits_added)
     assert_equal 123, data.fetch(:amount_cents)
     assert_equal "usd", data.fetch(:currency)
-    assert_equal "completed", data.fetch(:payment_status)
+    assert_equal "applied", data.fetch(:payment_status)
     assert_equal "available", data.fetch(:receipt_status)
     assert_equal "https://stripe.example/receipts/rcpt_1", data.fetch(:receipt_url)
     assert_equal stripe_payment_intent_id, data.fetch(:stripe_payment_intent_id)
@@ -86,7 +86,7 @@ class ActivityQueriesFeedForUserTest < ActiveSupport::TestCase
     purchase = Purchase.create!(
       user: user,
       bid_pack: bid_pack,
-      status: "completed",
+      status: "applied",
       amount_cents: 123,
       currency: "usd",
       stripe_payment_intent_id: stripe_payment_intent_id,

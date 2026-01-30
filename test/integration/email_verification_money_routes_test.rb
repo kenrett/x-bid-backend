@@ -1,20 +1,6 @@
 require "test_helper"
-require "ostruct"
-
 class EmailVerificationMoneyRoutesTest < ActionDispatch::IntegrationTest
-  FakeCheckoutCreateSession = Struct.new(:client_secret, keyword_init: true)
-  FakeCheckoutMetadata = Struct.new(:user_id, :bid_pack_id, keyword_init: true)
-  FakeCheckoutRetrieveSession = Struct.new(
-    :id,
-    :payment_status,
-    :status,
-    :payment_intent,
-    :metadata,
-    :amount_total,
-    :currency,
-    :customer_email,
-    keyword_init: true
-  )
+  FakeCheckoutCreateSession = Struct.new(:id, :client_secret, :payment_intent, keyword_init: true)
 
   MONEY_ROUTES = [
     "POST /api/v1/auctions/:id/bids",
@@ -109,28 +95,12 @@ class EmailVerificationMoneyRoutesTest < ActionDispatch::IntegrationTest
       active: true
     )
 
-    Stripe::Checkout::Session.stub(:create, ->(_attrs) { FakeCheckoutCreateSession.new(client_secret: "cs_secret_123") }) do
+    Stripe::Checkout::Session.stub(:create, ->(_attrs) { FakeCheckoutCreateSession.new(id: "cs_success_123", client_secret: "cs_secret_123", payment_intent: "pi_123") }) do
       post "/api/v1/checkouts", params: { bid_pack_id: bid_pack.id }, headers: auth_headers_for(user)
     end
     assert_response :success
 
-    retrieve_session = FakeCheckoutRetrieveSession.new(
-      id: "cs_success_123",
-      payment_status: "paid",
-      status: "complete",
-      payment_intent: "pi_123",
-      metadata: FakeCheckoutMetadata.new(user_id: user.id, bid_pack_id: bid_pack.id),
-      amount_total: 999,
-      currency: "usd",
-      customer_email: user.email_address
-    )
-    apply_result = ServiceResult.ok(data: { purchase: OpenStruct.new(id: 123) }, idempotent: false)
-
-    Stripe::Checkout::Session.stub(:retrieve, ->(_session_id) { retrieve_session }) do
-      Payments::ApplyBidPackPurchase.stub(:call!, ->(**_kwargs) { apply_result }) do
-        get "/api/v1/checkout/success", params: { session_id: "cs_success_123" }, headers: auth_headers_for(user)
-      end
-    end
+    get "/api/v1/checkout/success", params: { session_id: "cs_success_123" }, headers: auth_headers_for(user)
     assert_response :success
 
     win_auction = Auction.create!(

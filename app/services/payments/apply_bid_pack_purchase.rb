@@ -10,6 +10,7 @@ module Payments
         raise ArgumentError, "Stripe identifier required" if stripe_payment_intent_id.blank? && stripe_checkout_session_id.blank? && stripe_event_id.blank?
 
         result = nil
+        purchase = nil
         ActiveRecord::Base.transaction do
           user.with_lock do
             purchase, purchase_was_new = find_or_build_purchase(
@@ -40,7 +41,7 @@ module Payments
               stripe_charge_id: purchase.stripe_charge_id.presence || stripe_charge_id.presence,
               receipt_url: receipt_url,
               receipt_status: receipt_status,
-              status: "completed"
+              status: pending_status_for(purchase)
             )
 
             begin
@@ -64,7 +65,7 @@ module Payments
                 stripe_charge_id: purchase.stripe_charge_id.presence || stripe_charge_id.presence,
                 receipt_url: receipt_url,
                 receipt_status: receipt_status,
-                status: "completed"
+                status: pending_status_for(purchase)
               )
               purchase.save!
             end
@@ -107,41 +108,52 @@ module Payments
               metadata: { source: source }
             )
 
-              credit_transaction = CreditTransaction.find_by!(idempotency_key: credit_idempotency_key)
-              idempotent = !purchase_was_new && credit_already_exists
+            credit_transaction = CreditTransaction.find_by!(idempotency_key: credit_idempotency_key)
+            idempotent = !purchase_was_new && credit_already_exists
 
-              if purchase.ledger_grant_credit_transaction_id.nil?
-                purchase.update!(ledger_grant_credit_transaction_id: credit_transaction.id)
-              end
+            if purchase.ledger_grant_credit_transaction_id.nil?
+              purchase.update!(ledger_grant_credit_transaction_id: credit_transaction.id)
+            end
+            mark_purchase_applied!(purchase)
 
-              AppLogger.log(
-                event: "payments.apply_purchase",
-                user_id: user.id,
+            AppLogger.log(
+              event: "payments.apply_purchase",
+              user_id: user.id,
+              purchase_id: purchase.id,
+              bid_pack_id: bid_pack.id,
+              stripe_payment_intent_id: stripe_payment_intent_id,
+              stripe_checkout_session_id: stripe_checkout_session_id,
+              stripe_event_id: stripe_event_id,
+              idempotent: idempotent,
+              source: source
+            )
+            AppLogger.log(
+              event: "purchase.applied",
+              user_id: user.id,
+              purchase_id: purchase.id,
+              bid_pack_id: bid_pack.id,
+              stripe_payment_intent_id: stripe_payment_intent_id,
+              stripe_checkout_session_id: stripe_checkout_session_id,
+              stripe_event_id: stripe_event_id,
+              idempotent: idempotent
+            )
+            AuditLogger.log(
+              action: "payment.applied",
+              actor: (Current.user_id.to_s == user.id.to_s ? user : nil),
+              user: user,
+              session_token_id: Current.session_token_id,
+              payload: {
                 purchase_id: purchase.id,
                 bid_pack_id: bid_pack.id,
+                amount_cents: amount_cents.to_i,
+                currency: currency.to_s,
                 stripe_payment_intent_id: stripe_payment_intent_id,
                 stripe_checkout_session_id: stripe_checkout_session_id,
                 stripe_event_id: stripe_event_id,
                 idempotent: idempotent,
                 source: source
-              )
-              AuditLogger.log(
-                action: "payment.applied",
-                actor: (Current.user_id.to_s == user.id.to_s ? user : nil),
-                user: user,
-                session_token_id: Current.session_token_id,
-                payload: {
-                  purchase_id: purchase.id,
-                  bid_pack_id: bid_pack.id,
-                  amount_cents: amount_cents.to_i,
-                  currency: currency.to_s,
-                  stripe_payment_intent_id: stripe_payment_intent_id,
-                  stripe_checkout_session_id: stripe_checkout_session_id,
-                  stripe_event_id: stripe_event_id,
-                  idempotent: idempotent,
-                  source: source
-                }.compact
-              )
+              }.compact
+            )
 
             result = ServiceResult.ok(
               code: idempotent ? :already_processed : :processed,
@@ -153,7 +165,7 @@ module Payments
         end
 
         unless result&.idempotent
-        PurchaseReceiptEmailJob.perform_later(result.purchase.id, storefront_key: result.purchase.storefront_key)
+          PurchaseReceiptEmailJob.perform_later(result.purchase.id, storefront_key: result.purchase.storefront_key)
           Notification.create!(
             user: user,
             kind: :purchase_completed,
@@ -169,6 +181,7 @@ module Payments
         end
         result
       rescue ActiveRecord::RecordInvalid => e
+        mark_purchase_failed!(purchase)
         AppLogger.error(
           event: "payments.apply_purchase.error",
           error: e,
@@ -181,6 +194,7 @@ module Payments
         )
         ServiceResult.fail("Validation error: #{e.message}", code: :validation_error, record: e.record)
       rescue => e
+        mark_purchase_failed!(purchase)
         AppLogger.error(
           event: "payments.apply_purchase.error",
           error: e,
@@ -261,6 +275,44 @@ module Payments
           )
           raise "Stripe payment intent maps to multiple purchases"
         end
+      end
+
+      def pending_status_for(purchase)
+        status = purchase.status.to_s
+        return "paid_pending_apply" if status.blank? || status.in?(%w[created failed pending])
+        return "applied" if status == "completed"
+
+        status
+      end
+
+      def applied_status_for(purchase)
+        status = purchase.status.to_s
+        return status if status.in?(%w[refunded partially_refunded voided])
+        return "applied" if status == "completed"
+
+        "applied"
+      end
+
+      def mark_purchase_applied!(purchase)
+        return unless purchase
+
+        target_status = applied_status_for(purchase)
+        updates = {}
+        updates[:status] = target_status if purchase.status != target_status
+        updates[:applied_at] = purchase.applied_at || Time.current if target_status == "applied"
+        return if updates.empty?
+
+        purchase.update!(updates)
+      end
+
+      def mark_purchase_failed!(purchase)
+        return unless purchase&.persisted?
+        return if purchase.status.to_s == "applied"
+        return if purchase.status.to_s.in?(%w[refunded partially_refunded voided])
+
+        purchase.update!(status: "failed") if purchase.status.to_s != "failed"
+      rescue StandardError
+        nil
       end
     end
   end

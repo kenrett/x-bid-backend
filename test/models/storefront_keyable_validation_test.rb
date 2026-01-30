@@ -26,7 +26,7 @@ class StorefrontKeyableValidationTest < ActiveSupport::TestCase
         storefront_key: "bogus"
       ),
       Bid.new(user: user, auction: auction, amount: BigDecimal("2.00"), storefront_key: "bogus"),
-      Purchase.new(user: user, bid_pack: bid_pack, amount_cents: 100, currency: "usd", status: "completed", storefront_key: "bogus"),
+      Purchase.new(user: user, bid_pack: bid_pack, amount_cents: 100, currency: "usd", status: "applied", storefront_key: "bogus"),
       CreditTransaction.new(user: user, kind: :grant, amount: 1, reason: "test", idempotency_key: "k-#{SecureRandom.hex(6)}", storefront_key: "bogus"),
       MoneyEvent.new(user: user, event_type: :purchase, amount_cents: 100, currency: "usd", occurred_at: Time.current, storefront_key: "bogus"),
       AuctionSettlement.new(auction: auction, ended_at: Time.current, final_price: BigDecimal("0.00"), currency: "usd", status: :no_winner, storefront_key: "bogus"),
