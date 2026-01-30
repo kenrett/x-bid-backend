@@ -56,8 +56,8 @@ Rails.application.configure do
   # -----------------------------
   # ACTIVE JOB BACKEND
   # -----------------------------
-  # Use the built-in async executor instead of Solid Queue (which requires DB partitions)
-  config.active_job.queue_adapter = :async
+  # Use Solid Queue for durable background jobs in production.
+  config.active_job.queue_adapter = :solid_queue
 
   # Ignore bad email addresses and do not raise email delivery errors.
   # config.action_mailer.raise_delivery_errors = false
