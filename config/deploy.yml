@@ -36,6 +36,10 @@ env:
   secret:
     - RAILS_MASTER_KEY
     - DATABASE_URL
+    # If not using IAM roles, provide static AWS credentials here.
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - AWS_SESSION_TOKEN
   clear:
     # Set number of processes dedicated to Solid Queue (default: 1)
     # JOB_CONCURRENCY: 3
@@ -50,6 +54,12 @@ env:
     # Log everything from Rails
     # RAILS_LOG_LEVEL: debug
     REDIS_URL: redis://x_bid_backend-redis:6379/1
+    # Active Storage (S3 or compatible)
+    S3_BUCKET: your-bucket-name
+    AWS_REGION: us-east-1
+    # Optional for S3-compatible providers (R2/MinIO/etc.)
+    # AWS_ENDPOINT: https://<account>.r2.cloudflarestorage.com
+    # AWS_FORCE_PATH_STYLE: "true"
 
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.
