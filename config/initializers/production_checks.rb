@@ -5,4 +5,10 @@ if Rails.env.production?
     Rails.logger.fatal(message)
     raise message
   end
+
+  if ENV["REDIS_URL"].blank?
+    message = "REDIS_URL environment variable is missing. Application cannot start."
+    Rails.logger.fatal(message)
+    raise message
+  end
 end

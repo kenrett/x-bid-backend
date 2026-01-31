@@ -54,6 +54,7 @@ env:
 
     # Log everything from Rails
     # RAILS_LOG_LEVEL: debug
+    # Required for cache + rate limiting + job smoke checks.
     REDIS_URL: redis://x_bid_backend-redis:6379/1
     # Active Storage (S3 or compatible)
     S3_BUCKET: your-bucket-name

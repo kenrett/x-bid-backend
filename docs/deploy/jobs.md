@@ -2,14 +2,16 @@
 
 ## Topology
 
-- **Web**: runs Puma only (no job processing inside web).
-- **Worker**: dedicated Solid Queue process running `bin/rails solid_queue:start`.
+- **Web**: runs Puma only; accepts requests and enqueues jobs.
+- **Worker**: dedicated Solid Queue process running `bin/rails solid_queue:start`; executes jobs and recurring tasks.
+- **Redis**: required for caching, rate limiting, and job smoke tests.
 
 ## Scaling Workers
 
 - Add hosts under the `job` role in `config/deploy.yml`.
 - Increase worker concurrency with `JOB_CONCURRENCY` as needed.
 - Keep web and worker deploys in sync.
+- If you increase `JOB_CONCURRENCY`, ensure the queue database pool size can support it.
 
 ## Preflight Checks
 

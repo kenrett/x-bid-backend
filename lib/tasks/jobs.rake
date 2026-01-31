@@ -23,6 +23,21 @@ namespace :jobs do
       puts "Redis reachable: false (#{e.class})"
       raise
     end
+
+    queue_config = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: "queue").first
+    if queue_config
+      begin
+        ActiveRecord::Base.connected_to(database: :queue) do
+          ActiveRecord::Base.connection.execute("SELECT 1")
+        end
+        puts "Queue database reachable: true"
+      rescue StandardError => e
+        puts "Queue database reachable: false (#{e.class})"
+        raise
+      end
+    else
+      puts "Queue database reachable: false (not configured)"
+    end
   end
 
   desc "Enqueue and verify a Solid Queue job executes"
