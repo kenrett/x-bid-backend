@@ -18,7 +18,7 @@ module Storefront
         artisan_catalog: false,
         ugc_marketplace: false
       },
-      "artisan" => {
+      "marketplace" => {
         adult_catalog: false,
         requires_age_gate: false,
         artisan_catalog: true,
@@ -26,7 +26,7 @@ module Storefront
       }
     }.freeze
 
-    DEFAULT_KEY = Storefront::Resolver::DEFAULT_KEY
+    DEFAULT_KEY = StorefrontKeyable::DEFAULT_KEY
 
     def capabilities_for(storefront_key)
       normalized = storefront_key.to_s.presence || DEFAULT_KEY

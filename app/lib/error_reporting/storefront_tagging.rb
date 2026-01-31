@@ -3,7 +3,7 @@ module ErrorReporting
     module_function
 
     # Storefront tagging makes multi-storefront debugging practical by letting error dashboards
-    # filter/group issues by `storefront_key` (main/afterdark/artisan) without changing behavior.
+    # filter/group issues by `storefront_key` (main/afterdark/marketplace) without changing behavior.
     def set!(storefront_key:)
       key = storefront_key.to_s.presence || "unknown"
 

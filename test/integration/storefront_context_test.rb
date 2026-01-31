@@ -15,28 +15,28 @@ class StorefrontContextTest < ActionDispatch::IntegrationTest
     assert_equal "main", storefront_key_for(host: "biddersweet.app")
     assert_equal "main", storefront_key_for(host: "www.biddersweet.app")
     assert_equal "afterdark", storefront_key_for(host: "afterdark.biddersweet.app")
-    assert_equal "artisan", storefront_key_for(host: "artisan.biddersweet.app")
+    assert_equal "marketplace", storefront_key_for(host: "marketplace.biddersweet.app")
   end
 
   test "header X-Storefront-Key overrides host mapping" do
-    assert_equal "artisan",
+    assert_equal "marketplace",
                  storefront_key_for(
                    host: "afterdark.biddersweet.app",
-                   headers: { "X-Storefront-Key" => "artisan" }
+                   headers: { "X-Storefront-Key" => "marketplace" }
                  )
   end
 
   test "invalid header defaults to main and logs a warning" do
     warnings = []
-    Rails.logger.stub(:warn, ->(msg) { warnings << msg }) do
-      assert_equal "main",
+    AppLogger.stub(:log, ->(event:, **context) { warnings << [ event, context ]; nil }) do
+    assert_equal "afterdark",
                    storefront_key_for(
                      host: "afterdark.biddersweet.app",
                      headers: { "X-Storefront-Key" => "not-a-storefront" }
                    )
     end
 
-    assert warnings.any? { |msg| msg.to_s.include?("storefront.resolve.invalid_header_key") }
+    assert warnings.any? { |event, _| event == "storefront.resolve.invalid_header_key" }
   end
 
   private

@@ -28,19 +28,19 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "main and artisan listings never include adult auctions (host mapping + header override)" do
+  test "main and marketplace listings never include adult auctions (host mapping + header override)" do
     host!("biddersweet.app")
     get "/api/v1/auctions"
     assert_response :success
     refute includes_auction_id?(response.body, @adult_auction.id)
 
-    host!("artisan.biddersweet.app")
+    host!("marketplace.biddersweet.app")
     get "/api/v1/auctions"
     assert_response :success
     refute includes_auction_id?(response.body, @adult_auction.id)
 
     host!("biddersweet.app")
-    get "/api/v1/auctions", headers: { "X-Storefront-Key" => "artisan" }
+    get "/api/v1/auctions", headers: { "X-Storefront-Key" => "marketplace" }
     assert_response :success
     refute includes_auction_id?(response.body, @adult_auction.id)
   end

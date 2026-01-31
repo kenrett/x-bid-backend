@@ -68,6 +68,8 @@ module Middleware
       controller = controller_instance&.class&.name
       action = controller_instance&.action_name || env["action_dispatch.request.parameters"]&.dig("action")
 
+      resolved_storefront_key = Current.storefront_key.presence || Storefront::Resolver.resolve_for_log(request)
+
       AppLogger.log(
         event: "http.request",
         request_id: request.request_id,
@@ -91,7 +93,8 @@ module Middleware
         cors_response_headers: cors_response_headers.presence,
         controller: controller,
         action: action,
-        error_class: error&.class&.name
+        error_class: error&.class&.name,
+        storefront_key: resolved_storefront_key
       )
     end
   end

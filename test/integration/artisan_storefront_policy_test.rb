@@ -17,8 +17,8 @@ class ArtisanStorefrontPolicyTest < ActionDispatch::IntegrationTest
     )
 
     @artisan_auction = Auction.create!(
-      title: "Artisan",
-      description: "artisan",
+      title: "Marketplace",
+      description: "marketplace",
       start_date: 1.day.ago,
       end_time: 1.day.from_now,
       current_price: 10.00,
@@ -28,15 +28,15 @@ class ArtisanStorefrontPolicyTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "artisan listing returns only artisan auctions (host mapping + header override)" do
-    host!("artisan.biddersweet.app")
+  test "marketplace listing returns only artisan auctions (host mapping + header override)" do
+    host!("marketplace.biddersweet.app")
     get "/api/v1/auctions"
     assert_response :success
     assert includes_auction_id?(response.body, @artisan_auction.id)
     refute includes_auction_id?(response.body, @main_auction.id)
 
     host!("biddersweet.app")
-    get "/api/v1/auctions", headers: { "X-Storefront-Key" => "artisan" }
+    get "/api/v1/auctions", headers: { "X-Storefront-Key" => "marketplace" }
     assert_response :success
     assert includes_auction_id?(response.body, @artisan_auction.id)
     refute includes_auction_id?(response.body, @main_auction.id)
@@ -50,12 +50,12 @@ class ArtisanStorefrontPolicyTest < ActionDispatch::IntegrationTest
     refute includes_auction_id?(response.body, @artisan_auction.id)
   end
 
-  test "main cannot fetch artisan auction detail but artisan can" do
+  test "main cannot fetch artisan auction detail but marketplace can" do
     host!("biddersweet.app")
     get "/api/v1/auctions/#{@artisan_auction.id}"
     assert_response :not_found
 
-    host!("artisan.biddersweet.app")
+    host!("marketplace.biddersweet.app")
     get "/api/v1/auctions/#{@artisan_auction.id}"
     assert_response :success
   end

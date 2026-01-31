@@ -1,7 +1,7 @@
 module StorefrontKeyable
   extend ActiveSupport::Concern
 
-  CANONICAL_KEYS = %w[main afterdark artisan].freeze
+  CANONICAL_KEYS = %w[main afterdark marketplace].freeze
   DEFAULT_KEY = "main"
 
   included do

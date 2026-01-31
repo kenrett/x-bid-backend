@@ -47,7 +47,7 @@ class Credits::LedgerWriterTest < ActiveSupport::TestCase
 
   test "does not create duplicate entries for the same idempotency key" do
     user = create_actor(role: :user)
-    Current.storefront_key = "artisan"
+    Current.storefront_key = "marketplace"
     key = "ledger.writer:duplicate:#{user.id}"
 
     first = Credits::Ledger::Writer.write!(

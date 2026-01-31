@@ -11,7 +11,7 @@ Ensure the frontend origin is one of:
 
 - `https://biddersweet.app`
 - `https://afterdark.biddersweet.app`
-- `https://artisan.biddersweet.app`
+- `https://marketplace.biddersweet.app`
 - `https://account.biddersweet.app`
 
 ## CORS requirements for header-based auth
@@ -24,4 +24,3 @@ Ensure the frontend origin is one of:
 
 - If HTTP auth ever moves to cookies, ensure cookie `Domain=.biddersweet.app` (leading dot) so it is shared across subdomains.
 - Use `Secure` + `HttpOnly` and choose `SameSite` based on whether cross-site requests are needed.
-

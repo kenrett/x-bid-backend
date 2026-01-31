@@ -1,43 +1,42 @@
 module Storefront
   class Resolver
-    CANONICAL_KEYS = %w[main afterdark artisan].freeze
-    DEFAULT_KEY = "main"
-
-    HOST_MAPPING = {
-      "biddersweet.app" => "main",
-      "www.biddersweet.app" => "main",
-      "afterdark.biddersweet.app" => "afterdark",
-      "artisan.biddersweet.app" => "artisan"
-    }.freeze
+    CANONICAL_KEYS = StorefrontKeyable::CANONICAL_KEYS
+    DEFAULT_KEY = StorefrontKeyable::DEFAULT_KEY
 
     def self.resolve(request)
       header_value = request.headers["X-Storefront-Key"].to_s.strip.downcase
       if header_value.present?
-        return header_value if CANONICAL_KEYS.include?(header_value)
+        if CANONICAL_KEYS.include?(header_value)
+          return header_value
+        end
 
-        log_invalid_header_key(request: request, invalid_key: header_value)
-        return DEFAULT_KEY
+        fallback_key = resolve_from_host(extract_host(request)) || DEFAULT_KEY
+        log_invalid_header_key(request: request, invalid_key: header_value, resolved_to: fallback_key)
+        return fallback_key
       end
 
-      host_key = resolve_from_host(extract_host(request))
-      return host_key if host_key
+      resolve_from_host(extract_host(request)) || DEFAULT_KEY
+    end
 
-      DEFAULT_KEY
+    def self.resolve_for_log(request)
+      header_value = request.headers["X-Storefront-Key"].to_s.strip.downcase
+      if header_value.present?
+        return header_value if CANONICAL_KEYS.include?(header_value)
+
+        return resolve_from_host(extract_host(request)) || DEFAULT_KEY
+      end
+
+      resolve_from_host(extract_host(request)) || DEFAULT_KEY
     end
 
     def self.resolve_from_host(host)
       normalized = host.to_s.strip.downcase
       return DEFAULT_KEY if normalized.blank?
 
-      mapped = HOST_MAPPING[normalized]
-      return mapped if mapped
+      return "afterdark" if normalized.start_with?("afterdark.")
+      return "marketplace" if normalized.start_with?("marketplace.")
 
-      if normalized.end_with?(".localhost")
-        subdomain = normalized.delete_suffix(".localhost").split(".").first
-        return subdomain if CANONICAL_KEYS.include?(subdomain)
-      end
-
-      DEFAULT_KEY if %w[localhost 127.0.0.1 0.0.0.0].include?(normalized)
+      DEFAULT_KEY
     end
 
     def self.extract_host(request)
@@ -53,22 +52,17 @@ module Storefront
       host.presence || request.host.to_s
     end
 
-    def self.log_invalid_header_key(request:, invalid_key:)
-      logger = Rails.logger
-      message = [
-        "storefront.resolve.invalid_header_key",
-        "invalid_key=#{invalid_key.inspect}",
-        "resolved_to=#{DEFAULT_KEY}",
-        "host=#{request.host.to_s.inspect}",
-        "path=#{request.fullpath.to_s.inspect}",
-        "request_id=#{request.request_id.to_s.inspect}"
-      ].join(" ")
-
-      if logger.respond_to?(:tagged)
-        logger.tagged("storefront=#{DEFAULT_KEY}") { logger.warn(message) }
-      else
-        logger.warn(message)
-      end
+    def self.log_invalid_header_key(request:, invalid_key:, resolved_to:)
+      AppLogger.log(
+        event: "storefront.resolve.invalid_header_key",
+        level: :warn,
+        invalid_key: invalid_key,
+        resolved_to: resolved_to,
+        request_id: request.request_id,
+        host: request.host,
+        path: request.fullpath,
+        user_id: Current.user_id
+      )
     end
   end
 end

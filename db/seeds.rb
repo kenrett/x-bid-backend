@@ -9,10 +9,10 @@ def seed_storefronts!
   # Map legacy seed keys to current schema constraints:
   # biddersweet -> main
   # after_dark  -> afterdark
-  # marketplace -> artisan
+  # marketplace -> marketplace
   biddersweet = StorefrontConfig.new("main", "BidderSweet", false, false)
   after_dark = StorefrontConfig.new("afterdark", "After Dark", true, false)
-  marketplace = StorefrontConfig.new("artisan", "Marketplace", false, true)
+  marketplace = StorefrontConfig.new("marketplace", "Marketplace", false, true)
 
   puts "  - Storefronts:"
   puts "    * #{biddersweet.key}"

@@ -41,12 +41,12 @@ module Storefront
       session_token&.respond_to?(:age_verified_at) && session_token.age_verified_at.present?
     end
 
-    ARTISAN_STOREFRONT_KEY = "artisan"
+    MARKETPLACE_STOREFRONT_KEY = "marketplace"
 
     def can_view_artisan_detail?(storefront_key:, auction:)
       return true unless artisan_detail?(auction)
 
-      storefront_key.to_s == ARTISAN_STOREFRONT_KEY
+      storefront_key.to_s == MARKETPLACE_STOREFRONT_KEY
     end
   end
 end
