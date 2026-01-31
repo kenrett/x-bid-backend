@@ -12,17 +12,13 @@ module Account
       token = @user.session_tokens.find_by(id: @session_token_id)
       return ServiceResult.fail("Session not found", code: :not_found) unless token
 
-      if @current_session_token.present? && token.id == @current_session_token.id
-        return ServiceResult.fail("Cannot revoke the current session via this endpoint", code: :invalid_session)
-      end
-
       token.revoke!
       AppLogger.log(
         event: "account.session.revoked",
         user_id: @user.id,
         revoked_session_token_id: token.id,
         actor_session_token_id: @current_session_token&.id,
-        reason: "user_revoked"
+        reason: (token.id == @current_session_token&.id ? "self_revoked" : "user_revoked")
       )
       AuditLogger.log(
         action: "auth.session.revoked",

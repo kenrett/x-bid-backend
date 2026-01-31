@@ -13,8 +13,9 @@ module Account
       return ServiceResult.fail("Invalid password", code: :invalid_password) unless @user.authenticate(@current_password.to_s)
       return ServiceResult.fail("Confirmation mismatch", code: :validation_error) unless @confirmation.to_s == CONFIRMATION_STRING
 
-      @user.disable_and_revoke_sessions!
+      @user.disable_revoke_and_anonymize!
       AppLogger.log(event: "account.deleted", user_id: @user.id)
+      AuditLogger.log(action: "account.deleted", actor: @user, user: @user, payload: { user_id: @user.id })
 
       ServiceResult.ok(code: :deleted)
     rescue StandardError => e

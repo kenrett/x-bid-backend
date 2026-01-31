@@ -49,4 +49,24 @@ class User < ApplicationRecord
       end
     end
   end
+
+  def anonymize_account!
+    anonymized_email = "deleted+#{id}-#{SecureRandom.hex(6)}@example.invalid"
+    update!(
+      name: "Deleted User",
+      email_address: anonymized_email,
+      unverified_email_address: nil,
+      email_verified_at: nil,
+      email_verification_token_digest: nil,
+      email_verification_sent_at: nil,
+      password_digest: BCrypt::Password.create(SecureRandom.hex(32))
+    )
+  end
+
+  def disable_revoke_and_anonymize!
+    transaction do
+      disable_and_revoke_sessions!
+      anonymize_account!
+    end
+  end
 end

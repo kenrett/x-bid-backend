@@ -1,5 +1,7 @@
 module Account
   class CreateExport
+    REUSE_WINDOW_SECONDS = 1.hour.to_i
+
     def initialize(user:, environment:)
       @user = user
       @environment = environment
@@ -8,10 +10,22 @@ module Account
     def call
       return ServiceResult.fail("User required", code: :invalid_user) unless @user
 
-      export = AccountExport.create!(user: @user, status: :pending, requested_at: Time.current)
-      maybe_generate_sync(export)
+      export = reuse_recent_export || AccountExport.create!(user: @user, status: :pending, requested_at: Time.current)
+      AuditLogger.log(
+        action: "account.export.requested",
+        actor: @user,
+        user: @user,
+        target: export,
+        payload: { status: export.status }
+      )
 
-      ServiceResult.ok(code: :accepted, data: { export_payload: export_payload(export) })
+      if export.pending? && !@environment.production?
+        generate_sync(export)
+      elsif export.pending?
+        AccountExportJob.perform_later(export.id)
+      end
+
+      ServiceResult.ok(code: :accepted, data: { export_payload: Account::ExportPresenter.new(export: export).payload })
     rescue StandardError => e
       AppLogger.error(event: "account.export.create_failed", error: e, user_id: @user&.id)
       ServiceResult.fail("Unable to create export", code: :unexpected_error)
@@ -19,80 +33,23 @@ module Account
 
     private
 
-    def maybe_generate_sync(export)
-      return if @environment.production?
-
+    def generate_sync(export)
+      payload = Account::ExportPayload.new(user: @user).call
       export.update!(
         status: :ready,
         ready_at: Time.current,
-        payload: build_payload
+        payload: payload
       )
     rescue StandardError => e
       export.update!(status: :failed, error_message: e.message)
     end
 
-    def export_payload(export)
-      payload = {
-        id: export.id,
-        status: export.status,
-        requested_at: export.requested_at.iso8601,
-        ready_at: export.ready_at&.iso8601,
-        download_url: export.download_url
-      }
-      payload[:data] = export.payload if export.ready? && export.download_url.blank?
-      payload
-    end
-
-    def build_payload
-      {
-        user: {
-          id: @user.id,
-          name: @user.name,
-          email_address: @user.email_address,
-          email_verified_at: @user.email_verified_at&.iso8601,
-          created_at: @user.created_at.iso8601,
-          role: @user.role
-        },
-        purchases: @user.purchases.includes(:bid_pack).order(created_at: :desc).limit(100).map do |purchase|
-          {
-            id: purchase.id,
-            bid_pack: {
-              id: purchase.bid_pack_id,
-              name: purchase.bid_pack&.name
-            },
-            amount_cents: purchase.amount_cents,
-            currency: purchase.currency,
-            status: purchase.status,
-            stripe_payment_intent_id: purchase.stripe_payment_intent_id,
-            stripe_checkout_session_id: purchase.stripe_checkout_session_id,
-            created_at: purchase.created_at.iso8601
-          }
-        end,
-        bids: @user.bids.includes(:auction).order(created_at: :desc).limit(200).map do |bid|
-          {
-            id: bid.id,
-            auction: {
-              id: bid.auction_id,
-              title: bid.auction&.title
-            },
-            amount: bid.amount,
-            created_at: bid.created_at.iso8601
-          }
-        end,
-        auction_watches: @user.auction_watches.includes(:auction).order(created_at: :desc).limit(200).map do |watch|
-          {
-            id: watch.id,
-            auction: {
-              id: watch.auction_id,
-              title: watch.auction&.title
-            },
-            created_at: watch.created_at.iso8601
-          }
-        end,
-        bids_count: @user.bids.count,
-        auction_watches_count: @user.auction_watches.count,
-        notifications_count: @user.notifications.count
-      }
+    def reuse_recent_export
+      @user.account_exports
+        .where(status: [ :pending, :ready ])
+        .where("requested_at >= ?", Time.current - REUSE_WINDOW_SECONDS)
+        .order(requested_at: :desc)
+        .first
     end
   end
 end

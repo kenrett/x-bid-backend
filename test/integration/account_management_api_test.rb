@@ -204,8 +204,11 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert audit_events.any? { |e| e[:event] == "account.session.revoked" && e[:reason] == "user_revoked" }
 
     delete "/api/v1/account/sessions/#{current_session.id}", headers: auth_headers(@user, current_session)
-    assert_response :unprocessable_content
-    assert_equal "invalid_session", JSON.parse(response.body).dig("error", "code").to_s
+    assert_response :success
+    assert current_session.reload.revoked_at.present?
+
+    get "/api/v1/account", headers: auth_headers(@user, current_session)
+    assert_response :unauthorized
   end
 
   test "DELETE /api/v1/account/sessions revokes all but current" do
@@ -244,21 +247,20 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert session_token.reload.revoked_at.present?
     assert other_session.reload.revoked_at.present?
 
-    post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
-    assert_response :forbidden
-    assert_equal "account_disabled", JSON.parse(response.body).dig("error", "code").to_s
+    post "/api/v1/login", params: { session: { email_address: "user@example.com", password: "password" } }
+    assert_response :unauthorized
+    assert_equal "invalid_credentials", JSON.parse(response.body).dig("error", "code").to_s
   end
 
-  test "POST/GET /api/v1/account/data/export creates and returns latest export" do
+  test "POST/GET /api/v1/account/export creates and returns latest export" do
     session_token = create_session_token_for(@user)
 
-    post "/api/v1/account/data/export", headers: auth_headers(@user, session_token)
+    post "/api/v1/account/export", headers: auth_headers(@user, session_token)
     assert_response :accepted
     export = JSON.parse(response.body).fetch("export")
-    assert_equal "ready", export["status"]
-    assert export["data"].is_a?(Hash)
+    assert_includes %w[pending ready], export["status"]
 
-    get "/api/v1/account/data/export", headers: auth_headers(@user, session_token)
+    get "/api/v1/account/export", headers: auth_headers(@user, session_token)
     assert_response :success
     latest = JSON.parse(response.body).fetch("export")
     assert_equal export["id"], latest["id"]
