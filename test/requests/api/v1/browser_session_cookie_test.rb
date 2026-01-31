@@ -56,9 +56,12 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     set_cookie = set_cookie_header
-    assert_includes set_cookie, "bs_session_id="
+    assert_match(/bs_session_id=;?/i, set_cookie)
     assert_match(/expires=/i, set_cookie)
     assert_match(/path=\//i, set_cookie)
+    assert_match(/httponly/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
+    assert_expired_cookie!(set_cookie)
   end
 
   test "logout clears browser session cookie with production domain and path" do
@@ -76,10 +79,14 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     set_cookie = set_cookie_header
-    assert_includes set_cookie, "bs_session_id="
+    assert_match(/bs_session_id=;?/i, set_cookie)
     assert_match(/expires=/i, set_cookie)
     assert_match(/path=\//i, set_cookie)
     assert_match(/domain=\.biddersweet\.app/i, set_cookie)
+    assert_match(/httponly/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/secure/i, set_cookie)
+    assert_expired_cookie!(set_cookie)
   end
 
   private
@@ -93,5 +100,16 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
     return header.join("\n") if header.is_a?(Array)
 
     header.to_s
+  end
+
+  def assert_expired_cookie!(set_cookie)
+    expires_value = cookie_attribute(set_cookie, "expires")
+    assert expires_value.present?, "Expected expires attribute to be present"
+    assert Time.httpdate(expires_value) < Time.now, "Expected cookie to expire in the past"
+  end
+
+  def cookie_attribute(set_cookie, name)
+    match = set_cookie.match(/#{name}=([^;]+)/i)
+    match&.captures&.first
   end
 end

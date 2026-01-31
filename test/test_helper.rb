@@ -2,6 +2,7 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "minitest/mock"
 require "rails/test_help"
+require "time"
 
 require_relative "support/auth_helpers"
 require_relative "support/role_matrix_helpers"
