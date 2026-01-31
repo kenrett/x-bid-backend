@@ -178,6 +178,28 @@ module Payments
               currency: result.purchase.currency
             }
           )
+          begin
+            ActivityEvent.create!(
+              user_id: user.id,
+              event_type: "purchase_completed",
+              occurred_at: result.purchase.applied_at || Time.current,
+              data: {
+                purchase_id: result.purchase.id,
+                bid_pack_id: result.purchase.bid_pack_id,
+                bid_pack_name: bid_pack.name,
+                credits_added: bid_pack.bids,
+                amount_cents: result.purchase.amount_cents,
+                currency: result.purchase.currency,
+                payment_status: result.purchase.status,
+                receipt_url: result.purchase.receipt_url,
+                receipt_status: result.purchase.receipt_status,
+                stripe_payment_intent_id: result.purchase.stripe_payment_intent_id,
+                stripe_charge_id: result.purchase.stripe_charge_id
+              }
+            )
+          rescue StandardError => e
+            Rails.logger.error("Payments::ApplyBidPackPurchase activity event failed: #{e.class} #{e.message}")
+          end
         end
         result
       rescue ActiveRecord::RecordInvalid => e

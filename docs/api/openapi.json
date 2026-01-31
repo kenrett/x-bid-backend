@@ -5225,7 +5225,7 @@
     "/api/v1/me/account/*path": {},
     "/api/v1/me/activity": {
       "get": {
-        "description": "GET /api/v1/me/activity\nMerges bids, watches, and outcomes into a single newest-first feed.\nNOTE: Currently merges in Ruby; may not scale for large histories.",
+        "description": "GET /api/v1/me/activity\nReturns an event-backed, newest-first feed with cursor pagination.",
         "operationId": "GET__api_v1_me_activity",
         "responses": {
           "401": {

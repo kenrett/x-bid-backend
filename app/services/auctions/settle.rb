@@ -36,6 +36,8 @@ module Auctions
           .perform_later(storefront_key: settlement.storefront_key)
       end
 
+      record_activity_events!(auction: auction, winning_user: winning_user)
+
       AppLogger.log(
         event: "auction.settled",
         auction_id: auction.id,
@@ -66,5 +68,47 @@ module Auctions
     private
 
     attr_reader :auction
+
+    def record_activity_events!(auction:, winning_user:)
+      occurred_at = auction.end_time || Time.current
+      bidder_ids = Bid.where(auction_id: auction.id).distinct.pluck(:user_id)
+      winner_id = winning_user&.id
+      loser_ids = bidder_ids - [ winner_id ].compact
+
+      now = Time.current
+      rows = []
+
+      if winner_id.present?
+        rows << {
+          user_id: winner_id,
+          event_type: "auction_won",
+          occurred_at: occurred_at,
+          data: {
+            auction_id: auction.id,
+            winning_user_id: winner_id
+          },
+          created_at: now,
+          updated_at: now
+        }
+      end
+
+      loser_ids.each do |user_id|
+        rows << {
+          user_id: user_id,
+          event_type: "auction_lost",
+          occurred_at: occurred_at,
+          data: {
+            auction_id: auction.id,
+            winning_user_id: winner_id
+          },
+          created_at: now,
+          updated_at: now
+        }
+      end
+
+      ActivityEvent.insert_all(rows) if rows.any?
+    rescue StandardError => e
+      Rails.logger.error("Auctions::Settle activity events failed: #{e.class} #{e.message}")
+    end
   end
 end

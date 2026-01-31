@@ -25,10 +25,24 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/me/activity returns only current user's activity" do
-    Bid.create!(user: @user, auction: @auction, amount: BigDecimal("2.00"))
-    Bid.create!(user: @other_user, auction: @auction, amount: BigDecimal("3.00"))
+    bid = Bid.create!(user: @user, auction: @auction, amount: BigDecimal("2.00"))
+    other_bid = Bid.create!(user: @other_user, auction: @auction, amount: BigDecimal("3.00"))
     AuctionWatch.create!(user: @user, auction: @auction)
     AuctionWatch.create!(user: @other_user, auction: @auction)
+
+    ActivityEvent.create!(
+      user_id: @user.id,
+      event_type: "bid_placed",
+      occurred_at: bid.created_at,
+      data: { auction_id: @auction.id, bid_id: bid.id, amount: bid.amount.to_s }
+    )
+    ActivityEvent.create!(
+      user_id: @other_user.id,
+      event_type: "bid_placed",
+      occurred_at: other_bid.created_at,
+      data: { auction_id: @auction.id, bid_id: other_bid.id, amount: other_bid.amount.to_s }
+    )
+    # auction_watched events are emitted on watch create
 
     get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)
 
@@ -43,6 +57,12 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
 
   test "activity contains bid item shape" do
     bid = Bid.create!(user: @user, auction: @auction, amount: BigDecimal("2.00"))
+    ActivityEvent.create!(
+      user_id: @user.id,
+      event_type: "bid_placed",
+      occurred_at: bid.created_at,
+      data: { auction_id: @auction.id, bid_id: bid.id, amount: bid.amount.to_s }
+    )
 
     get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)
 
@@ -79,6 +99,19 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
       winning_user: @user
     )
 
+    ActivityEvent.create!(
+      user_id: @user.id,
+      event_type: "auction_lost",
+      occurred_at: ended_auction.end_time,
+      data: { auction_id: ended_auction.id, winning_user_id: @other_user.id }
+    )
+    ActivityEvent.create!(
+      user_id: @user.id,
+      event_type: "auction_won",
+      occurred_at: won_auction.end_time,
+      data: { auction_id: won_auction.id, winning_user_id: @user.id }
+    )
+
     get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)
 
     assert_response :success
@@ -106,15 +139,23 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
       stripe_charge_id: "ch_api_1",
       created_at: 10.days.ago
     )
-    MoneyEvent.create!(
-      user: @user,
-      event_type: :purchase,
-      amount_cents: purchase.amount_cents,
-      currency: purchase.currency,
-      source_type: "StripePaymentIntent",
-      source_id: stripe_payment_intent_id,
+    ActivityEvent.create!(
+      user_id: @user.id,
+      event_type: "purchase_completed",
       occurred_at: 2.days.ago,
-      metadata: { purchase_id: purchase.id }
+      data: {
+        purchase_id: purchase.id,
+        bid_pack_id: bid_pack.id,
+        bid_pack_name: bid_pack.name,
+        credits_added: bid_pack.bids,
+        amount_cents: purchase.amount_cents,
+        currency: purchase.currency,
+        payment_status: purchase.status,
+        receipt_url: purchase.receipt_url,
+        receipt_status: purchase.receipt_status,
+        stripe_payment_intent_id: purchase.stripe_payment_intent_id,
+        stripe_charge_id: purchase.stripe_charge_id
+      }
     )
 
     other_purchase = Purchase.create!(
@@ -124,6 +165,24 @@ class MeActivityApiTest < ActionDispatch::IntegrationTest
       amount_cents: 999,
       currency: "usd",
       stripe_payment_intent_id: other_stripe_payment_intent_id
+    )
+    ActivityEvent.create!(
+      user_id: @other_user.id,
+      event_type: "purchase_completed",
+      occurred_at: 1.day.ago,
+      data: {
+        purchase_id: other_purchase.id,
+        bid_pack_id: bid_pack.id,
+        bid_pack_name: bid_pack.name,
+        credits_added: bid_pack.bids,
+        amount_cents: other_purchase.amount_cents,
+        currency: other_purchase.currency,
+        payment_status: other_purchase.status,
+        receipt_url: other_purchase.receipt_url,
+        receipt_status: other_purchase.receipt_status,
+        stripe_payment_intent_id: other_purchase.stripe_payment_intent_id,
+        stripe_charge_id: other_purchase.stripe_charge_id
+      }
     )
 
     get "/api/v1/me/activity", headers: auth_headers(@user, @session_token)

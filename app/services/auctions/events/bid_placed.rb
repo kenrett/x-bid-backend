@@ -14,6 +14,7 @@ module Auctions
         return unless auction && bid
 
         broadcast(payload)
+        record_activity_event
         log_event
       rescue StandardError => e
         Rails.logger.error("Auctions::Events::BidPlaced failed: #{e.message}")
@@ -62,6 +63,21 @@ module Auctions
           user_id: bid.user_id,
           current_price: auction.current_price
         )
+      end
+
+      def record_activity_event
+        ActivityEvent.create!(
+          user_id: bid.user_id,
+          event_type: "bid_placed",
+          occurred_at: bid.created_at || Time.current,
+          data: {
+            auction_id: auction.id,
+            bid_id: bid.id,
+            amount: bid.amount.to_s
+          }
+        )
+      rescue StandardError => e
+        Rails.logger.error("Auctions::Events::BidPlaced activity event failed: #{e.class} #{e.message}")
       end
     end
   end

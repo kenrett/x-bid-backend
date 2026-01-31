@@ -1,7 +1,9 @@
+require "time"
+
 module Activity
   module Queries
     class FeedForUser
-      # Activity feed contract (current behavior).
+      # Activity feed contract (event-backed).
       #
       # Endpoint: GET /api/v1/me/activity (Api::V1::Me::ActivityController#index)
       #
@@ -10,7 +12,8 @@ module Activity
       #     items: [ActivityItem...],
       #     page: Integer,
       #     per_page: Integer,
-      #     has_more: Boolean
+      #     has_more: Boolean,
+      #     next_cursor: String | nil
       #   }
       #
       # ActivityItem shape (Hash):
@@ -27,17 +30,17 @@ module Activity
       #     data: Hash               # type-specific payload
       #   }
       #
-      # Current activity `type` values emitted by this query:
-      # - "bid_placed"      (Bid, data: { bid_id, amount })
-      # - "auction_watched" (AuctionWatch create only; no "watch_removed" history, data: { watch_id })
-      # - "auction_won"     (computed from ended auctions where winning_user_id=user.id)
-      # - "auction_lost"    (computed from ended auctions where user bid but did not win)
-      # - "purchase_completed" (applied Purchase, data includes bid pack and payment details)
-      # - "fulfillment_status_changed" (persisted ActivityEvent emitted on AuctionFulfillment transitions)
-      # - "watch_removed" (persisted ActivityEvent emitted when a watch is removed)
+      # Activity `type` values are appended to ActivityEvent on write paths:
+      # - "bid_placed"
+      # - "auction_watched"
+      # - "auction_won"
+      # - "auction_lost"
+      # - "purchase_completed"
+      # - "fulfillment_status_changed"
+      # - "watch_removed"
       #
-      # Sorting: newest-first by occurred_at/created_at; ties broken by type then auction.id.
-      # Pagination: page/per_page with a lookahead item to compute has_more; no total count.
+      # Sorting: newest-first by (occurred_at, id).
+      # Pagination: cursor-based using (occurred_at, id); page/per_page remains for legacy clients.
       #
       # NOTE: Notifications are a separate API (`/api/v1/me/notifications`) and use `kind` as their client mapping key.
       DEFAULT_PER_PAGE = 25
@@ -59,26 +62,18 @@ module Activity
       end
 
       def call
-        items = []
-
-        items.concat(bid_items)
-        items.concat(watch_items)
-        items.concat(outcome_items)
-        items.concat(purchase_items)
-        items.concat(activity_event_items)
-
-        items.sort_by! { |item| [ item_time(item).to_i, item.fetch(:type), item.dig(:auction, :id).to_i ] }
-        items.reverse!
-
-        page_records = paginated(items)
+        events = events_relation.limit(per_page + 1).to_a
+        has_more = events.length > per_page
+        page_records = events.first(per_page)
 
         @meta = {
           page: page_number,
           per_page: per_page,
-          has_more: page_records.length > per_page
+          has_more: has_more,
+          next_cursor: has_more ? cursor_for(page_records.last) : nil
         }
 
-        @records = page_records.first(per_page)
+        @records = build_items(page_records)
         self
       end
 
@@ -86,92 +81,7 @@ module Activity
 
       attr_reader :user, :params
 
-      def paginated(items)
-        items
-          .drop((page_number - 1) * per_page)
-          .first(per_page + 1)
-      end
-
-      def bid_items
-        Bids::Queries::ForUser.call(user: user).records.map do |bid|
-          occurred_at = bid.created_at
-          {
-            type: "bid_placed",
-            occurred_at: occurred_at,
-            created_at: occurred_at,
-            auction: serialize_auction(bid.auction),
-            data: {
-              bid_id: bid.id,
-              amount: bid.amount
-            }
-          }
-        end
-      end
-
-      def watch_items
-        Auctions::Queries::WatchedByUser.call(user: user).records.map do |watch|
-          occurred_at = watch.created_at
-          {
-            type: "auction_watched",
-            occurred_at: occurred_at,
-            created_at: occurred_at,
-            auction: serialize_auction(watch.auction),
-            data: {
-              watch_id: watch.id
-            }
-          }
-        end
-      end
-
-      def outcome_items
-        Auctions::Queries::OutcomesForUser.call(user: user).records.map do |outcome|
-          auction = outcome.auction
-          occurred_at = outcome.created_at
-          {
-            type: outcome.type,
-            occurred_at: occurred_at,
-            created_at: occurred_at,
-            auction: serialize_auction(auction),
-            data: {
-              winning_user_id: auction.winning_user_id
-            }
-          }
-        end
-      end
-
-      def purchase_items
-        Activity::Queries::PurchasesForUser.call(user: user).records.filter_map do |record|
-          purchase = record.purchase
-          next unless purchase.user_id == user.id
-
-          bid_pack = purchase.bid_pack
-          occurred_at = record.occurred_at
-
-          {
-            type: "purchase_completed",
-            occurred_at: occurred_at,
-            created_at: occurred_at,
-            auction: nil,
-            data: {
-              purchase_id: purchase.id,
-              bid_pack_id: purchase.bid_pack_id,
-              bid_pack_name: bid_pack&.name,
-              credits_added: bid_pack&.bids,
-              amount_cents: purchase.amount_cents,
-              currency: purchase.currency,
-              payment_status: purchase.status,
-              receipt_url: purchase.receipt_url,
-              receipt_status: purchase.receipt_status,
-              stripe_payment_intent_id: purchase.stripe_payment_intent_id,
-              stripe_charge_id: purchase.stripe_charge_id
-            }
-          }
-        end
-      end
-
-      def activity_event_items
-        events = Activity::Queries::EventsForUser.call(user: user).records
-
+      def build_items(events)
         auction_ids = events.map { |event| event.data.is_a?(Hash) ? event.data["auction_id"] : nil }.compact.uniq
         auctions_by_id = auction_ids.empty? ? {} : Auction.where(id: auction_ids).index_by(&:id)
 
@@ -206,15 +116,45 @@ module Activity
         value.positive? ? value : 1
       end
 
-      def item_time(item)
-        item[:occurred_at] || item[:created_at]
-      end
-
       def per_page
         value = params[:per_page].to_i
         return DEFAULT_PER_PAGE if value <= 0
 
         [ value, MAX_PER_PAGE ].min
+      end
+
+      def cursor
+        params[:cursor].to_s.presence
+      end
+
+      def events_relation
+        relation = ActivityEvent.where(user_id: user.id)
+        relation = apply_cursor(relation) if cursor.present?
+        relation = relation.order(occurred_at: :desc, id: :desc)
+        relation = relation.offset((page_number - 1) * per_page) if cursor.blank? && page_number > 1
+        relation
+      end
+
+      def apply_cursor(relation)
+        occurred_at, id = parse_cursor(cursor)
+        relation.where("occurred_at < ? OR (occurred_at = ? AND id < ?)", occurred_at, occurred_at, id)
+      end
+
+      def parse_cursor(raw_cursor)
+        parts = raw_cursor.to_s.split("|", 2)
+        raise ArgumentError, "Invalid cursor" if parts.length != 2
+
+        occurred_at = Time.iso8601(parts[0])
+        id = Integer(parts[1])
+        [ occurred_at, id ]
+      rescue ArgumentError, TypeError
+        raise ArgumentError, "Invalid cursor"
+      end
+
+      def cursor_for(event)
+        return nil unless event
+
+        "#{event.occurred_at.utc.iso8601(6)}|#{event.id}"
       end
     end
   end
