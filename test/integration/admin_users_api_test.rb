@@ -16,7 +16,7 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      users = body.is_a?(Array) ? body : (body["admin_users"] || body["adminUsers"] || body)
+      users = body["users"] || body["admin_users"] || body["adminUsers"] || body
       assert_kind_of Array, users
       ids = users.map { |u| u["id"] }
       assert_includes ids, @superadmin.id
@@ -115,7 +115,7 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
     params = { user: { name: "Renamed Admin" } }
 
     each_role_case(required_role: :superadmin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
-      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+      assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         patch "/api/v1/admin/users/#{target.id}", params: params, headers: headers
       end
 
@@ -125,7 +125,7 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
         assert_equal "Renamed Admin", parsed_user(JSON.parse(response.body))["name"]
         assert_equal "Renamed Admin", target.reload.name
 
-        log = AuditLog.order(created_at: :desc).first
+        log = AuditLog.where(action: "user.update").order(created_at: :desc).first
         assert_equal "user.update", log.action
         assert_equal actor.id, log.actor_id
         assert_equal target.id, log.target_id

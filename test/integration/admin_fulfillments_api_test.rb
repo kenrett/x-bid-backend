@@ -9,7 +9,7 @@ class AdminFulfillmentsApiTest < ActionDispatch::IntegrationTest
     each_role_case(required_role: :admin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
       fulfillment = create_fulfillment!(status: :claimed)
 
-      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+      assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         post "/api/v1/admin/fulfillments/#{fulfillment.id}/process",
              params: { shipping_cost_cents: 500, notes: "pack carefully" },
              headers: headers
@@ -24,7 +24,7 @@ class AdminFulfillmentsApiTest < ActionDispatch::IntegrationTest
         assert_equal "pack carefully", body.dig("metadata", "admin_notes", "processing")
         assert_equal "processing", fulfillment.reload.status
 
-        log = AuditLog.order(created_at: :desc).first
+        log = AuditLog.where(action: "fulfillment.process").order(created_at: :desc).first
         assert_equal "fulfillment.process", log.action
         assert_equal actor.id, log.actor_id
         assert_equal fulfillment.id, log.target_id
@@ -38,7 +38,7 @@ class AdminFulfillmentsApiTest < ActionDispatch::IntegrationTest
     each_role_case(required_role: :admin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
       fulfillment = create_fulfillment!(status: :processing)
 
-      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+      assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         post "/api/v1/admin/fulfillments/#{fulfillment.id}/ship",
              params: { shipping_carrier: "ups", tracking_number: "1Z999" },
              headers: headers
@@ -53,7 +53,7 @@ class AdminFulfillmentsApiTest < ActionDispatch::IntegrationTest
         assert_equal "1Z999", body.fetch("tracking_number")
         assert_equal "shipped", fulfillment.reload.status
 
-        log = AuditLog.order(created_at: :desc).first
+        log = AuditLog.where(action: "fulfillment.ship").order(created_at: :desc).first
         assert_equal "fulfillment.ship", log.action
         assert_equal actor.id, log.actor_id
         assert_equal fulfillment.id, log.target_id
@@ -67,7 +67,7 @@ class AdminFulfillmentsApiTest < ActionDispatch::IntegrationTest
     each_role_case(required_role: :admin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
       fulfillment = create_fulfillment!(status: :shipped)
 
-      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+      assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         post "/api/v1/admin/fulfillments/#{fulfillment.id}/complete", headers: headers
       end
 
@@ -77,7 +77,7 @@ class AdminFulfillmentsApiTest < ActionDispatch::IntegrationTest
         assert_equal "complete", JSON.parse(response.body).fetch("status")
         assert_equal "complete", fulfillment.reload.status
 
-        log = AuditLog.order(created_at: :desc).first
+        log = AuditLog.where(action: "fulfillment.complete").order(created_at: :desc).first
         assert_equal "fulfillment.complete", log.action
         assert_equal actor.id, log.actor_id
         assert_equal fulfillment.id, log.target_id

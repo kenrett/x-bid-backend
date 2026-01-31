@@ -1,5 +1,6 @@
 require "test_helper"
 require "jwt"
+require "rotp"
 
 class AuthorizationBoundariesTest < ActionDispatch::IntegrationTest
   test "normal user cannot access /api/v1/admin/* endpoints" do
@@ -63,6 +64,22 @@ class AuthorizationBoundariesTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = JSON.parse(response.body)
     assert_nil body.fetch("export"), "Expected export to be scoped to current user"
+  end
+
+  test "admin endpoints require 2FA when enabled" do
+    admin = create_actor(role: :admin)
+    admin.two_factor_secret = ROTP::Base32.random
+    admin.update!(two_factor_enabled_at: Time.current)
+
+    headers, session_token = auth_headers_and_session_token_for(admin)
+
+    get "/api/v1/admin/payments", headers: headers
+    assert_response :unauthorized
+    assert_equal "two_factor_required", JSON.parse(response.body).dig("error", "code").to_s
+
+    session_token.update!(two_factor_verified_at: Time.current)
+    get "/api/v1/admin/payments", headers: headers
+    assert_response :success
   end
 
   test "ban/disable revokes sessions immediately" do

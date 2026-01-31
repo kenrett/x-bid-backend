@@ -44,6 +44,7 @@ gem "active_model_serializers"
 gem "oas_rails"
 
 gem "stripe"
+gem "rotp"
 
 gem "redis", ">= 4.0.1"
 gem "faker"

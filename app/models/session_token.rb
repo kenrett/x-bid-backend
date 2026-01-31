@@ -14,10 +14,14 @@ class SessionToken < ApplicationRecord
     Digest::SHA256.hexdigest(raw_token)
   end
 
-  def self.generate_for(user:, ttl: default_ttl)
+  def self.generate_for(user:, ttl: default_ttl, two_factor_verified_at: nil)
     raw_token = SecureRandom.hex(32)
     expires_at = Time.current + ttl
-    session_token = user.session_tokens.create!(token_digest: digest(raw_token), expires_at: expires_at)
+    session_token = user.session_tokens.create!(
+      token_digest: digest(raw_token),
+      expires_at: expires_at,
+      two_factor_verified_at: two_factor_verified_at
+    )
     [ session_token, raw_token ]
   end
 

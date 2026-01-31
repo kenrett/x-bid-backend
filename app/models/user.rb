@@ -1,3 +1,6 @@
+require "digest"
+require "rotp"
+
 class User < ApplicationRecord
   has_secure_password
 
@@ -28,6 +31,66 @@ class User < ApplicationRecord
     product_updates: false,
     marketing_emails: false
   }.freeze
+
+  def two_factor_enabled?
+    two_factor_enabled_at.present?
+  end
+
+  def two_factor_secret
+    return nil if two_factor_secret_ciphertext.blank?
+
+    two_factor_encryptor.decrypt_and_verify(two_factor_secret_ciphertext)
+  rescue ActiveSupport::MessageVerifier::InvalidSignature, ActiveSupport::MessageEncryptor::InvalidMessage
+    nil
+  end
+
+  def two_factor_secret=(secret)
+    if secret.present?
+      self.two_factor_secret_ciphertext = two_factor_encryptor.encrypt_and_sign(secret)
+    else
+      self.two_factor_secret_ciphertext = nil
+    end
+  end
+
+  def generate_two_factor_recovery_codes!
+    codes = Array.new(10) { SecureRandom.hex(4) }
+    update!(two_factor_recovery_codes: codes.map { |code| digest_recovery_code(code) })
+    codes
+  end
+
+  def consume_recovery_code!(code)
+    digest = digest_recovery_code(code)
+    return false unless two_factor_recovery_codes.include?(digest)
+
+    update!(two_factor_recovery_codes: two_factor_recovery_codes - [ digest ])
+    true
+  end
+
+  def clear_two_factor!
+    update!(
+      two_factor_secret_ciphertext: nil,
+      two_factor_enabled_at: nil,
+      two_factor_recovery_codes: []
+    )
+  end
+
+  def verify_two_factor_code(code)
+    return false if code.to_s.strip.blank?
+
+    secret = two_factor_secret
+    return false if secret.blank?
+
+    totp = ROTP::TOTP.new(secret, issuer: two_factor_issuer)
+    totp.verify(code.to_s, drift_behind: 30, drift_ahead: 30).present?
+  end
+
+  def two_factor_provisioning_uri
+    secret = two_factor_secret
+    return nil if secret.blank?
+
+    label = "#{two_factor_issuer}:#{email_address}"
+    ROTP::TOTP.new(secret, issuer: two_factor_issuer).provisioning_uri(label)
+  end
 
   def email_verified?
     email_verified_at.present?
@@ -68,5 +131,22 @@ class User < ApplicationRecord
       disable_and_revoke_sessions!
       anonymize_account!
     end
+  end
+
+  private
+
+  def two_factor_encryptor
+    secret = Rails.application.secret_key_base
+    salt = "two-factor-secret"
+    key = ActiveSupport::KeyGenerator.new(secret).generate_key(salt, 32)
+    ActiveSupport::MessageEncryptor.new(key, cipher: "aes-256-gcm")
+  end
+
+  def two_factor_issuer
+    ENV.fetch("APP_NAME", "X-Bid")
+  end
+
+  def digest_recovery_code(code)
+    Digest::SHA256.hexdigest(code.to_s)
   end
 end

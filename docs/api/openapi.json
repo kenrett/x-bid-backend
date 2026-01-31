@@ -2998,6 +2998,84 @@
         ]
       }
     },
+    "/api/v1/account/2fa/disable": {
+      "post": {
+        "description": "POST /api/v1/account/2fa/disable",
+        "operationId": "POST__api_v1_account_2fa_disable",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_041"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_047"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_021"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Disable 2FA (requires password + code)",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/account/2fa/setup": {
+      "post": {
+        "description": "POST /api/v1/account/2fa/setup",
+        "operationId": "POST__api_v1_account_2fa_setup",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_041"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_047"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_021"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Start 2FA setup and return the provisioning URI",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/account/2fa/verify": {
+      "post": {
+        "description": "POST /api/v1/account/2fa/verify",
+        "operationId": "POST__api_v1_account_2fa_verify",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_041"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_047"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_021"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Verify 2FA code and enable",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
     "/api/v1/account/data/export": {
       "get": {
         "description": "GET /api/v1/account/data/export",
@@ -3100,14 +3178,73 @@
     },
     "/api/v1/account/export": {
       "get": {
-        "description": "GET /api/v1/account/export\nReturns the export JSON when ready; otherwise returns export metadata (202) so clients can poll.",
+        "description": "GET /api/v1/account/data/export",
         "operationId": "GET__api_v1_account_export",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_050"
           },
+          "401": {
+            "$ref": "#/components/responses/resp_066"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_047"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_043"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_021"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Get the latest account export status",
+        "tags": [
+          "Api"
+        ]
+      },
+      "post": {
+        "description": "POST /api/v1/account/data/export",
+        "operationId": "POST__api_v1_account_export",
+        "responses": {
           "202": {
             "$ref": "#/components/responses/resp_030"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_066"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_047"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_049"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_021"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Request an account export (MVP)",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/account/export/download": {
+      "get": {
+        "description": "GET /api/v1/account/export/download",
+        "operationId": "GET__api_v1_account_export_download",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_031"
           },
           "401": {
             "$ref": "#/components/responses/resp_066"
@@ -3124,7 +3261,7 @@
             "bearer_jwt": []
           }
         ],
-        "summary": "Return an account export (or start async export)",
+        "summary": "Download an account export payload via signed URL",
         "tags": [
           "Api"
         ]

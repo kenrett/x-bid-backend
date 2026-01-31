@@ -14,7 +14,7 @@ class AdminAuditApiTest < ActionDispatch::IntegrationTest
     }
 
     each_role_case(required_role: :admin, success_status: 201) do |role:, actor:, headers:, expected_status:, success:|
-      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+      assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         post "/api/v1/admin/audit", params: params, headers: headers, as: :json
       end
 
@@ -25,7 +25,7 @@ class AdminAuditApiTest < ActionDispatch::IntegrationTest
       body = JSON.parse(response.body)
       assert_equal "ok", body["status"]
 
-      log = AuditLog.order(created_at: :desc).first
+      log = AuditLog.where(action: "custom.test").order(created_at: :desc).first
       assert_equal "custom.test", log.action
       assert_equal actor.id, log.actor_id
       assert_equal "User", log.target_type

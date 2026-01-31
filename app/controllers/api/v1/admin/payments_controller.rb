@@ -1,10 +1,7 @@
 module Api
   module V1
     module Admin
-      class PaymentsController < ApplicationController
-        before_action :authenticate_request!
-        before_action -> { authorize!(:admin) }
-
+      class PaymentsController < BaseController
         # GET /api/v1/admin/payments
         # @summary List payments with optional email search
         # Lists purchases with optional fuzzy email search for admins.
@@ -16,7 +13,16 @@ module Api
           payments = Purchase.includes(:user, :bid_pack).order(created_at: :desc)
           payments = payments.joins(:user).where("LOWER(users.email_address) LIKE ?", "%#{params[:search].downcase}%") if params[:search].present?
 
-          render json: payments.map { |payment| serialize_payment(payment) }
+          page_records = payments.offset((page_number - 1) * per_page).limit(per_page + 1).to_a
+          has_more = page_records.length > per_page
+          records = page_records.first(per_page)
+
+          render json: {
+            payments: records.map { |payment| serialize_payment(payment) },
+            page: page_number,
+            per_page: per_page,
+            has_more: has_more
+          }
         end
 
         # GET /api/v1/admin/payments/:id

@@ -31,6 +31,9 @@ Rails.application.routes.draw do
       get "/account/security", to: "account_security#show"
       post "/account/email-change", to: "account_emails#change"
       delete "/account", to: "account_deletions#destroy"
+      post "/account/2fa/setup", to: "account_two_factor#setup"
+      post "/account/2fa/verify", to: "account_two_factor#verify"
+      post "/account/2fa/disable", to: "account_two_factor#disable"
 
       get "/account/notifications", to: "account_notifications#show"
       put "/account/notifications", to: "account_notifications#update"

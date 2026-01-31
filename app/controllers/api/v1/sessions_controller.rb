@@ -22,7 +22,13 @@ module Api
         end
 
         if user&.authenticate(login_params[:password])
-          session_token, refresh_token = SessionToken.generate_for(user:)
+          two_factor_verified_at = nil
+          if user.two_factor_enabled?
+            two_factor_verified_at = verify_two_factor_for_login(user, login_params)
+            return if performed?
+          end
+
+          session_token, refresh_token = SessionToken.generate_for(user:, two_factor_verified_at: two_factor_verified_at)
           track_session_token!(session_token)
           set_cable_session_cookie(session_token)
           set_browser_session_cookie(session_token)
@@ -58,10 +64,17 @@ module Api
           return render_error(code: :account_disabled, message: "User account disabled", status: :forbidden)
         end
 
+        if session_token.user.two_factor_enabled? && session_token.two_factor_verified_at.blank?
+          return render_error(code: :two_factor_required, message: "Two-factor authentication required", status: :unauthorized)
+        end
+
         session_token.revoke!
         SessionEventBroadcaster.session_invalidated(session_token, reason: "refresh_replaced")
 
-        new_session_token, refresh_token = SessionToken.generate_for(user: session_token.user)
+        new_session_token, refresh_token = SessionToken.generate_for(
+          user: session_token.user,
+          two_factor_verified_at: session_token.two_factor_verified_at
+        )
         track_session_token!(new_session_token)
         set_cable_session_cookie(new_session_token)
         set_browser_session_cookie(new_session_token)
@@ -135,9 +148,10 @@ module Api
       private
 
       def login_params
-        raw = (params[:session].presence || params).permit(:email_address, :emailAddress, :password)
+        raw = (params[:session].presence || params).permit(:email_address, :emailAddress, :password, :otp, :recovery_code, :recoveryCode)
         raw.to_h.tap do |hash|
           hash["email_address"] ||= hash.delete("emailAddress")
+          hash["recovery_code"] ||= hash.delete("recoveryCode")
         end
       end
 
@@ -159,6 +173,27 @@ module Api
 
       def handle_parameter_missing(exception)
         render_error(code: :bad_request, message: exception.message, status: :bad_request)
+      end
+
+      def verify_two_factor_for_login(user, params_hash)
+        otp = params_hash["otp"].to_s
+        recovery_code = params_hash["recovery_code"].to_s
+
+        if otp.blank? && recovery_code.blank?
+          render_error(code: :two_factor_required, message: "Two-factor authentication required", status: :unauthorized)
+          return nil
+        end
+
+        if otp.present? && user.verify_two_factor_code(otp)
+          return Time.current
+        end
+
+        if recovery_code.present? && user.consume_recovery_code!(recovery_code)
+          return Time.current
+        end
+
+        render_error(code: :invalid_two_factor_code, message: "Invalid verification code", status: :unauthorized)
+        nil
       end
     end
   end

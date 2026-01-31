@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_30_000000) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_31_000010) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -322,9 +322,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_30_000000) do
     t.string "ip_address"
     t.datetime "last_seen_at"
     t.datetime "age_verified_at"
+    t.datetime "two_factor_verified_at"
     t.index ["expires_at"], name: "index_session_tokens_on_expires_at"
     t.index ["last_seen_at"], name: "index_session_tokens_on_last_seen_at"
     t.index ["token_digest"], name: "index_session_tokens_on_token_digest", unique: true
+    t.index ["two_factor_verified_at"], name: "index_session_tokens_on_two_factor_verified_at"
     t.index ["user_id"], name: "index_session_tokens_on_user_id"
   end
 
@@ -354,6 +356,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_30_000000) do
     t.string "unverified_email_address"
     t.jsonb "notification_preferences", default: {"receipts" => true, "outbid_alerts" => true, "bidding_alerts" => true, "product_updates" => false, "marketing_emails" => false, "watched_auction_ending" => true}, null: false
     t.datetime "disabled_at"
+    t.text "two_factor_secret_ciphertext"
+    t.datetime "two_factor_enabled_at"
+    t.jsonb "two_factor_recovery_codes", default: [], null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["email_verification_token_digest"], name: "index_users_on_email_verification_token_digest"
     t.index ["email_verified_at"], name: "index_users_on_email_verified_at"

@@ -21,7 +21,7 @@ class AdminMaintenanceApiTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/admin/maintenance enforces role matrix and audits changes" do
     each_role_case(required_role: :superadmin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
-      assert_difference("AuditLog.count", success ? 1 : 0, "role=#{role}") do
+      assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         post "/api/v1/admin/maintenance", params: { enabled: true }, headers: headers
       end
 
@@ -32,7 +32,7 @@ class AdminMaintenanceApiTest < ActionDispatch::IntegrationTest
         assert_equal true, body.dig("maintenance", "enabled")
         assert_equal true, MaintenanceSetting.global.reload.enabled
 
-        log = AuditLog.order(created_at: :desc).first
+        log = AuditLog.where(action: "maintenance.update").order(created_at: :desc).first
         assert_equal "maintenance.update", log.action
         assert_equal actor.id, log.actor_id
         assert_equal true, log.payload["enabled"]

@@ -286,6 +286,7 @@ GEM
     regexp_parser (2.11.3)
     reline (0.6.2)
       io-console (~> 0.5)
+    rotp (6.3.0)
     rubocop (1.80.2)
       json (~> 2.3)
       language_server-protocol (~> 3.17.0.2)
@@ -390,6 +391,7 @@ DEPENDENCIES
   rack-timeout
   rails (~> 8.0.2, >= 8.0.2.1)
   redis (>= 4.0.1)
+  rotp
   rubocop-rails-omakase
   solid_cable
   solid_queue

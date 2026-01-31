@@ -1,9 +1,7 @@
 module Api
   module V1
     module Admin
-      class UsersController < ApplicationController
-        before_action :authenticate_request!
-        before_action -> { authorize!(:superadmin) }
+      class UsersController < BaseController
         before_action :set_user, except: [ :index ]
         before_action :ensure_not_last_superadmin_on_role_change, only: [ :update ]
         before_action :ensure_not_last_superadmin!, only: [ :revoke_superadmin, :ban ]
@@ -15,8 +13,17 @@ module Api
         # @response Unauthorized (401) [Error]
         # @response Forbidden (403) [Error]
         def index
-          admins = User.where(role: [ :admin, :superadmin ])
-          render json: admins, each_serializer: AdminUserSerializer, adapter: :attributes
+          admins = User.where(role: [ :admin, :superadmin ]).order(created_at: :desc)
+          page_records = admins.offset((page_number - 1) * per_page).limit(per_page + 1).to_a
+          has_more = page_records.length > per_page
+          records = page_records.first(per_page)
+          serialized = ActiveModelSerializers::SerializableResource.new(
+            records,
+            each_serializer: AdminUserSerializer,
+            adapter: :attributes
+          ).as_json
+
+          render json: { users: serialized, page: page_number, per_page: per_page, has_more: has_more }
         end
 
         # @summary Grant admin role to a user
@@ -156,6 +163,10 @@ module Api
 
         def render_validation_error(user)
           render_error(code: :invalid_user, message: user.errors.full_messages.to_sentence, status: :unprocessable_entity)
+        end
+
+        def required_role
+          :superadmin
         end
       end
     end

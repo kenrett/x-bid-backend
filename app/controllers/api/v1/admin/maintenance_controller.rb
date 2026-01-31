@@ -1,10 +1,7 @@
 module Api
   module V1
     module Admin
-      class MaintenanceController < ApplicationController
-        before_action :authenticate_request!
-        before_action -> { authorize!(:superadmin) }
-
+      class MaintenanceController < BaseController
         # GET /api/v1/admin/maintenance
         # @summary Show current maintenance mode state
         # Returns the maintenance toggle state for administrators.
@@ -39,6 +36,10 @@ module Api
 
         def maintenance_payload
           Maintenance::Toggle.new(setting: MaintenanceSetting.global, cache: Rails.cache).payload
+        end
+
+        def required_role
+          :superadmin
         end
       end
     end

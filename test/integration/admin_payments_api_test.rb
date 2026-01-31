@@ -23,9 +23,10 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
       next unless success
 
       body = JSON.parse(response.body)
-      assert_kind_of Array, body
-      assert_equal purchase.id, body.first["id"]
-      assert_equal user.email_address, body.first["user_email"]
+      payments = body.fetch("payments")
+      assert_kind_of Array, payments
+      assert_equal purchase.id, payments.first["id"]
+      assert_equal user.email_address, payments.first["user_email"]
     end
   end
 
@@ -55,7 +56,7 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    payment = body.find { |p| p["id"] == purchase.id }
+    payment = body.fetch("payments").find { |p| p["id"] == purchase.id }
     assert payment, "Expected payments list to include purchase id=#{purchase.id}"
     assert_equal purchase.id, payment["id"]
     assert_equal user.email_address, payment["user_email"]
@@ -78,8 +79,9 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal 1, body.size
-    assert_equal matching_user.email_address, body.first["user_email"]
+    payments = body.fetch("payments")
+    assert_equal 1, payments.size
+    assert_equal matching_user.email_address, payments.first["user_email"]
   end
 
   test "POST /api/v1/admin/payments/:id/refund enforces role matrix and updates payment" do
