@@ -58,16 +58,8 @@ if %w[production staging].include?(Rails.env)
       cable_headers: cable_headers,
       cable_methods: cable_methods
     }
-    if defined?(AppLogger)
-      AppLogger.log(**payload)
-    else
-      Rails.logger.info(payload.inspect)
-    end
+    Rails.logger.info(payload.inspect)
   rescue StandardError => e
-    if defined?(AppLogger)
-      AppLogger.error(event: "cors.config_failed", error: e)
-    else
-      Rails.logger.error("cors.config_failed #{e.class}: #{e.message}")
-    end
+    Rails.logger.error("cors.config_failed #{e.class}: #{e.message}")
   end
 end
