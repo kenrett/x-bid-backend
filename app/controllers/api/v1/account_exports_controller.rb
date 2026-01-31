@@ -28,7 +28,7 @@ module Api
 
       # GET /api/v1/account/export/download
       # @summary Download an account export payload via signed URL
-      # @response Success (200) [Hash]
+      # @response Success (200) [AccountExportData]
       # @response Unauthorized (401) [Error]
       def download
         token = params.require(:token)

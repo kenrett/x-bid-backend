@@ -359,6 +359,33 @@ module OasSchemas
       },
       required: %w[export]
     },
+    "AccountExportData" => {
+      type: "object",
+      additionalProperties: true
+    },
+    "AccountTwoFactorSetupResponse" => {
+      type: "object",
+      properties: {
+        secret: { type: "string" },
+        otpauth_uri: { type: "string" }
+      },
+      required: %w[secret otpauth_uri]
+    },
+    "AccountTwoFactorVerifyResponse" => {
+      type: "object",
+      properties: {
+        status: { type: "string" },
+        recovery_codes: { type: "array", items: { type: "string" } }
+      },
+      required: %w[status recovery_codes]
+    },
+    "AccountTwoFactorDisableResponse" => {
+      type: "object",
+      properties: {
+        status: { type: "string" }
+      },
+      required: %w[status]
+    },
     # Request payloads
     "AccountUpdateRequest" => {
       type: "object",

@@ -48,8 +48,7 @@ Rails.application.config.middleware.insert_before Rack::Cors, Middleware::Reques
 
 if %w[production staging].include?(Rails.env)
   begin
-    logger = defined?(AppLogger) ? AppLogger : Rails.logger
-    logger.log(
+    payload = {
       event: "cors.config",
       origins: FrontendOrigins.allowed_origins,
       credentials: true,
@@ -58,7 +57,12 @@ if %w[production staging].include?(Rails.env)
       exposed_headers: exposed_headers,
       cable_headers: cable_headers,
       cable_methods: cable_methods
-    )
+    }
+    if defined?(AppLogger)
+      AppLogger.log(**payload)
+    else
+      Rails.logger.info(payload.inspect)
+    end
   rescue StandardError => e
     if defined?(AppLogger)
       AppLogger.error(event: "cors.config_failed", error: e)

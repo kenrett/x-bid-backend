@@ -8,6 +8,9 @@ module Api
 
       # POST /api/v1/account/2fa/setup
       # @summary Start 2FA setup and return the provisioning URI
+      # @response Success (200) [AccountTwoFactorSetupResponse]
+      # @response Unauthorized (401) [Error]
+      # @response Unprocessable content (422) [Error]
       def setup
         if @current_user.two_factor_enabled?
           return render_error(code: :two_factor_already_enabled, message: "Two-factor is already enabled", status: :unprocessable_content)
@@ -27,6 +30,8 @@ module Api
 
       # POST /api/v1/account/2fa/verify
       # @summary Verify 2FA code and enable
+      # @response Success (200) [AccountTwoFactorVerifyResponse]
+      # @response Unauthorized (401) [Error]
       def verify
         code = two_factor_params.fetch(:code)
 
@@ -45,6 +50,8 @@ module Api
 
       # POST /api/v1/account/2fa/disable
       # @summary Disable 2FA (requires password + code)
+      # @response Success (200) [AccountTwoFactorDisableResponse]
+      # @response Unauthorized (401) [Error]
       def disable
         password = two_factor_params.fetch(:current_password)
         code = two_factor_params.fetch(:code)

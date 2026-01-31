@@ -1102,6 +1102,46 @@
           }
         },
         "description": "Success"
+      },
+      "resp_069": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AccountTwoFactorSetupResponse"
+            }
+          }
+        },
+        "description": "2FA setup"
+      },
+      "resp_070": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AccountTwoFactorVerifyResponse"
+            }
+          }
+        },
+        "description": "2FA enabled"
+      },
+      "resp_071": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AccountTwoFactorDisableResponse"
+            }
+          }
+        },
+        "description": "2FA disabled"
+      },
+      "resp_072": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AccountExportData"
+            }
+          }
+        },
+        "description": "Account export data"
       }
     },
     "schemas": {
@@ -1420,6 +1460,54 @@
         },
         "required": [
           "export"
+        ],
+        "type": "object"
+      },
+      "AccountExportData": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "AccountTwoFactorSetupResponse": {
+        "properties": {
+          "otpauth_uri": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "type": "object"
+      },
+      "AccountTwoFactorVerifyResponse": {
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "recovery_codes"
+        ],
+        "type": "object"
+      },
+      "AccountTwoFactorDisableResponse": {
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
         ],
         "type": "object"
       },
@@ -3003,6 +3091,9 @@
         "description": "POST /api/v1/account/2fa/disable",
         "operationId": "POST__api_v1_account_2fa_disable",
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_071"
+          },
           "401": {
             "$ref": "#/components/responses/resp_041"
           },
@@ -3029,6 +3120,9 @@
         "description": "POST /api/v1/account/2fa/setup",
         "operationId": "POST__api_v1_account_2fa_setup",
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_069"
+          },
           "401": {
             "$ref": "#/components/responses/resp_041"
           },
@@ -3055,6 +3149,9 @@
         "description": "POST /api/v1/account/2fa/verify",
         "operationId": "POST__api_v1_account_2fa_verify",
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_070"
+          },
           "401": {
             "$ref": "#/components/responses/resp_041"
           },
@@ -3244,7 +3341,7 @@
         "operationId": "GET__api_v1_account_export_download",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/resp_031"
+            "$ref": "#/components/responses/resp_072"
           },
           "401": {
             "$ref": "#/components/responses/resp_066"

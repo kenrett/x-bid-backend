@@ -36,6 +36,7 @@ env:
   secret:
     - RAILS_MASTER_KEY
     - DATABASE_URL
+    - QUEUE_DATABASE_URL
     # If not using IAM roles, provide static AWS credentials here.
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
