@@ -32,3 +32,7 @@
 /config/master.key
 
 .vscode/
+
+# AWS CLI installer (do not commit large installers)
+AWSCLIV2.pkg
+**/AWSCLIV2.pkg
