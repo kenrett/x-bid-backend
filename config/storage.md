@@ -17,10 +17,12 @@ volumes:
 
 ## Scaling Considerations
 
-Currently, the application uses local disk storage for uploads. This works for a single server (`web`).
+Production uses S3-backed Active Storage to support multiple web instances. Local disk
+remains for development/test and as a temporary safety net during migration.
 
 ### The Risk
 If you scale to multiple web servers (e.g., `web: [1.2.3.4, 1.2.3.5]`), files uploaded to Server A will be stored on Server A's disk. A user visiting Server B will see broken images.
 
-### The Fix (Before Scaling)
-Before adding more web servers, you must switch `config/storage.yml` to use a cloud provider (S3, GCS, Azure, R2).
+### Operational Guidance
+- Keep the local volume until S3 migration is complete and verified.
+- See `docs/storage.md` for required env vars, migration steps, and smoke tests.

@@ -8,11 +8,13 @@ local:
 
 amazon:
   service: S3
+  # Required (production): S3_BUCKET, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+  # Optional: AWS_ENDPOINT (S3-compatible providers), AWS_FORCE_PATH_STYLE ("true" / "false")
   access_key_id: <%= ENV["AWS_ACCESS_KEY_ID"] %>
   secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"] %>
   region: <%= ENV["AWS_REGION"] %>
   bucket: <%= ENV["S3_BUCKET"] %>
-  endpoint: <%= ENV["AWS_ENDPOINT"] %>
+  endpoint: <%= ENV["AWS_ENDPOINT"].presence %>
   force_path_style: <%= ENV["AWS_FORCE_PATH_STYLE"].to_s == "true" %>
   public: false
   upload:

@@ -37,6 +37,9 @@ gem "rack-cors"
 gem "rack-attack"
 gem "rack-timeout", require: "rack/timeout/base"
 
+gem "aws-sdk-s3", require: false
+
+
 # JSON Web Token implementation in Ruby
 gem "jwt"
 

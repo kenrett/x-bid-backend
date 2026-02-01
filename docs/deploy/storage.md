@@ -38,8 +38,8 @@ Set these in your deployment platform (Render/Kamal), not in git:
 
 ## Production Switching Behavior
 
-`config/environments/production.rb` uses `:amazon` when `S3_BUCKET` and `AWS_REGION`
-are set. Otherwise it falls back to local disk.
+`config/environments/production.rb` enforces `:amazon`. If required S3 env vars are
+missing, the app fails fast at boot with a clear error.
 
 ## Data Migration Plan (Disk -> S3)
 
@@ -52,8 +52,15 @@ If you already have uploads on disk, backfill them before removing the disk volu
 bin/rails active_storage:backfill_to_s3
 ```
 
-This task reads files from the `local` service and uploads to `amazon`, verifying
-checksums during open/upload. It skips keys that already exist in the bucket.
+This task reads files from the `local` service and uploads to `amazon`, verifies
+checksums, and updates the blob `service_name` to `amazon`. It skips keys that
+already exist in the bucket and is safe to re-run.
+
+### Batch controls
+
+```
+BATCH_SIZE=500 START_ID=1000 END_ID=5000 bin/rails active_storage:backfill_to_s3
+```
 
 3. Verify spot checks (e.g., view a few images in the UI).
 4. When satisfied, you can remove the local disk volume from `config/deploy.yml`.
@@ -67,6 +74,7 @@ bin/rails storage:smoke
 ```
 
 This creates a temporary blob, downloads it back, compares content, then purges it.
+If required S3 env vars are missing, it skips.
 
 ## Operational Safeguards
 

@@ -18,10 +18,8 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Use S3 when configured; fall back to local disk when bucket/region are missing.
-  s3_bucket = ENV["S3_BUCKET"].to_s
-  aws_region = ENV["AWS_REGION"].to_s
-  config.active_storage.service = s3_bucket.present? && aws_region.present? ? :amazon : :local
+  # Enforce S3-backed Active Storage in production.
+  config.active_storage.service = :amazon
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   config.assume_ssl = true
