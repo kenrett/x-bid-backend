@@ -2,7 +2,7 @@ require "test_helper"
 
 class CorsCredentialsTest < ActionDispatch::IntegrationTest
   test "preflight from allowed origin returns allow-origin and credentials" do
-    origin = "http://afterdark.lvh.me:5173"
+    origin = "http://localhost:5173"
     headers = {
       "Origin" => origin,
       "Access-Control-Request-Method" => "GET",

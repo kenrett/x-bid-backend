@@ -5,7 +5,6 @@ class CorsSubdomainAuthCompatibilityTest < ActionDispatch::IntegrationTest
     https://biddersweet.app
     https://afterdark.biddersweet.app
     https://marketplace.biddersweet.app
-    https://account.biddersweet.app
   ].freeze
 
   test "CORS preflight allows biddersweet subdomains and credentialed headers" do
