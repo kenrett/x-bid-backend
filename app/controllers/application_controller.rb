@@ -371,9 +371,10 @@ class ApplicationController < ActionController::API
     return unless session_token
 
     cookie_options = CookieDomainResolver.cookie_options(request.host)
+    log_level = Rails.env.production? ? :info : :debug
     AppLogger.log(
       event: "auth.session_cookie_set",
-      level: :debug,
+      level: log_level,
       host: request.host,
       env: Rails.env,
       cookie_domain: cookie_options[:domain],

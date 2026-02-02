@@ -8,9 +8,10 @@ module Api
       def show
         token = SecureRandom.base64(32)
         cookie_options = CookieDomainResolver.cookie_options(request.host)
+        log_level = Rails.env.production? ? :info : :debug
         AppLogger.log(
           event: "auth.csrf_cookie_set",
-          level: :debug,
+          level: log_level,
           host: request.host,
           cookie_domain: cookie_options[:domain],
           same_site: cookie_options[:same_site],

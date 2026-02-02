@@ -12,6 +12,7 @@ module CookieDomainResolver
     return nil if Rails.env.test?
     host_value = host.to_s
     return ".lvh.me" if host_value.end_with?("lvh.me")
+    # Share cookies across biddersweet.app subdomains (api, afterdark, etc).
     return ".biddersweet.app" if Rails.env.production? && host_value.end_with?("biddersweet.app")
 
     nil
@@ -22,6 +23,8 @@ module CookieDomainResolver
     return :none if env_override == "none"
     return :strict if env_override == "strict"
     return :lax if env_override == "lax"
+
+    return :none if Rails.env.production?
 
     :lax
   end

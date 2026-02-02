@@ -70,7 +70,7 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_includes set_cookie, "cable_session="
     assert_match(/domain=\.biddersweet\.app/i, set_cookie)
     assert_match(/secure/i, set_cookie)
-    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/samesite=none/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
   end
 
@@ -113,7 +113,7 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_match(/path=\/cable/i, set_cookie)
     assert_match(/domain=\.biddersweet\.app/i, set_cookie)
     assert_match(/httponly/i, set_cookie)
-    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/samesite=none/i, set_cookie)
     assert_match(/secure/i, set_cookie)
     assert_expired_cookie!(set_cookie)
   end

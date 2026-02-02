@@ -59,6 +59,7 @@ Rails.application.routes.draw do
       delete "/logout", to: "sessions#destroy"
       get "/logged_in", to: "sessions#logged_in?"
       get "/diagnostics/auth", to: "diagnostics#auth"
+      get "/auth/debug", to: "auth_debug#show"
       get "/csrf", to: "csrf#show"
       get "/health", to: "health#show"
       post "/password/forgot", to: "password_resets#create"
