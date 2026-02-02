@@ -68,22 +68,40 @@ class AuctionTest < ActiveSupport::TestCase
     assert_equal "Updated", @auction.reload.title
   end
 
-  test "update_details! casts ISO strings before validating times" do
+  test "update_details! casts ISO Zulu strings before validating times" do
     @auction.end_time = 1.hour.from_now
     @auction.save!
 
     assert_raises(Auction::InvalidState) do
       @auction.update_details!(
-        start_date: "2026-01-01T12:00:00Z",
-        end_time: "2026-01-01T11:00:00Z"
+        start_date: "2026-02-02T22:30:00Z",
+        end_time: "2026-02-02T21:30:00Z"
       )
     end
 
     @auction.update_details!(
-      start_date: "2026-01-01T11:00:00Z",
-      end_time: "2026-01-01T12:00:00Z"
+      start_date: "2026-02-02T22:30:00Z",
+      end_time: "2026-02-02T23:30:00Z"
     )
-    assert_equal Time.iso8601("2026-01-01T11:00:00Z"), @auction.reload.start_date
+    assert_equal Time.iso8601("2026-02-02T22:30:00Z"), @auction.reload.start_date
+  end
+
+  test "update_details! casts ISO offset strings before validating times" do
+    @auction.end_time = 1.hour.from_now
+    @auction.save!
+
+    assert_raises(Auction::InvalidState) do
+      @auction.update_details!(
+        start_date: "2026-02-02T14:30:00-08:00",
+        end_time: "2026-02-02T14:00:00-08:00"
+      )
+    end
+
+    @auction.update_details!(
+      start_date: "2026-02-02T14:30:00-08:00",
+      end_time: "2026-02-02T15:30:00-08:00"
+    )
+    assert_equal Time.iso8601("2026-02-02T22:30:00Z"), @auction.reload.start_date
   end
 
   test "schedule! sets pending with validated times" do
