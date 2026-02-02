@@ -39,7 +39,7 @@ module Api
 
         log_upload(success: true, uploaded_file: uploaded_file, blob: blob)
 
-        render json: upload_payload(blob), status: :created
+        render json: upload_payload(blob), status: :ok
       rescue ActiveStorage::IntegrityError, ActiveStorage::Error => e
         log_upload(success: false, uploaded_file: uploaded_file, error: e)
         render_invalid_upload!("Upload failed", details: { error_class: e.class.name })
@@ -50,7 +50,7 @@ module Api
       def upload_payload(blob)
         expires_in = ActiveStorage.service_urls_expire_in
         {
-          url: blob.service_url(expires_in: expires_in),
+          url: build_service_url(blob, expires_in: expires_in),
           expires_in: expires_in.to_i,
           signed_id: blob.signed_id,
           filename: blob.filename.to_s,
@@ -67,6 +67,18 @@ module Api
         max_mb * 1024 * 1024
       rescue ArgumentError
         25 * 1024 * 1024
+      end
+
+      def build_service_url(blob, expires_in:)
+        return blob.service_url(expires_in: expires_in) if blob.respond_to?(:service_url)
+
+        blob.service.url(
+          blob.key,
+          expires_in: expires_in,
+          filename: blob.filename,
+          content_type: blob.content_type,
+          disposition: "inline"
+        )
       end
 
       def allowed_content_types
