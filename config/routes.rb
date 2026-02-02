@@ -83,6 +83,8 @@ Rails.application.routes.draw do
       match "/me/account", to: "legacy#not_found", via: :all
       match "/me/account/*path", to: "legacy#not_found", via: :all
 
+      post "/uploads", to: "uploads#create"
+
       namespace :admin do
         get "/maintenance", to: "maintenance#show"
         post "/maintenance", to: "maintenance#update"
