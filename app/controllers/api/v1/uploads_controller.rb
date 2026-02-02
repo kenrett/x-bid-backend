@@ -45,12 +45,27 @@ module Api
         render_invalid_upload!("Upload failed", details: { error_class: e.class.name })
       end
 
+      # GET /api/v1/uploads/:signed_id
+      def show
+        blob = ActiveStorage::Blob.find_signed(params[:signed_id])
+        unless blob
+          return render_error(code: :not_found, message: "Upload not found", status: :not_found)
+        end
+
+        ActiveStorage::Current.url_options = { host: request.base_url }
+        expires_in = ActiveStorage.service_urls_expire_in
+        expires_in expires_in, public: false
+
+        redirect_to build_service_url(blob, expires_in: expires_in), allow_other_host: true
+      end
+
       private
 
       def upload_payload(blob)
         expires_in = ActiveStorage.service_urls_expire_in
         {
           url: build_service_url(blob, expires_in: expires_in),
+          public_url: "#{request.base_url}/api/v1/uploads/#{blob.signed_id}",
           expires_in: expires_in.to_i,
           signed_id: blob.signed_id,
           filename: blob.filename.to_s,
