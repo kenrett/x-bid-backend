@@ -225,6 +225,16 @@
         },
         "style": "form"
       },
+      "dd422988154b00c223c3f630b9ca2790": {
+        "description": "Id of existing upload.",
+        "in": "path",
+        "name": "signed_id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "style": "simple"
+      },
       "e47fcdce1e2038e964734571e689bfeb": {
         "description": "ID of the bid pack to purchase",
         "in": "query",
@@ -3679,9 +3689,80 @@
         "tags": [
           "Api"
         ]
+      },
+      "post": {
+        "description": "POST /api/v1/admin/auctions\nCreate and schedule or activate an auction. Status values are normalized to the allowed list.",
+        "operationId": "POST__api_v1_admin_auctions",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_003"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/resp_067"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_069"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_055"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_045"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Create a new auction (admin only)",
+        "tags": [
+          "Api"
+        ]
       }
     },
     "/api/v1/admin/auctions/{id}": {
+      "delete": {
+        "description": "DELETE /api/v1/admin/auctions/:id\nRetire an auction to prevent further bids while keeping history intact.",
+        "operationId": "DELETE__api_v1_admin_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/resp_063"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_069"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_055"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_003"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_045"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Retire an auction (admin only)",
+        "tags": [
+          "Api"
+        ]
+      },
       "get": {
         "description": "GET /api/v1/admin/auctions/:id\nRetrieves full auction details for administrators.",
         "operationId": "GET__api_v1_admin_auctions_{id}",
@@ -3713,6 +3794,128 @@
           }
         ],
         "summary": "Show auction details for admin",
+        "tags": [
+          "Api"
+        ]
+      },
+      "patch": {
+        "description": "PUT /api/v1/admin/auctions/:id\nUpdate auction details or transition status for an existing auction.",
+        "operationId": "PATCH__api_v1_admin_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_003"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_027"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_069"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_055"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_003"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_045"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Update an existing auction (admin only)",
+        "tags": [
+          "Api"
+        ]
+      },
+      "put": {
+        "description": "PUT /api/v1/admin/auctions/:id\nUpdate auction details or transition status for an existing auction.",
+        "operationId": "PUT__api_v1_admin_auctions_{id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_003"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_027"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_069"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_055"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_003"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_045"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Update an existing auction (admin only)",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/admin/auctions/{id}/extend_time": {
+      "post": {
+        "description": "POST /api/v1/admin/auctions/:id/extend_time\nExtends an active auction within the configured extension window.",
+        "operationId": "POST__api_v1_admin_auctions_{id}_extend_time",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/08c34767a5405f30927bbac7a3c4fc71"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/resp_014"
+          },
+          "401": {
+            "$ref": "#/components/responses/resp_069"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_055"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_003"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_045"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Extend an auction's end time (admin only)",
         "tags": [
           "Api"
         ]
@@ -5896,6 +6099,40 @@
           }
         ],
         "summary": "Create",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/uploads/{signed_id}": {
+      "get": {
+        "description": "GET /api/v1/uploads/:signed_id",
+        "operationId": "GET__api_v1_uploads_{signed_id}",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/dd422988154b00c223c3f630b9ca2790"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_042"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_048"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_044"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "View",
         "tags": [
           "Api"
         ]
