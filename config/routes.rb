@@ -93,7 +93,11 @@ Rails.application.routes.draw do
 
       namespace :admin do
         resources :bid_packs, path: "bid-packs", only: [ :index, :show, :new, :create, :edit, :update, :destroy ]
-        resources :auctions, only: [ :index, :show ]
+        resources :auctions, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :extend_time
+          end
+        end
         post "/fulfillments/:id/process", to: "fulfillments#process_fulfillment"
         post "/fulfillments/:id/ship", to: "fulfillments#ship"
         post "/fulfillments/:id/complete", to: "fulfillments#complete"
