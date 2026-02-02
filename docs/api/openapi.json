@@ -5059,6 +5059,35 @@
         ]
       }
     },
+    "/api/v1/auth/debug": {
+      "get": {
+        "description": "GET /api/v1/auth/debug",
+        "operationId": "GET__api_v1_auth_debug",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_042"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_048"
+          },
+          "404": {
+            "$ref": "#/components/responses/resp_044"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Report auth header/cookie presence for the current request",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
     "/api/v1/bid_packs": {
       "get": {
         "description": "Publicly lists active bid packs available for purchase.",
@@ -5818,6 +5847,35 @@
       "post": {
         "description": "",
         "operationId": "POST__api_v1_stripe_webhooks",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/resp_042"
+          },
+          "403": {
+            "$ref": "#/components/responses/resp_048"
+          },
+          "422": {
+            "$ref": "#/components/responses/resp_052"
+          },
+          "500": {
+            "$ref": "#/components/responses/resp_022"
+          }
+        },
+        "security": [
+          {
+            "bearer_jwt": []
+          }
+        ],
+        "summary": "Create",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/api/v1/uploads": {
+      "post": {
+        "description": "POST /api/v1/uploads",
+        "operationId": "POST__api_v1_uploads",
         "responses": {
           "401": {
             "$ref": "#/components/responses/resp_042"
