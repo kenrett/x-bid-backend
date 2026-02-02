@@ -128,9 +128,15 @@ class Auction < ApplicationRecord
   end
 
   def assert_times!(starts_at, ends_at)
+    starts_at = cast_datetime(:start_date, starts_at)
+    ends_at = cast_datetime(:end_time, ends_at)
     raise InvalidState, "start_date is required" if starts_at.blank?
     raise InvalidState, "end_time is required" if ends_at.blank?
     raise InvalidState, "end_time must be after start_date" if ends_at <= starts_at
+  end
+
+  def cast_datetime(attr_name, value)
+    self.class.type_for_attribute(attr_name.to_s).cast(value)
   end
 
   def assert_state!(condition, message)

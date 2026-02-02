@@ -68,6 +68,24 @@ class AuctionTest < ActiveSupport::TestCase
     assert_equal "Updated", @auction.reload.title
   end
 
+  test "update_details! casts ISO strings before validating times" do
+    @auction.end_time = 1.hour.from_now
+    @auction.save!
+
+    assert_raises(Auction::InvalidState) do
+      @auction.update_details!(
+        start_date: "2026-01-01T12:00:00Z",
+        end_time: "2026-01-01T11:00:00Z"
+      )
+    end
+
+    @auction.update_details!(
+      start_date: "2026-01-01T11:00:00Z",
+      end_time: "2026-01-01T12:00:00Z"
+    )
+    assert_equal Time.iso8601("2026-01-01T11:00:00Z"), @auction.reload.start_date
+  end
+
   test "schedule! sets pending with validated times" do
     auction = Auction.create!(title: "Sched", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
 
