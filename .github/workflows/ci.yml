@@ -45,11 +45,6 @@ jobs:
 
       - name: Check S3 smoke test prerequisites
         id: s3_smoke_prereqs
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -euo pipefail
           if [ -n "${S3_BUCKET:-}" ] && [ -n "${AWS_REGION:-}" ] && [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
@@ -60,13 +55,6 @@ jobs:
 
       - name: Active Storage S3 smoke test
         if: ${{ steps.s3_smoke_prereqs.outputs.enabled == 'true' }}
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_ENDPOINT: ${{ secrets.AWS_ENDPOINT }}
-          AWS_FORCE_PATH_STYLE: ${{ secrets.AWS_FORCE_PATH_STYLE }}
         run: bundle exec rails storage:smoke
 
   scan_ruby:
@@ -226,7 +214,7 @@ jobs:
           ref: ${{ vars.FRONTEND_REF || 'main' }}
           path: frontend
           # For private repos, set a PAT with read access as secret FRONTEND_CI_TOKEN.
-          token: ${{ secrets.FRONTEND_CI_TOKEN || github.token }}
+          token: ${{ github.token }}
 
       - name: Set up Node
         uses: actions/setup-node@v4
