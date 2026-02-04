@@ -3,8 +3,10 @@ module FrontendOrigins
 
   BIDDERSWEET_ORIGINS = %w[
     https://biddersweet.app
+    https://www.biddersweet.app
     https://afterdark.biddersweet.app
     https://marketplace.biddersweet.app
+    https://account.biddersweet.app
   ].freeze
 
   def allowed_origin_patterns(env: Rails.env, credentials: Rails.application.credentials)

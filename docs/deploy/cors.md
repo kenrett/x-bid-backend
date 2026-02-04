@@ -9,8 +9,10 @@ The API and Action Cable endpoints require credentialed CORS requests. We only a
 Production:
 
 - https://biddersweet.app
+- https://www.biddersweet.app
 - https://afterdark.biddersweet.app
 - https://marketplace.biddersweet.app
+- https://account.biddersweet.app
 
 Development/test:
 

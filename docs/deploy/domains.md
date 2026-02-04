@@ -4,7 +4,7 @@ This backend serves the API at `api.biddersweet.app` and issues cookie-based ses
 
 ## Required topology
 
-- Storefronts live under `.biddersweet.app` (e.g., `biddersweet.app`, `afterdark.biddersweet.app`, `marketplace.biddersweet.app`).
+- Storefronts live under `.biddersweet.app` (e.g., `biddersweet.app`, `www.biddersweet.app`, `afterdark.biddersweet.app`, `marketplace.biddersweet.app`, `account.biddersweet.app`).
 - The API lives at `api.biddersweet.app`.
 
 ## Why this is required

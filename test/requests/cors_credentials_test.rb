@@ -3,8 +3,10 @@ require "test_helper"
 class CorsCredentialsTest < ActionDispatch::IntegrationTest
   ALLOWED_ORIGINS = %w[
     https://biddersweet.app
+    https://www.biddersweet.app
     https://afterdark.biddersweet.app
     https://marketplace.biddersweet.app
+    https://account.biddersweet.app
     http://localhost:5173
     http://afterdark.localhost:5173
     http://marketplace.localhost:5173

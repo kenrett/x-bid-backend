@@ -25,7 +25,9 @@ class FrontendOriginsTest < ActiveSupport::TestCase
     creds = Struct.new(:frontend_origins).new({ "production" => [ "https://biddersweet.app" ] })
 
     assert FrontendOrigins.allowed_origin?("https://biddersweet.app", env: "production", credentials: creds)
+    assert FrontendOrigins.allowed_origin?("https://www.biddersweet.app", env: "production", credentials: creds)
     assert FrontendOrigins.allowed_origin?("https://afterdark.biddersweet.app", env: "production", credentials: creds)
+    assert FrontendOrigins.allowed_origin?("https://account.biddersweet.app", env: "production", credentials: creds)
     refute FrontendOrigins.allowed_origin?("https://biddersweet.app.evil.com", env: "production", credentials: creds)
   end
 end
