@@ -28,6 +28,7 @@ before(async () => {
   await fs.mkdir(path.join(repoRoot, "subdir"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "app", "models"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "config"), { recursive: true });
 
   await fs.writeFile(path.join(repoRoot, "docs", "search.txt"), "alpha\nneedle beta\ngamma\n");
   await fs.writeFile(path.join(repoRoot, "file.txt"), "one\ntwo\nthree\nfour");
@@ -76,6 +77,19 @@ before(async () => {
     ["first", "second", "third"].join("\n")
   );
   await fs.writeFile(path.join(repoRoot, ".env"), "SECRET=1\n");
+  await fs.writeFile(
+    path.join(repoRoot, "config", "routes.rb"),
+    [
+      "Rails.application.routes.draw do",
+      "  root \"home#index\"",
+      "  get \"/health\", to: \"health#show\"",
+      "  namespace :admin do",
+      "    resources :users, only: [:index, :show]",
+      "  end",
+      "  resource :profile",
+      "end"
+    ].join("\n")
+  );
 
   await fs.writeFile(path.join(repoRoot, ".ruby-version"), "3.2.2\n");
   await fs.writeFile(
@@ -479,6 +493,35 @@ test("dev.explain_failure handles empty output", async () => {
   assert.equal(result.isError, false);
   assert.equal(payload.primaryError, null);
   assert.ok(payload.warnings.includes("no_errors_detected"));
+});
+
+test("rails.routes parses static routes", async () => {
+  const { result, payload } = await callTool("rails.routes", { mode: "static" });
+  assert.equal(result.isError, false);
+  assert.equal(payload.modeUsed, "static");
+  assert.ok(Array.isArray(payload.routes));
+  assert.ok(
+    payload.routes.some(
+      (route) => route.path === "/" && route.controller === "home" && route.action === "index"
+    )
+  );
+  assert.ok(
+    payload.routes.some(
+      (route) => route.path === "/health" && route.controller === "health" && route.action === "show"
+    )
+  );
+  assert.ok(
+    payload.routes.some(
+      (route) => route.path === "/admin/users" && route.controller === "admin/users" && route.action === "index"
+    )
+  );
+  assert.ok(payload.warnings.includes("static_parsing_is_best_effort"));
+});
+
+test("rails.routes truncates static results", async () => {
+  const { payload } = await callTool("rails.routes", { mode: "static", maxResults: 2 });
+  assert.equal(payload.truncated, true);
+  assert.equal(payload.routes.length, 2);
 });
 
 test("dev.run_tests returns structured result", async () => {
