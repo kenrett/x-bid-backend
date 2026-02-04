@@ -204,6 +204,7 @@ const RailsRoutesInputSchema = z.object({
 });
 const RailsSchemaInputSchema = z.object({});
 const RailsModelsInputSchema = z.object({});
+const JsWorkspaceInputSchema = z.object({});
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
@@ -472,6 +473,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 inputSchema: emptyInputSchema()
             },
             {
+                name: "js.workspace",
+                description: "Summarize JS/TS workspace configuration (package manager, tsconfig, Vite, ESLint).",
+                inputSchema: emptyInputSchema()
+            },
+            {
                 name: "dev.run_tests",
                 description: "Run allowlisted test commands.",
                 inputSchema: {
@@ -593,6 +599,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "rails.models": {
                 const parsed = RailsModelsInputSchema.parse(args ?? {});
                 const result = await handleRailsModels(parsed);
+                return jsonResult(result);
+            }
+            case "js.workspace": {
+                const parsed = JsWorkspaceInputSchema.parse(args ?? {});
+                const result = await handleJsWorkspace(parsed);
                 return jsonResult(result);
             }
             case "dev.run_tests": {
@@ -1738,6 +1749,57 @@ async function handleRailsModels(_input) {
         warnings
     };
 }
+async function handleJsWorkspace(_input) {
+    const warnings = [];
+    const packageJsonResult = await readRepoJsonFile("package.json");
+    if (!packageJsonResult.ok) {
+        warnings.push(`package_json_unreadable:${packageJsonResult.reason}`);
+    }
+    const scripts = {};
+    let workspaces = { enabled: false, packages: [] };
+    if (packageJsonResult.ok) {
+        const pkg = packageJsonResult.data;
+        if (pkg && typeof pkg === "object") {
+            const rawScripts = pkg.scripts;
+            if (rawScripts && typeof rawScripts === "object") {
+                for (const [key, value] of Object.entries(rawScripts)) {
+                    if (typeof value === "string")
+                        scripts[key] = value;
+                }
+            }
+            const rawWorkspaces = pkg.workspaces;
+            if (Array.isArray(rawWorkspaces)) {
+                workspaces = { enabled: true, packages: rawWorkspaces.filter((entry) => typeof entry === "string") };
+            }
+            else if (rawWorkspaces && typeof rawWorkspaces === "object") {
+                const packages = Array.isArray(rawWorkspaces.packages)
+                    ? rawWorkspaces.packages.filter((entry) => typeof entry === "string")
+                    : [];
+                workspaces = { enabled: packages.length > 0, packages };
+            }
+        }
+    }
+    const packageManagerDetected = await detectPackageManager();
+    const packageManager = packageManagerDetected === "unknown" ? null : packageManagerDetected;
+    const tsconfig = await summarizeTsconfig();
+    warnings.push(...tsconfig.warnings);
+    const vite = await summarizeViteConfig();
+    warnings.push(...vite.warnings);
+    const eslint = await summarizeEslintConfig();
+    warnings.push(...eslint.warnings);
+    if (!packageJsonResult.ok && scripts && Object.keys(scripts).length === 0) {
+        warnings.push("scripts_unavailable_without_package_json");
+    }
+    return {
+        packageManager,
+        workspaces,
+        tsconfig: tsconfig.summary,
+        vite: vite.summary,
+        eslint: eslint.summary,
+        scripts,
+        warnings
+    };
+}
 async function handleDevRunTests(input) {
     return handleDevRun(input.target, async () => selectRubyTestCommand(), async (packageManager) => selectJsTestCommand(packageManager));
 }
@@ -2748,6 +2810,243 @@ function parseRailsValidatesArgs(args) {
 }
 function extractSymbols(value) {
     return Array.from(value.matchAll(/:([a-zA-Z_]\w*)/g)).map((match) => match[1]);
+}
+async function readRepoJsonFile(relPath) {
+    const contentResult = await readRepoTextFile(relPath);
+    if (!contentResult.ok)
+        return { ok: false, reason: contentResult.reason };
+    try {
+        const parsed = JSON.parse(stripJsonComments(contentResult.content));
+        return { ok: true, data: parsed };
+    }
+    catch {
+        return { ok: false, reason: "invalid_json" };
+    }
+}
+function stripJsonComments(value) {
+    return value
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^\\])\/\/.*$/gm, "$1");
+}
+async function summarizeTsconfig() {
+    const warnings = [];
+    const candidates = [
+        "tsconfig.json",
+        "tsconfig.base.json",
+        "tsconfig.app.json",
+        "tsconfig.build.json",
+        "tsconfig.node.json",
+        "tsconfig.shared.json"
+    ];
+    const tsconfigPath = await findFirstExistingFile(candidates);
+    if (!tsconfigPath) {
+        warnings.push("tsconfig_missing");
+        return { summary: { references: [] }, warnings };
+    }
+    const parsed = await readRepoJsonFile(tsconfigPath);
+    if (!parsed.ok) {
+        warnings.push(`tsconfig_unreadable:${parsed.reason}`);
+        return { summary: { root: tsconfigPath, references: [] }, warnings };
+    }
+    const data = parsed.data;
+    const references = Array.isArray(data.references)
+        ? data.references
+            .map((ref) => {
+            if (typeof ref === "string")
+                return ref;
+            if (ref && typeof ref === "object" && typeof ref.path === "string") {
+                return ref.path;
+            }
+            return null;
+        })
+            .filter((ref) => Boolean(ref))
+        : [];
+    const compilerOptions = data.compilerOptions && typeof data.compilerOptions === "object" ? data.compilerOptions : null;
+    const paths = compilerOptions && typeof compilerOptions.paths === "object"
+        ? compilerOptions.paths
+        : undefined;
+    return {
+        summary: {
+            root: tsconfigPath,
+            references,
+            paths
+        },
+        warnings
+    };
+}
+async function summarizeViteConfig() {
+    const warnings = [];
+    const candidates = [
+        "vite.config.ts",
+        "vite.config.js",
+        "vite.config.mjs",
+        "vite.config.cjs"
+    ];
+    const configPath = await findFirstExistingFile(candidates);
+    if (!configPath) {
+        warnings.push("vite_config_missing");
+        return { summary: {}, warnings };
+    }
+    const contentResult = await readRepoTextFile(configPath);
+    if (!contentResult.ok) {
+        warnings.push(`vite_config_unreadable:${contentResult.reason}`);
+        return { summary: { configPath }, warnings };
+    }
+    const content = normalizeLineEndings(contentResult.content);
+    const plugins = extractVitePlugins(content);
+    const aliases = extractViteAliases(content);
+    const summary = { configPath };
+    if (plugins.length > 0)
+        summary.plugins = plugins;
+    if (Object.keys(aliases).length > 0)
+        summary.aliases = aliases;
+    if (plugins.length === 0)
+        warnings.push("vite_plugins_not_detected");
+    if (Object.keys(aliases).length === 0)
+        warnings.push("vite_aliases_not_detected");
+    return { summary, warnings };
+}
+async function summarizeEslintConfig() {
+    const warnings = [];
+    const candidates = [
+        "eslint.config.js",
+        "eslint.config.mjs",
+        "eslint.config.cjs",
+        "eslint.config.ts",
+        ".eslintrc.json",
+        ".eslintrc",
+        ".eslintrc.js",
+        ".eslintrc.cjs",
+        ".eslintrc.yaml",
+        ".eslintrc.yml"
+    ];
+    const configPath = await findFirstExistingFile(candidates);
+    if (!configPath) {
+        warnings.push("eslint_config_missing");
+        return { summary: {}, warnings };
+    }
+    const summary = { configPath };
+    const contentResult = await readRepoTextFile(configPath);
+    if (!contentResult.ok) {
+        warnings.push(`eslint_config_unreadable:${contentResult.reason}`);
+        return { summary, warnings };
+    }
+    const isJson = configPath.endsWith(".json") || configPath.endsWith(".eslintrc");
+    const isYaml = configPath.endsWith(".yaml") || configPath.endsWith(".yml");
+    if (isYaml) {
+        warnings.push("eslint_yaml_parsing_not_supported");
+        return { summary, warnings };
+    }
+    if (isJson) {
+        try {
+            const parsed = JSON.parse(stripJsonComments(contentResult.content));
+            const extendsValue = parsed.extends;
+            const extendsArray = normalizeExtendsValue(extendsValue);
+            if (extendsArray.length > 0)
+                summary.extends = extendsArray;
+            return { summary, warnings };
+        }
+        catch {
+            warnings.push("eslint_config_invalid_json");
+            return { summary, warnings };
+        }
+    }
+    const extendsMatches = Array.from(contentResult.content.matchAll(/\bextends\s*:\s*(\[[^\]]*?\]|["'][^"']+["'])/g));
+    const extendsValues = [];
+    for (const match of extendsMatches) {
+        extendsValues.push(...normalizeExtendsValue(match[1]));
+    }
+    if (extendsValues.length > 0)
+        summary.extends = uniqueStrings(extendsValues);
+    if (extendsValues.length === 0)
+        warnings.push("eslint_extends_not_detected");
+    return { summary, warnings };
+}
+function normalizeExtendsValue(value) {
+    if (!value)
+        return [];
+    if (Array.isArray(value))
+        return value.filter((entry) => typeof entry === "string");
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed.startsWith("[")) {
+            return trimmed
+                .replace(/[\[\]]/g, "")
+                .split(",")
+                .map((entry) => entry.trim().replace(/^["']|["']$/g, ""))
+                .filter(Boolean);
+        }
+        return [trimmed.replace(/^["']|["']$/g, "")];
+    }
+    if (typeof value === "object") {
+        return [];
+    }
+    const raw = String(value);
+    if (raw.startsWith("[")) {
+        return raw
+            .replace(/[\[\]]/g, "")
+            .split(",")
+            .map((entry) => entry.trim().replace(/^["']|["']$/g, ""))
+            .filter(Boolean);
+    }
+    return [raw.replace(/^["']|["']$/g, "")];
+}
+function extractVitePlugins(content) {
+    const match = content.match(/plugins\s*:\s*\[([\s\S]*?)\]/m);
+    if (!match)
+        return [];
+    const raw = match[1];
+    const names = [];
+    const tokens = raw.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(|,|\])/g);
+    for (const token of tokens) {
+        const name = token[1];
+        if (name === "defineConfig")
+            continue;
+        names.push(name);
+    }
+    return uniqueStrings(names);
+}
+function extractViteAliases(content) {
+    const aliases = {};
+    const objectMatch = content.match(/alias\s*:\s*{([\s\S]*?)}/m);
+    if (objectMatch) {
+        const raw = objectMatch[1];
+        const pairs = raw.matchAll(/["']?([^"'\\s:]+)["']?\s*:\s*["']([^"']+)["']/g);
+        for (const match of pairs) {
+            aliases[match[1]] = match[2];
+        }
+    }
+    if (Object.keys(aliases).length === 0) {
+        const arrayMatch = content.match(/alias\s*:\s*\[([\s\S]*?)\]/m);
+        if (arrayMatch) {
+            const raw = arrayMatch[1];
+            const entryMatches = raw.matchAll(/find\s*:\s*["']([^"']+)["'][\s\S]*?replacement\s*:\s*["']([^"']+)["']/g);
+            for (const match of entryMatches) {
+                aliases[match[1]] = match[2];
+            }
+        }
+    }
+    return aliases;
+}
+async function findFirstExistingFile(candidates) {
+    for (const candidate of candidates) {
+        if (await existsInRepo(candidate))
+            return candidate;
+    }
+    return null;
+}
+function uniqueStrings(values) {
+    const seen = new Set();
+    const output = [];
+    for (const value of values) {
+        if (!value)
+            continue;
+        if (seen.has(value))
+            continue;
+        seen.add(value);
+        output.push(value);
+    }
+    return output;
 }
 async function runDevCommand(command) {
     const timeoutMs = resolveCommandTimeout();

@@ -168,6 +168,48 @@ before(async () => {
     )
   );
   await fs.writeFile(path.join(repoRoot, "package-lock.json"), "{}");
+  await fs.writeFile(
+    path.join(repoRoot, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          baseUrl: ".",
+          paths: {
+            "@/*": ["src/*"]
+          }
+        },
+        references: [{ path: "./packages/core" }, { path: "./packages/web" }]
+      },
+      null,
+      2
+    )
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "vite.config.ts"),
+    [
+      "import { defineConfig } from \"vite\";",
+      "import react from \"@vitejs/plugin-react\";",
+      "",
+      "export default defineConfig({",
+      "  plugins: [react()],",
+      "  resolve: {",
+      "    alias: {",
+      "      \"@\": \"/src\"",
+      "    }",
+      "  }",
+      "});"
+    ].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "eslint.config.js"),
+    [
+      "export default [",
+      "  {",
+      "    extends: [\"eslint:recommended\", \"plugin:react/recommended\"]",
+      "  }",
+      "];"
+    ].join("\n")
+  );
 
   const transport = new StdioClientTransport({
     command: "node",
@@ -581,6 +623,23 @@ test("rails.models summarizes model associations and validations", async () => {
         validation.options.includes("presence")
     )
   );
+});
+
+test("js.workspace summarizes JS tooling configuration", async () => {
+  const { result, payload } = await callTool("js.workspace", {});
+  assert.equal(result.isError, false);
+  assert.equal(payload.packageManager, "npm");
+  assert.equal(payload.workspaces.enabled, true);
+  assert.ok(payload.workspaces.packages.includes("packages/*"));
+  assert.equal(payload.tsconfig.root, "tsconfig.json");
+  assert.ok(payload.tsconfig.references.includes("./packages/core"));
+  assert.ok(payload.tsconfig.paths["@/*"]);
+  assert.equal(payload.vite.configPath, "vite.config.ts");
+  assert.ok(payload.vite.plugins.includes("react"));
+  assert.equal(payload.vite.aliases["@"], "/src");
+  assert.equal(payload.eslint.configPath, "eslint.config.js");
+  assert.ok(payload.eslint.extends.includes("eslint:recommended"));
+  assert.ok(payload.scripts.test);
 });
 
 test("rails.routes truncates static results", async () => {
