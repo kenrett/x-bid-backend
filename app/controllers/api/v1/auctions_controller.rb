@@ -25,7 +25,12 @@ module Api
         return unless stale?(etag: etag, last_modified: last_modified, public: true)
 
         result = ::Auctions::Queries::PublicIndex.call(params: public_index_params, relation: scoped)
-        render json: result.records, each_serializer: Api::V1::AuctionSerializer
+        auctions = ActiveModelSerializers::SerializableResource.new(
+          result.records,
+          each_serializer: Api::V1::AuctionSerializer,
+          root: false
+        ).as_json
+        render json: { auctions: auctions }
       end
 
       # @summary Retrieve a single auction with bids

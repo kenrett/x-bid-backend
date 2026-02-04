@@ -75,6 +75,9 @@ module FrontendOrigins
       http://localhost:5173
       http://afterdark.localhost:5173
       http://marketplace.localhost:5173
+      http://main.lvh.me:5173
+      http://afterdark.lvh.me:5173
+      http://marketplace.lvh.me:5173
     ]
   end
 
