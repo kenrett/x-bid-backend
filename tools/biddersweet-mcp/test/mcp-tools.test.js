@@ -29,6 +29,7 @@ before(async () => {
   await fs.mkdir(path.join(repoRoot, "app", "models"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "config"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "db"), { recursive: true });
 
   await fs.writeFile(path.join(repoRoot, "docs", "search.txt"), "alpha\nneedle beta\ngamma\n");
   await fs.writeFile(path.join(repoRoot, "file.txt"), "one\ntwo\nthree\nfour");
@@ -42,7 +43,20 @@ before(async () => {
   await fs.writeFile(path.join(repoRoot, "node_modules", "ignored.txt"), "ignore");
   await fs.writeFile(
     path.join(repoRoot, "app", "models", "user.rb"),
-    ["class User", "  def name", "    \"Test\"", "  end", "end"].join("\n")
+    [
+      "class User < ApplicationRecord",
+      "  belongs_to :account",
+      "  has_many :bids",
+      "  validates :email, presence: true, uniqueness: true",
+      "  def name",
+      "    \"Test\"",
+      "  end",
+      "end"
+    ].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "app", "models", "account.rb"),
+    ["class Account < ApplicationRecord", "  has_many :users", "end"].join("\n")
   );
   await fs.writeFile(
     path.join(repoRoot, "src", "app.ts"),
@@ -87,6 +101,26 @@ before(async () => {
       "    resources :users, only: [:index, :show]",
       "  end",
       "  resource :profile",
+      "end"
+    ].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "db", "schema.rb"),
+    [
+      "ActiveRecord::Schema[7.1].define(version: 20250924213845) do",
+      "  create_table \"accounts\", force: :cascade do |t|",
+      "    t.string \"name\", null: false",
+      "    t.datetime \"created_at\", null: false",
+      "  end",
+      "",
+      "  create_table \"users\", force: :cascade do |t|",
+      "    t.string \"email\", default: \"\", null: false",
+      "    t.bigint \"account_id\", null: false",
+      "    t.index [\"account_id\"], name: \"index_users_on_account_id\"",
+      "  end",
+      "",
+      "  add_index \"users\", [\"email\"], name: \"index_users_on_email\", unique: true",
+      "  add_foreign_key \"users\", \"accounts\", column: \"account_id\"",
       "end"
     ].join("\n")
   );
@@ -516,6 +550,37 @@ test("rails.routes parses static routes", async () => {
     )
   );
   assert.ok(payload.warnings.includes("static_parsing_is_best_effort"));
+});
+
+test("rails.schema summarizes schema tables", async () => {
+  const { result, payload } = await callTool("rails.schema", {});
+  assert.equal(result.isError, false);
+  assert.equal(payload.source, "db/schema.rb");
+  assert.ok(Array.isArray(payload.tables));
+  const users = payload.tables.find((table) => table.name === "users");
+  assert.ok(users);
+  assert.ok(users.columns.some((col) => col.name === "email" && col.type === "string" && col.null === false));
+  assert.ok(users.indexes.some((idx) => idx.unique === true && idx.columns.includes("email")));
+  assert.ok(users.foreignKeys.some((fk) => fk.from === "users" && fk.to === "accounts"));
+});
+
+test("rails.models summarizes model associations and validations", async () => {
+  const { result, payload } = await callTool("rails.models", {});
+  assert.equal(result.isError, false);
+  assert.ok(Array.isArray(payload.models));
+  const user = payload.models.find((model) => model.name === "User");
+  assert.ok(user);
+  assert.equal(user.path, "app/models/user.rb");
+  assert.ok(user.associations.some((assoc) => assoc.type === "belongs_to" && assoc.name === "account"));
+  assert.ok(user.associations.some((assoc) => assoc.type === "has_many" && assoc.name === "bids"));
+  assert.ok(
+    user.validations.some(
+      (validation) =>
+        validation.type === "validates" &&
+        validation.attributes.includes("email") &&
+        validation.options.includes("presence")
+    )
+  );
 });
 
 test("rails.routes truncates static results", async () => {
