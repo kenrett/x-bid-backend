@@ -148,7 +148,7 @@ test("repo.info returns metadata for configured repo", async () => {
   assert.deepEqual(payload.detectedLanguages, { ruby: true, js: true });
   assert.equal(payload.packageManager, "npm");
   assert.equal(payload.isGitRepo, false);
-  assert.deepEqual(payload.availableDevCommands, ["dev.run_tests", "dev.run_lint", "dev.check"]);
+  assert.deepEqual(payload.availableDevCommands, ["dev.run_tests", "dev.run_lint", "dev.run", "dev.check"]);
 });
 
 test("repo.search finds a string", async () => {
@@ -421,6 +421,28 @@ test("dev.check reports tool presence", async () => {
   assert.ok(payload.tools);
   assert.ok(Object.prototype.hasOwnProperty.call(payload.tools, "rg"));
   assert.ok(Object.prototype.hasOwnProperty.call(payload.tools, "git"));
+});
+
+test("dev.run executes an allowlisted command", async () => {
+  const { result, payload } = await callTool("dev.run", { name: "node-version" });
+  assert.equal(result.isError, false);
+  assert.equal(payload.name, "node-version");
+  assert.equal(payload.cwd, ".");
+  assert.ok(Array.isArray(payload.cmd));
+  assert.equal(payload.cmd[0], "node");
+  assert.equal(payload.timedOut, false);
+  assert.equal(typeof payload.exitCode, "number");
+  assert.equal(payload.limits.maxOutputBytes, 10240);
+  assert.ok(Array.isArray(payload.envUsed));
+});
+
+test("dev.run rejects args that are not allowlisted", async () => {
+  const { result, payload } = await callTool("dev.run", {
+    name: "node-version",
+    args: ["--help"]
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error.code, "args_not_allowed");
 });
 
 test("dev.run_tests returns structured result", async () => {
