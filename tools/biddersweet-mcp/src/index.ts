@@ -41,6 +41,7 @@ const DEFAULT_TREE_MAX_ENTRIES = 200;
 const DEFAULT_SYMBOLS_MAX = 200;
 const HARD_SYMBOLS_MAX = 500;
 const DEFAULT_CMD_TIMEOUT_MS = 60_000;
+const MAX_GIT_DIFF_BYTES = 256 * 1024;
 const CHECK_TIMEOUT_MS = 1_500;
 const DEV_RUN_BASE_ENV_ALLOWLIST = ["PATH"];
 const DEFAULT_ROUTES_MAX = 500;
@@ -231,6 +232,11 @@ const RailsRoutesInputSchema = z.object({
 const RailsSchemaInputSchema = z.object({});
 const RailsModelsInputSchema = z.object({});
 const JsWorkspaceInputSchema = z.object({});
+const GitStatusInputSchema = z.object({});
+const GitDiffInputSchema = z.object({
+  path: z.string().optional(),
+  staged: z.boolean().optional().default(false)
+});
 
 type RepoInfoInput = z.infer<typeof RepoInfoInputSchema>;
 type RepoSearchInput = z.infer<typeof RepoSearchInputSchema>;
@@ -252,6 +258,8 @@ type RailsRoutesInput = z.infer<typeof RailsRoutesInputSchema>;
 type RailsSchemaInput = z.infer<typeof RailsSchemaInputSchema>;
 type RailsModelsInput = z.infer<typeof RailsModelsInputSchema>;
 type JsWorkspaceInput = z.infer<typeof JsWorkspaceInputSchema>;
+type GitStatusInput = z.infer<typeof GitStatusInputSchema>;
+type GitDiffInput = z.infer<typeof GitDiffInputSchema>;
 
 type DevResult = {
   ok: boolean;
@@ -380,6 +388,10 @@ type JsWorkspaceSummary = {
   eslint: { configPath?: string; extends?: string[] };
   scripts: Record<string, string>;
   warnings: string[];
+};
+type GitStatusEntry = {
+  path: string;
+  status: "M" | "A" | "D" | "R" | "??";
 };
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -655,6 +667,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: emptyInputSchema()
       },
       {
+        name: "git.status",
+        description: "Read-only git status summary for the repo.",
+        inputSchema: emptyInputSchema()
+      },
+      {
+        name: "git.diff",
+        description: "Read-only git diff output for the repo.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            staged: { type: "boolean" }
+          },
+          additionalProperties: false
+        }
+      },
+      {
         name: "dev.run_tests",
         description: "Run allowlisted test commands.",
         inputSchema: {
@@ -783,6 +812,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsed = JsWorkspaceInputSchema.parse(args ?? {});
         const result = await handleJsWorkspace(parsed);
         return jsonResult(result);
+      }
+      case "git.status": {
+        const parsed = GitStatusInputSchema.parse(args ?? {});
+        const result = await handleGitStatus(parsed);
+        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+      }
+      case "git.diff": {
+        const parsed = GitDiffInputSchema.parse(args ?? {});
+        const result = await handleGitDiff(parsed);
+        return jsonResult(result, Boolean((result as { error?: unknown }).error));
       }
       case "dev.run_tests": {
         const parsed = DevRunTargetSchema.parse(args ?? {});
@@ -2162,6 +2201,70 @@ async function handleJsWorkspace(_input: JsWorkspaceInput): Promise<JsWorkspaceS
   };
 }
 
+async function handleGitStatus(_input: GitStatusInput) {
+  const warnings: string[] = [];
+  const isGitRepo = await detectGitRepo();
+  if (!isGitRepo) {
+    return toolError("not_git_repo", "not a git repository");
+  }
+
+  const result = await runCommandWithLimits(
+    ["git", "-C", repoRoot, "status", "--porcelain=v1", "-b"],
+    5_000,
+    64 * 1024
+  );
+
+  if (result.exitCode !== 0) {
+    return toolError("git_status_failed", "git status failed", { stderr: result.stderr });
+  }
+
+  if (result.truncated) warnings.push("status_output_truncated");
+
+  const parsed = parseGitStatusPorcelain(result.stdout);
+  warnings.push(...parsed.warnings);
+
+  return {
+    isGitRepo: true,
+    branch: parsed.branch ?? undefined,
+    changed: parsed.changed,
+    warnings
+  };
+}
+
+async function handleGitDiff(input: GitDiffInput) {
+  const warnings: string[] = [];
+  const isGitRepo = await detectGitRepo();
+  if (!isGitRepo) {
+    return toolError("not_git_repo", "not a git repository");
+  }
+
+  let relPath: string | null = null;
+  if (input.path) {
+    const resolved = resolveRepoPath(input.path);
+    if (!resolved.ok) {
+      return toolError("path_outside_root", "path is outside repo root", { path: safeOutputPath(input.path) });
+    }
+    relPath = resolved.relative;
+  }
+
+  const args = ["git", "-C", repoRoot, "diff", "--no-color", "--no-ext-diff"];
+  if (input.staged) args.push("--cached");
+  if (relPath) args.push("--", relPath);
+
+  const result = await runCommandWithLimits(args, 5_000, MAX_GIT_DIFF_BYTES);
+  if (result.exitCode !== 0) {
+    return toolError("git_diff_failed", "git diff failed", { stderr: result.stderr });
+  }
+
+  if (result.truncated) warnings.push("diff_output_truncated");
+
+  return {
+    diff: result.stdout,
+    truncated: result.truncated,
+    warnings
+  };
+}
+
 async function handleDevRunTests(input: DevRunTargetInput) {
   return handleDevRun(
     input.target,
@@ -3525,6 +3628,55 @@ function uniqueStrings(values: string[]) {
     output.push(value);
   }
   return output;
+}
+
+function parseGitStatusPorcelain(output: string) {
+  const warnings: string[] = [];
+  const lines = normalizeLineEndings(output).split("\n").filter(Boolean);
+  let branch: string | null = null;
+  const changed: GitStatusEntry[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith("##")) {
+      const raw = line.slice(2).trim();
+      const branchMatch = raw.match(/^([^\s.]+)(?:\.{3}|\s|$)/);
+      if (branchMatch) {
+        branch = branchMatch[1];
+      } else if (raw.includes("HEAD")) {
+        branch = "HEAD";
+      }
+      continue;
+    }
+
+    if (line.startsWith("??")) {
+      const pathValue = line.slice(2).trim();
+      changed.push({ path: pathValue, status: "??" });
+      continue;
+    }
+
+    if (line.length < 3) {
+      warnings.push("status_line_unrecognized");
+      continue;
+    }
+
+    const statusChar = line[0] !== " " ? line[0] : line[1];
+    const pathPart = line.slice(3).trim();
+    if (!pathPart) continue;
+
+    let pathValue = pathPart;
+    if (statusChar === "R") {
+      const renameMatch = pathPart.split(" -> ");
+      pathValue = renameMatch[1] ?? renameMatch[0];
+    }
+
+    if (["M", "A", "D", "R"].includes(statusChar)) {
+      changed.push({ path: pathValue, status: statusChar as GitStatusEntry["status"] });
+    } else {
+      warnings.push(`status_unhandled:${statusChar}`);
+    }
+  }
+
+  return { branch, changed, warnings };
 }
 
 async function runDevCommand(command: string[]): Promise<DevResult> {

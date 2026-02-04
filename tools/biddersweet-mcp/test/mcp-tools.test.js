@@ -4,6 +4,8 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -14,6 +16,8 @@ const distEntry = path.join(toolRoot, "dist", "index.js");
 
 let repoRoot = "";
 let client;
+let gitAvailable = false;
+const execFileAsync = promisify(execFile);
 
 async function callTool(name, args) {
   const result = await client.callTool({ name, arguments: args });
@@ -211,6 +215,18 @@ before(async () => {
     ].join("\n")
   );
 
+  try {
+    await execFileAsync("git", ["--version"]);
+    gitAvailable = true;
+    await execFileAsync("git", ["init"], { cwd: repoRoot });
+    await execFileAsync("git", ["config", "user.email", "test@example.com"], { cwd: repoRoot });
+    await execFileAsync("git", ["config", "user.name", "Test User"], { cwd: repoRoot });
+    await execFileAsync("git", ["add", "."], { cwd: repoRoot });
+    await execFileAsync("git", ["commit", "-m", "initial"], { cwd: repoRoot });
+  } catch {
+    gitAvailable = false;
+  }
+
   const transport = new StdioClientTransport({
     command: "node",
     args: [distEntry, repoRoot],
@@ -237,7 +253,7 @@ test("repo.info returns metadata for configured repo", async () => {
   assert.equal(payload.railsPresent, false);
   assert.deepEqual(payload.detectedLanguages, { ruby: true, js: true });
   assert.equal(payload.packageManager, "npm");
-  assert.equal(payload.isGitRepo, false);
+  assert.equal(payload.isGitRepo, gitAvailable);
   assert.deepEqual(payload.availableDevCommands, [
     "dev.run_tests",
     "dev.run_lint",
@@ -640,6 +656,34 @@ test("js.workspace summarizes JS tooling configuration", async () => {
   assert.equal(payload.eslint.configPath, "eslint.config.js");
   assert.ok(payload.eslint.extends.includes("eslint:recommended"));
   assert.ok(payload.scripts.test);
+});
+
+test("git.status summarizes working tree changes", async () => {
+  if (!gitAvailable) {
+    return test.skip("git unavailable");
+  }
+  await fs.writeFile(path.join(repoRoot, "file.txt"), "one\ntwo\nthree\nfour\nfive\n");
+  await fs.writeFile(path.join(repoRoot, "new.txt"), "new file\n");
+  await fs.rm(path.join(repoRoot, "empty.txt"));
+
+  const { result, payload } = await callTool("git.status", {});
+  assert.equal(result.isError, false);
+  assert.equal(payload.isGitRepo, true);
+  assert.ok(payload.branch);
+  const paths = payload.changed.map((entry) => entry.path);
+  assert.ok(paths.includes("file.txt"));
+  assert.ok(paths.includes("new.txt"));
+  assert.ok(paths.includes("empty.txt"));
+});
+
+test("git.diff returns diff output with optional path", async () => {
+  if (!gitAvailable) {
+    return test.skip("git unavailable");
+  }
+  const { result, payload } = await callTool("git.diff", { path: "file.txt" });
+  assert.equal(result.isError, false);
+  assert.equal(payload.truncated, false);
+  assert.ok(payload.diff.includes("file.txt"));
 });
 
 test("rails.routes truncates static results", async () => {
