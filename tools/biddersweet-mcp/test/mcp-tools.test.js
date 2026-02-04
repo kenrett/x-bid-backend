@@ -58,6 +58,14 @@ before(async () => {
       "console.log(targetSymbol);"
     ].join("\n")
   );
+  await fs.writeFile(
+    path.join(repoRoot, "src", "todos.ts"),
+    [
+      "// TODO: handle paging",
+      "// FIXME: recover on timeout",
+      "// NOTE: remove after migration"
+    ].join("\n")
+  );
 
   await fs.writeFile(path.join(repoRoot, ".ruby-version"), "3.2.2\n");
   await fs.writeFile(
@@ -243,6 +251,21 @@ test("repo.find_refs returns summarized references with snippets", async () => {
   assert.equal(entry.occurrences, 5);
   assert.equal(entry.snippets.length, 2);
   assert.ok(entry.snippets.every((snippet) => typeof snippet.preview === "string"));
+});
+
+test("repo.todo_scan finds todo markers with stable ordering", async () => {
+  const { payload } = await callTool("repo.todo_scan", {
+    patterns: ["TODO", "FIXME", "NOTE"],
+    maxResults: 10
+  });
+  assert.equal(payload.truncated, false);
+  assert.ok(payload.results.length >= 3);
+  assert.equal(payload.results[0].pattern, "FIXME");
+  assert.equal(payload.results[0].path, "src/todos.ts");
+  assert.equal(payload.results[0].line, 2);
+  assert.equal(payload.groupedCounts.TODO, 1);
+  assert.equal(payload.groupedCounts.FIXME, 1);
+  assert.equal(payload.groupedCounts.NOTE, 1);
 });
 
 test("repo.tree returns bounded directory tree and skips node_modules", async () => {
