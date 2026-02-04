@@ -20,6 +20,48 @@ npm run dev
 
 You can also set the repo root via `BIDDERSWEET_REPO_ROOT`.
 
+## Safety knobs
+
+### Capability mode
+
+The server defaults to read-only tooling. Enable write tools explicitly via an env var:
+
+```bash
+MCP_CAPABILITY=READ_WRITE
+```
+
+Accepted values:
+- `READ_ONLY` (default)
+- `READ_WRITE`
+
+In `READ_ONLY`, write tools (currently `repo.apply_patch`) return a structured error:
+
+```json
+{
+  "error": {
+    "code": "capability_denied",
+    "message": "tool is not allowed in READ_ONLY mode",
+    "details": { "tool": "repo.apply_patch", "mode": "READ_ONLY" }
+  }
+}
+```
+
+### Audit logging
+
+Every tool invocation writes a JSONL entry to `.mcp-logs/tool.log` (one line per call). If the log file cannot be written, the entry is emitted to stderr. Each entry includes:
+- `timestamp`
+- `toolName`
+- `argsSummary` (redacted)
+- `durationMs`
+- `resultSummary`
+- `error` (when applicable)
+
+Redaction rules (to avoid logging secrets):
+- Keys containing `secret`, `token`, `password`, `api_key`, `access_key`, `private_key`, `session`, `cookie`, `authorization`, or `credential` are replaced with `[REDACTED]`.
+- Large strings are truncated to 200 characters.
+- Suspected secret-looking strings (long hex/base64 or PEM markers) are redacted.
+- Patch contents and file contents are never logged, only byte sizes.
+
 ## VS Code (Codex) setup
 
 Create `/.codex/config.toml` in the repo root:

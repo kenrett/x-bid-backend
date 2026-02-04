@@ -50,6 +50,16 @@ const DEFAULT_ROUTES_MAX = 500;
 const HARD_ROUTES_MAX = 2000;
 const ROUTES_COMMAND_TIMEOUT_MS = 20_000;
 const ROUTES_COMMAND_MAX_BYTES = 256 * 1024;
+const DEFAULT_CAPABILITY_MODE = "READ_ONLY";
+const AUDIT_LOG_DIR = ".mcp-logs";
+const AUDIT_LOG_FILE = "tool.log";
+const AUDIT_MAX_STRING = 200;
+const AUDIT_MAX_ARRAY = 20;
+const SENSITIVE_KEY_PATTERN =
+  /(secret|token|password|passwd|api[-_]?key|access[-_]?key|private[-_]?key|session|cookie|authorization|credential)/i;
+const WRITE_TOOL_NAMES = new Set(["repo.apply_patch"]);
+
+type CapabilityMode = "READ_ONLY" | "READ_WRITE";
 
 type DevRunAllowlistEntry = {
   name: string;
@@ -761,140 +771,188 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  const startTime = Date.now();
+  let result: unknown;
+  let isError = false;
   try {
+    const capabilityError = enforceCapabilityMode(name);
+    if (capabilityError) {
+      result = capabilityError;
+      isError = true;
+    } else {
     switch (name) {
       case "repo.info": {
         const parsed = RepoInfoInputSchema.parse(args ?? {});
-        const result = await handleRepoInfo(parsed);
-        return jsonResult(result);
+        result = await handleRepoInfo(parsed);
+        isError = false;
+        break;
       }
       case "repo.search": {
         const parsed = RepoSearchInputSchema.parse(args ?? {});
-        const result = await handleRepoSearch(parsed);
-        return jsonResult(result);
+        result = await handleRepoSearch(parsed);
+        isError = false;
+        break;
       }
       case "repo.read_file": {
         const parsed = RepoReadFileInputSchema.parse(args ?? {});
-        const result = await handleRepoReadFile(parsed);
-        return jsonResult(result);
+        result = await handleRepoReadFile(parsed);
+        isError = false;
+        break;
       }
       case "repo.read_range": {
         const parsed = RepoReadRangeInputSchema.parse(args ?? {});
-        const result = await handleRepoReadRange(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleRepoReadRange(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "repo.list_dir": {
         const parsed = RepoListDirInputSchema.parse(args ?? {});
-        const result = await handleRepoListDir(parsed);
-        return jsonResult(result);
+        result = await handleRepoListDir(parsed);
+        isError = false;
+        break;
       }
       case "repo.deps": {
         const parsed = RepoDepsInputSchema.parse(args ?? {});
-        const result = await handleRepoDeps(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleRepoDeps(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "repo.symbols": {
         const parsed = RepoSymbolsInputSchema.parse(args ?? {});
-        const result = await handleRepoSymbols(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleRepoSymbols(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "repo.tree": {
         const parsed = RepoTreeInputSchema.parse(args ?? {});
-        const result = await handleRepoTree(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleRepoTree(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "repo.find_refs": {
         const parsed = RepoFindRefsInputSchema.parse(args ?? {});
-        const result = await handleRepoFindRefs(parsed);
-        return jsonResult(result);
+        result = await handleRepoFindRefs(parsed);
+        isError = false;
+        break;
       }
       case "repo.todo_scan": {
         const parsed = RepoTodoScanInputSchema.parse(args ?? {});
-        const result = await handleRepoTodoScan(parsed);
-        return jsonResult(result);
+        result = await handleRepoTodoScan(parsed);
+        isError = false;
+        break;
       }
       case "repo.format_patch": {
         const parsed = RepoFormatPatchInputSchema.parse(args ?? {});
-        const result = await handleRepoFormatPatch(parsed);
-        return jsonResult(result);
+        result = await handleRepoFormatPatch(parsed);
+        isError = false;
+        break;
       }
       case "repo.propose_patch": {
         const parsed = RepoProposePatchInputSchema.parse(args ?? {});
-        const result = await handleRepoProposePatch(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleRepoProposePatch(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "repo.apply_patch": {
         const parsed = RepoApplyPatchInputSchema.parse(args ?? {});
-        const result = await handleRepoApplyPatch(parsed);
-        return jsonResult(result, Boolean((result as { errors?: unknown[] }).errors?.length));
+        result = await handleRepoApplyPatch(parsed);
+        isError = Boolean((result as { errors?: unknown[] }).errors?.length);
+        break;
       }
       case "dev.check": {
         const parsed = DevCheckInputSchema.parse(args ?? {});
-        const result = await handleDevCheck(parsed);
-        return jsonResult(result);
+        result = await handleDevCheck(parsed);
+        isError = false;
+        break;
       }
       case "dev.run": {
         const parsed = DevRunInputSchema.parse(args ?? {});
-        const result = await handleDevRunAllowlisted(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleDevRunAllowlisted(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "dev.benchmark_smoke": {
         const parsed = DevBenchmarkInputSchema.parse(args ?? {});
-        const result = await handleDevBenchmarkSmoke(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleDevBenchmarkSmoke(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "dev.explain_failure": {
         const parsed = DevExplainFailureInputSchema.parse(args ?? {});
-        const result = await handleDevExplainFailure(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleDevExplainFailure(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "rails.routes": {
         const parsed = RailsRoutesInputSchema.parse(args ?? {});
-        const result = await handleRailsRoutes(parsed);
-        return jsonResult(result);
+        result = await handleRailsRoutes(parsed);
+        isError = false;
+        break;
       }
       case "rails.schema": {
         const parsed = RailsSchemaInputSchema.parse(args ?? {});
-        const result = await handleRailsSchema(parsed);
-        return jsonResult(result);
+        result = await handleRailsSchema(parsed);
+        isError = false;
+        break;
       }
       case "rails.models": {
         const parsed = RailsModelsInputSchema.parse(args ?? {});
-        const result = await handleRailsModels(parsed);
-        return jsonResult(result);
+        result = await handleRailsModels(parsed);
+        isError = false;
+        break;
       }
       case "js.workspace": {
         const parsed = JsWorkspaceInputSchema.parse(args ?? {});
-        const result = await handleJsWorkspace(parsed);
-        return jsonResult(result);
+        result = await handleJsWorkspace(parsed);
+        isError = false;
+        break;
       }
       case "git.status": {
         const parsed = GitStatusInputSchema.parse(args ?? {});
-        const result = await handleGitStatus(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleGitStatus(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "git.diff": {
         const parsed = GitDiffInputSchema.parse(args ?? {});
-        const result = await handleGitDiff(parsed);
-        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+        result = await handleGitDiff(parsed);
+        isError = Boolean((result as { error?: unknown }).error);
+        break;
       }
       case "dev.run_tests": {
         const parsed = DevRunTargetSchema.parse(args ?? {});
-        const result = await handleDevRunTests(parsed);
-        return jsonResult(result);
+        result = await handleDevRunTests(parsed);
+        isError = false;
+        break;
       }
       case "dev.run_lint": {
         const parsed = DevRunTargetSchema.parse(args ?? {});
-        const result = await handleDevRunLint(parsed);
-        return jsonResult(result);
+        result = await handleDevRunLint(parsed);
+        isError = false;
+        break;
       }
       default:
-        return jsonResult({ error: "unknown_tool" }, true);
+        result = { error: "unknown_tool" };
+        isError = true;
+        break;
+    }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
-    return jsonResult({ error: "invalid_request", message }, true);
+    result = { error: "invalid_request", message };
+    isError = true;
+  } finally {
+    const durationMs = Date.now() - startTime;
+    await writeAuditLog({
+      timestamp: new Date().toISOString(),
+      toolName: name,
+      argsSummary: summarizeToolArgs(name, args),
+      durationMs,
+      resultSummary: summarizeToolResult(name, result, isError),
+      error: isError ? summarizeAuditError(result) : undefined
+    });
   }
+  return jsonResult(result, isError);
 });
 
 async function handleRepoInfo(_input: RepoInfoInput) {
@@ -5293,6 +5351,346 @@ function applyPatchError(
     diffApplied,
     errors: [{ code, message, details }]
   };
+}
+
+function enforceCapabilityMode(toolName: string) {
+  const capability = readCapabilityMode();
+  if (capability === "READ_WRITE") return null;
+  if (!WRITE_TOOL_NAMES.has(toolName)) return null;
+  return toolError("capability_denied", "tool is not allowed in READ_ONLY mode", {
+    tool: toolName,
+    mode: capability
+  });
+}
+
+function readCapabilityMode(): CapabilityMode {
+  const raw = process.env.MCP_CAPABILITY ?? DEFAULT_CAPABILITY_MODE;
+  const normalized = raw.trim().toUpperCase();
+  if (normalized === "READ_WRITE") return "READ_WRITE";
+  return "READ_ONLY";
+}
+
+function summarizeToolArgs(toolName: string, args: unknown) {
+  const safeArgs = typeof args === "object" && args !== null ? (args as Record<string, unknown>) : {};
+  switch (toolName) {
+    case "repo.search":
+      return { query: redactString(safeArgs.query), maxResults: safeArgs.maxResults };
+    case "repo.read_file":
+      return { path: redactString(safeArgs.path) };
+    case "repo.read_range":
+      return {
+        path: redactString(safeArgs.path),
+        startLine: safeArgs.startLine,
+        endLine: safeArgs.endLine
+      };
+    case "repo.list_dir":
+      return { path: redactString(safeArgs.path), maxEntries: safeArgs.maxEntries };
+    case "repo.symbols":
+      return { glob: redactString(safeArgs.glob), kinds: summarizeArray(safeArgs.kinds), maxResults: safeArgs.maxResults };
+    case "repo.tree":
+      return {
+        path: redactString(safeArgs.path),
+        maxDepth: safeArgs.maxDepth,
+        maxNodes: safeArgs.maxNodes,
+        maxEntriesPerDir: safeArgs.maxEntriesPerDir
+      };
+    case "repo.find_refs":
+      return {
+        symbol: redactString(safeArgs.symbol),
+        languageHint: safeArgs.languageHint,
+        maxFiles: safeArgs.maxFiles,
+        maxSnippetsPerFile: safeArgs.maxSnippetsPerFile
+      };
+    case "repo.todo_scan":
+      return { patternsCount: Array.isArray(safeArgs.patterns) ? safeArgs.patterns.length : 0, maxResults: safeArgs.maxResults };
+    case "repo.format_patch":
+      return { diffBytes: byteLength(safeArgs.diff) };
+    case "repo.propose_patch":
+      return summarizePatchArgs(safeArgs, false);
+    case "repo.apply_patch":
+      return summarizePatchArgs(safeArgs, true);
+    case "dev.run":
+      return { name: safeArgs.name, argsCount: Array.isArray(safeArgs.args) ? safeArgs.args.length : 0 };
+    case "dev.benchmark_smoke":
+      return { name: safeArgs.name };
+    case "dev.explain_failure":
+      return {
+        runIdPresent: Boolean(safeArgs.runId),
+        stdoutBytes: byteLength(safeArgs.stdout),
+        stderrBytes: byteLength(safeArgs.stderr)
+      };
+    case "rails.routes":
+      return { mode: safeArgs.mode, maxResults: safeArgs.maxResults };
+    case "git.diff":
+      return { path: redactString(safeArgs.path), staged: safeArgs.staged };
+    case "dev.run_tests":
+    case "dev.run_lint":
+      return { target: safeArgs.target };
+    default:
+      return redactObject(safeArgs);
+  }
+}
+
+function summarizePatchArgs(args: Record<string, unknown>, includeExpectedSha: boolean) {
+  const diff = typeof args.diff === "string" ? args.diff : null;
+  const insert = args.insert && typeof args.insert === "object" ? (args.insert as Record<string, unknown>) : null;
+  const replace = args.replace && typeof args.replace === "object" ? (args.replace as Record<string, unknown>) : null;
+  const del = args.delete && typeof args.delete === "object" ? (args.delete as Record<string, unknown>) : null;
+  const operation = diff
+    ? "diff"
+    : insert
+      ? "insert"
+      : replace
+        ? "replace"
+        : del
+          ? "delete"
+          : "unknown";
+  const textBytes =
+    (insert && byteLength(insert.text)) ||
+    (replace && byteLength(replace.newText)) ||
+    0;
+  const summary: Record<string, unknown> = {
+    path: redactString(args.path),
+    operation,
+    diffBytes: diff ? byteLength(diff) : undefined,
+    textBytes
+  };
+  if (includeExpectedSha) {
+    summary.expectedSha256Present = Boolean(args.expectedSha256);
+  }
+  return summary;
+}
+
+function summarizeToolResult(toolName: string, result: unknown, isError: boolean) {
+  if (!result || typeof result !== "object") {
+    return { valueType: typeof result };
+  }
+  const payload = result as Record<string, unknown>;
+  if (payload.error) {
+    return { error: summarizeAuditError(result) };
+  }
+  if (toolName === "repo.search") {
+    return {
+      resultCount: Array.isArray(payload.results) ? payload.results.length : 0,
+      truncated: payload.truncated
+    };
+  }
+  if (toolName === "repo.read_file") {
+    return {
+      refused: payload.refused ?? false,
+      reason: payload.reason,
+      contentBytes: byteLength(payload.content)
+    };
+  }
+  if (toolName === "repo.read_range") {
+    return {
+      truncated: payload.truncated ?? false,
+      warnings: Array.isArray(payload.warnings) ? payload.warnings.length : 0,
+      textBytes: byteLength(payload.text)
+    };
+  }
+  if (toolName === "repo.list_dir") {
+    return {
+      entryCount: Array.isArray(payload.entries) ? payload.entries.length : 0,
+      truncated: payload.truncated ?? false,
+      error: payload.error
+    };
+  }
+  if (toolName === "repo.find_refs") {
+    return {
+      fileCount: Array.isArray(payload.files) ? payload.files.length : 0,
+      truncated: payload.truncated ?? false,
+      strategy: payload.strategy
+    };
+  }
+  if (toolName === "repo.todo_scan") {
+    return {
+      resultCount: Array.isArray(payload.results) ? payload.results.length : 0,
+      truncated: payload.truncated ?? false
+    };
+  }
+  if (toolName === "repo.format_patch") {
+    return {
+      valid: payload.valid ?? false,
+      files: payload.stats && typeof payload.stats === "object" ? (payload.stats as Record<string, unknown>).files : undefined
+    };
+  }
+  if (toolName === "repo.propose_patch") {
+    return { applied: false, warnings: Array.isArray(payload.warnings) ? payload.warnings.length : 0 };
+  }
+  if (toolName === "repo.apply_patch") {
+    const errors = Array.isArray(payload.errors) ? payload.errors : [];
+    return {
+      applied: payload.applied ?? false,
+      errorsCount: errors.length,
+      warnings: Array.isArray(payload.warnings) ? payload.warnings.length : 0
+    };
+  }
+  if (toolName === "dev.run" || toolName === "dev.benchmark_smoke") {
+    return {
+      exitCode: payload.exitCode,
+      durationMs: payload.durationMs,
+      timedOut: payload.timedOut,
+      truncated: payload.truncated,
+      stdoutBytes: byteLength(payload.stdout),
+      stderrBytes: byteLength(payload.stderr)
+    };
+  }
+  if (toolName === "dev.run_tests" || toolName === "dev.run_lint") {
+    return {
+      ok: payload.ok,
+      hasRuby: Boolean((payload.results as Record<string, unknown> | undefined)?.ruby),
+      hasJs: Boolean((payload.results as Record<string, unknown> | undefined)?.js)
+    };
+  }
+  if (toolName === "git.diff") {
+    return {
+      diffBytes: byteLength(payload.diff),
+      truncated: payload.truncated
+    };
+  }
+  if (toolName === "git.status") {
+    return {
+      changedCount: Array.isArray(payload.changed) ? payload.changed.length : 0,
+      isGitRepo: payload.isGitRepo ?? false
+    };
+  }
+  if (toolName === "rails.routes") {
+    return {
+      routeCount: Array.isArray(payload.routes) ? payload.routes.length : 0,
+      truncated: payload.truncated ?? false,
+      modeUsed: payload.modeUsed
+    };
+  }
+  if (toolName === "rails.schema") {
+    return {
+      tableCount: Array.isArray(payload.tables) ? payload.tables.length : 0,
+      source: payload.source
+    };
+  }
+  if (toolName === "rails.models") {
+    return {
+      modelCount: Array.isArray(payload.models) ? payload.models.length : 0
+    };
+  }
+  if (toolName === "js.workspace") {
+    return {
+      packageManager: payload.packageManager,
+      hasWorkspaces: Boolean((payload.workspaces as Record<string, unknown> | undefined)?.enabled)
+    };
+  }
+  if (isError) {
+    return { error: summarizeAuditError(result) };
+  }
+  return redactObject(payload);
+}
+
+function summarizeAuditError(result: unknown) {
+  if (!result || typeof result !== "object") return { message: "unknown_error" };
+  const payload = result as Record<string, unknown>;
+  if (payload.error && typeof payload.error === "object") {
+    const err = payload.error as Record<string, unknown>;
+    return {
+      code: err.code ?? "error",
+      message: truncateString(String(err.message ?? ""))
+    };
+  }
+  if (typeof payload.error === "string") {
+    return { code: payload.error };
+  }
+  if (payload.errors && Array.isArray(payload.errors) && payload.errors.length > 0) {
+    const first = payload.errors[0] as Record<string, unknown>;
+    return {
+      code: first.code ?? "error",
+      message: truncateString(String(first.message ?? ""))
+    };
+  }
+  return { message: "unknown_error" };
+}
+
+async function writeAuditLog(entry: {
+  timestamp: string;
+  toolName: string;
+  argsSummary: unknown;
+  durationMs: number;
+  resultSummary: unknown;
+  error?: unknown;
+}) {
+  const line = JSON.stringify(entry);
+  const logDir = path.join(repoRoot, AUDIT_LOG_DIR);
+  const logPath = path.join(logDir, AUDIT_LOG_FILE);
+  try {
+    await fs.mkdir(logDir, { recursive: true });
+    await fs.appendFile(logPath, `${line}\n`, "utf8");
+  } catch {
+    try {
+      process.stderr.write(`${line}\n`);
+    } catch {
+      // ignore logging failures
+    }
+  }
+}
+
+function redactObject(value: Record<string, unknown>, depth = 0): Record<string, unknown> {
+  if (depth > 2) return { redacted: true };
+  const output: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
+      output[key] = "[REDACTED]";
+      continue;
+    }
+    if (typeof raw === "string") {
+      output[key] = redactString(raw, key);
+      continue;
+    }
+    if (Array.isArray(raw)) {
+      output[key] = summarizeArray(raw);
+      continue;
+    }
+    if (raw && typeof raw === "object") {
+      output[key] = redactObject(raw as Record<string, unknown>, depth + 1);
+      continue;
+    }
+    output[key] = raw;
+  }
+  return output;
+}
+
+function summarizeArray(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  const sliced = value.slice(0, AUDIT_MAX_ARRAY).map((entry) => {
+    if (typeof entry === "string") return redactString(entry);
+    if (typeof entry === "number" || typeof entry === "boolean") return entry;
+    if (entry && typeof entry === "object") return redactObject(entry as Record<string, unknown>, 1);
+    return null;
+  });
+  return { count: value.length, preview: sliced };
+}
+
+function redactString(value: unknown, key?: string) {
+  if (typeof value !== "string") return value;
+  if (key && SENSITIVE_KEY_PATTERN.test(key)) return "[REDACTED]";
+  if (looksLikeSecret(value)) return "[REDACTED]";
+  return truncateString(value);
+}
+
+function truncateString(value: string) {
+  if (value.length <= AUDIT_MAX_STRING) return value;
+  return `${value.slice(0, AUDIT_MAX_STRING)}…`;
+}
+
+function looksLikeSecret(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 32) return false;
+  if (trimmed.includes("-----BEGIN")) return true;
+  if (/^[A-Fa-f0-9]{40,}$/.test(trimmed)) return true;
+  if (/^[A-Za-z0-9+/_-]{40,}={0,2}$/.test(trimmed)) return true;
+  return false;
+}
+
+function byteLength(value: unknown) {
+  if (typeof value !== "string") return 0;
+  return Buffer.byteLength(value);
 }
 
 async function writeFileAtomic(filePath: string, content: string, mode?: number) {
