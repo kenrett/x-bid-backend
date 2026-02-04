@@ -71,6 +71,11 @@ before(async () => {
     path.join(repoRoot, "src", "patch.txt"),
     ["alpha", "beta", "gamma"].join("\n")
   );
+  await fs.writeFile(
+    path.join(repoRoot, "src", "apply.txt"),
+    ["first", "second", "third"].join("\n")
+  );
+  await fs.writeFile(path.join(repoRoot, ".env"), "SECRET=1\n");
 
   await fs.writeFile(path.join(repoRoot, ".ruby-version"), "3.2.2\n");
   await fs.writeFile(
@@ -295,6 +300,72 @@ test("repo.propose_patch enforces expected sha", async () => {
   });
   assert.equal(result.isError, true);
   assert.equal(payload.error.code, "sha_mismatch");
+});
+
+test("repo.apply_patch applies structured edit with expected sha", async () => {
+  const original = ["alpha", "beta", "gamma"].join("\n");
+  const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
+  const { result, payload } = await callTool("repo.apply_patch", {
+    path: "src/patch.txt",
+    replace: { startLine: 2, endLine: 2, newText: "beta-applied" },
+    expectedSha256: expected
+  });
+  assert.equal(result.isError, false);
+  assert.equal(payload.path, "src/patch.txt");
+  assert.equal(payload.applied, true);
+  assert.ok(payload.diffApplied.includes("-beta"));
+  assert.ok(payload.diffApplied.includes("+beta-applied"));
+  const updated = await fs.readFile(path.join(repoRoot, "src", "patch.txt"), "utf8");
+  assert.equal(updated.trim(), ["alpha", "beta-applied", "gamma"].join("\n"));
+});
+
+test("repo.apply_patch applies unified diff", async () => {
+  const original = ["first", "second", "third"].join("\n");
+  const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
+  const diff = [
+    "diff --git a/src/apply.txt b/src/apply.txt",
+    "--- a/src/apply.txt",
+    "+++ b/src/apply.txt",
+    "@@ -1,3 +1,3 @@",
+    " first",
+    "-second",
+    "+second-updated",
+    " third"
+  ].join("\n");
+  const { result, payload } = await callTool("repo.apply_patch", {
+    path: "src/apply.txt",
+    diff,
+    expectedSha256: expected
+  });
+  assert.equal(result.isError, false);
+  assert.equal(payload.applied, true);
+  assert.ok(payload.diffApplied.includes("+second-updated"));
+  const updated = await fs.readFile(path.join(repoRoot, "src", "apply.txt"), "utf8");
+  assert.equal(updated.trim(), ["first", "second-updated", "third"].join("\n"));
+});
+
+test("repo.apply_patch rejects protected paths", async () => {
+  const original = "SECRET=1\n";
+  const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
+  const { result, payload } = await callTool("repo.apply_patch", {
+    path: ".env",
+    insert: { line: 2, text: "SECRET=2" },
+    expectedSha256: expected
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.errors[0].code, "protected_path");
+});
+
+test("repo.apply_patch rejects sha mismatch", async () => {
+  const original = ["first", "second-updated", "third"].join("\n");
+  const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
+  const { result, payload } = await callTool("repo.apply_patch", {
+    path: "src/apply.txt",
+    delete: { startLine: 1, endLine: 1 },
+    expectedSha256: `${expected}bad`
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.errors[0].code, "sha_mismatch");
 });
 
 test("repo.tree returns bounded directory tree and skips node_modules", async () => {

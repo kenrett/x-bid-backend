@@ -24,6 +24,13 @@ const DEFAULT_TODO_MAX = 200;
 const HARD_TODO_MAX = 500;
 const MAX_TODO_OUTPUT_BYTES = 1024 * 1024;
 const MAX_PATCH_BYTES = 50 * 1024;
+const PROTECTED_PATH_PATTERNS = [
+    /(^|\/)\.env(\.|$)/i,
+    /(^|\/)config\/credentials(\.|\/|$)/i,
+    /(^|\/)config\/master\.key$/i,
+    /(^|\/)credentials(\.|\/|$)/i
+];
+const LOCKFILE_NAMES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Gemfile.lock"]);
 const DEFAULT_LIST_MAX = 500;
 const HARD_LIST_MAX = 2000;
 const MAX_READ_RANGE_LINES = 400;
@@ -92,26 +99,66 @@ const RepoTodoScanInputSchema = z.object({
     patterns: z.array(z.string().min(1)).optional(),
     maxResults: z.number().int().positive().optional()
 });
-const RepoProposePatchInputSchema = z.object({
+const RepoProposePatchInputSchema = z
+    .object({
     path: z.string(),
-    replace: z.object({
+    replace: z
+        .object({
         startLine: z.number().int().positive(),
         endLine: z.number().int().positive(),
         newText: z.string()
-    }).optional(),
-    insert: z.object({
+    })
+        .optional(),
+    insert: z
+        .object({
         line: z.number().int().positive(),
         text: z.string()
-    }).optional(),
-    delete: z.object({
+    })
+        .optional(),
+    delete: z
+        .object({
         startLine: z.number().int().positive(),
         endLine: z.number().int().positive()
-    }).optional(),
+    })
+        .optional(),
     expectedSha256: z.string().optional()
-}).refine((value) => {
+})
+    .refine((value) => {
     const variants = [value.replace, value.insert, value.delete].filter(Boolean);
     return variants.length === 1;
 }, { message: "exactly_one_operation_required" });
+const RepoApplyPatchInputSchema = z
+    .object({
+    path: z.string(),
+    diff: z.string().min(1).optional(),
+    replace: z
+        .object({
+        startLine: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        newText: z.string()
+    })
+        .optional(),
+    insert: z
+        .object({
+        line: z.number().int().positive(),
+        text: z.string()
+    })
+        .optional(),
+    delete: z
+        .object({
+        startLine: z.number().int().positive(),
+        endLine: z.number().int().positive()
+    })
+        .optional(),
+    expectedSha256: z.string().min(1)
+})
+    .refine((value) => {
+    const structured = [value.replace, value.insert, value.delete].filter(Boolean);
+    if (value.diff) {
+        return structured.length === 0;
+    }
+    return structured.length === 1;
+}, { message: "diff_or_single_operation_required" });
 const DevCheckInputSchema = z.object({});
 const DevRunTargetSchema = z.object({
     target: z.enum(["ruby", "js", "both"]).optional().default("both")
@@ -277,6 +324,48 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
+                name: "repo.apply_patch",
+                description: "Apply a unified diff or structured edit to a file, returning the applied diff and hashes.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        path: { type: "string" },
+                        diff: { type: "string" },
+                        replace: {
+                            type: "object",
+                            properties: {
+                                startLine: { type: "number" },
+                                endLine: { type: "number" },
+                                newText: { type: "string" }
+                            },
+                            required: ["startLine", "endLine", "newText"],
+                            additionalProperties: false
+                        },
+                        insert: {
+                            type: "object",
+                            properties: {
+                                line: { type: "number" },
+                                text: { type: "string" }
+                            },
+                            required: ["line", "text"],
+                            additionalProperties: false
+                        },
+                        delete: {
+                            type: "object",
+                            properties: {
+                                startLine: { type: "number" },
+                                endLine: { type: "number" }
+                            },
+                            required: ["startLine", "endLine"],
+                            additionalProperties: false
+                        },
+                        expectedSha256: { type: "string" }
+                    },
+                    required: ["path", "expectedSha256"],
+                    additionalProperties: false
+                }
+            },
+            {
                 name: "dev.check",
                 description: "Check for common dev tool availability.",
                 inputSchema: emptyInputSchema()
@@ -363,7 +452,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "repo.propose_patch": {
                 const parsed = RepoProposePatchInputSchema.parse(args ?? {});
                 const result = await handleRepoProposePatch(parsed);
-                return jsonResult(result, Boolean(result?.error));
+                return jsonResult(result, Boolean(result.error));
+            }
+            case "repo.apply_patch": {
+                const parsed = RepoApplyPatchInputSchema.parse(args ?? {});
+                const result = await handleRepoApplyPatch(parsed);
+                return jsonResult(result, Boolean(result.errors?.length));
             }
             case "dev.check": {
                 const parsed = DevCheckInputSchema.parse(args ?? {});
@@ -1172,6 +1266,121 @@ async function handleRepoProposePatch(input) {
         warnings: warnings.length > 0 ? warnings : undefined
     };
 }
+async function handleRepoApplyPatch(input) {
+    const resolved = resolveRepoPath(input.path);
+    const safePath = safeOutputPath(input.path);
+    if (!resolved.ok) {
+        return applyPatchError(safePath, "path_outside_root", "path is outside repo root");
+    }
+    if (isProtectedPath(resolved.relative)) {
+        return applyPatchError(resolved.relative, "protected_path", "path is protected", {
+            path: resolved.relative
+        });
+    }
+    let stat;
+    try {
+        stat = await fs.stat(resolved.resolved);
+    }
+    catch {
+        return applyPatchError(resolved.relative, "not_found", "file not found", { path: resolved.relative });
+    }
+    if (!stat.isFile()) {
+        return applyPatchError(resolved.relative, "not_a_file", "path is not a file", { path: resolved.relative });
+    }
+    if (stat.size > MAX_FILE_SIZE_BYTES) {
+        return applyPatchError(resolved.relative, "file_too_large", "file exceeds size limit", {
+            path: resolved.relative,
+            sizeBytes: stat.size
+        });
+    }
+    if (await isBinaryFile(resolved.resolved)) {
+        return applyPatchError(resolved.relative, "binary_file", "file is binary", { path: resolved.relative });
+    }
+    const warnings = [];
+    if (isLockfilePath(resolved.relative)) {
+        warnings.push("lockfile_edit");
+    }
+    const content = normalizeLineEndings(await fs.readFile(resolved.resolved, "utf8"));
+    const beforeSha256 = sha256(content);
+    if (input.expectedSha256 !== beforeSha256) {
+        return applyPatchError(resolved.relative, "sha_mismatch", "expectedSha256 does not match file content", {
+            path: resolved.relative,
+            expectedSha256: input.expectedSha256,
+            actualSha256: beforeSha256
+        }, beforeSha256);
+    }
+    const lines = content.length === 0 ? [] : content.split("\n");
+    let afterLines = [];
+    let diffApplied = "";
+    let bytesChanged = 0;
+    if (input.diff) {
+        const parsed = parseUnifiedDiff(input.diff);
+        if (!parsed.ok) {
+            return applyPatchError(resolved.relative, parsed.error.code, parsed.error.message, parsed.error.details, beforeSha256);
+        }
+        if (parsed.path && normalizeRelativePath(parsed.path) !== resolved.relative) {
+            return applyPatchError(resolved.relative, "path_mismatch", "diff path does not match input path", {
+                path: resolved.relative,
+                diffPath: parsed.path
+            }, beforeSha256);
+        }
+        const applied = applyUnifiedDiff(lines, parsed.hunks);
+        if (!applied.ok) {
+            return applyPatchError(resolved.relative, applied.error.code, applied.error.message, applied.error.details, beforeSha256);
+        }
+        afterLines = applied.lines;
+        bytesChanged = applied.bytesChanged;
+        diffApplied = normalizeLineEndings(input.diff).trimEnd();
+    }
+    else {
+        const structured = applyStructuredEdit(lines, resolved.relative, input);
+        if (!structured.ok) {
+            return applyPatchError(resolved.relative, structured.error.code, structured.error.message, structured.error.details, beforeSha256);
+        }
+        afterLines = structured.lines;
+        bytesChanged = structured.bytesChanged;
+        diffApplied = structured.diffApplied;
+    }
+    if (bytesChanged > MAX_PATCH_BYTES) {
+        return applyPatchError(resolved.relative, "patch_too_large", "proposed change exceeds size cap", {
+            path: resolved.relative,
+            maxBytes: MAX_PATCH_BYTES
+        }, beforeSha256);
+    }
+    const afterContent = afterLines.join("\n");
+    const afterSha256 = sha256(afterContent);
+    if (afterContent === content) {
+        warnings.push("no_changes");
+        return {
+            path: resolved.relative,
+            applied: false,
+            beforeSha256,
+            afterSha256,
+            diffApplied,
+            warnings: warnings.length > 0 ? warnings : undefined
+        };
+    }
+    if (Buffer.byteLength(afterContent) > MAX_FILE_SIZE_BYTES) {
+        return applyPatchError(resolved.relative, "file_too_large", "resulting file exceeds size limit", {
+            path: resolved.relative,
+            sizeBytes: Buffer.byteLength(afterContent)
+        }, beforeSha256, afterSha256, diffApplied);
+    }
+    try {
+        await writeFileAtomic(resolved.resolved, afterContent, stat.mode);
+    }
+    catch (error) {
+        return applyPatchError(resolved.relative, "write_failed", "failed to write file", { path: resolved.relative, reason: error instanceof Error ? error.message : "unknown_error" }, beforeSha256, afterSha256, diffApplied);
+    }
+    return {
+        path: resolved.relative,
+        applied: true,
+        beforeSha256,
+        afterSha256,
+        diffApplied,
+        warnings: warnings.length > 0 ? warnings : undefined
+    };
+}
 async function handleDevCheck(_input) {
     const tools = await checkDevTools([
         "rg",
@@ -1761,6 +1970,258 @@ function buildUnifiedDiffForReplace(pathValue, startLine, endLine, removedLines,
         ...newLines.map((text) => `+${text}`)
     ].join("\n");
 }
+function parseUnifiedDiff(diff) {
+    const normalized = normalizeLineEndings(diff);
+    const lines = normalized.split("\n");
+    let parsedPath;
+    let index = 0;
+    let sawHunk = false;
+    for (; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (line.startsWith("diff --git ")) {
+            const match = line.match(/^diff --git a\/(.+) b\/(.+)$/);
+            if (match) {
+                parsedPath = normalizeRelativePath(match[2]);
+            }
+            continue;
+        }
+        if (line.startsWith("--- ")) {
+            const candidate = parseDiffPath(line.slice(4));
+            if (candidate)
+                parsedPath = normalizeRelativePath(candidate);
+            continue;
+        }
+        if (line.startsWith("+++ ")) {
+            const candidate = parseDiffPath(line.slice(4));
+            if (candidate)
+                parsedPath = normalizeRelativePath(candidate);
+            continue;
+        }
+        if (line.startsWith("@@ ")) {
+            sawHunk = true;
+            break;
+        }
+    }
+    if (!sawHunk) {
+        return { ok: false, error: { code: "invalid_diff", message: "no hunks found in diff" } };
+    }
+    const hunks = [];
+    while (index < lines.length) {
+        const header = lines[index];
+        if (!header.startsWith("@@ ")) {
+            if (header.startsWith("diff --git ")) {
+                return { ok: false, error: { code: "multi_file_diff", message: "diff contains multiple files" } };
+            }
+            if (header.trim().length === 0) {
+                index += 1;
+                continue;
+            }
+            return { ok: false, error: { code: "invalid_diff", message: "unexpected diff content" } };
+        }
+        const match = header.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+        if (!match) {
+            return { ok: false, error: { code: "invalid_hunk", message: "invalid hunk header" } };
+        }
+        const oldStart = Number(match[1]);
+        const oldCount = Number(match[2] ?? "1");
+        const newStart = Number(match[3]);
+        const newCount = Number(match[4] ?? "1");
+        const hunkLines = [];
+        index += 1;
+        while (index < lines.length && !lines[index].startsWith("@@ ")) {
+            const line = lines[index];
+            if (line.startsWith("diff --git ")) {
+                return { ok: false, error: { code: "multi_file_diff", message: "diff contains multiple files" } };
+            }
+            if (line.startsWith("\\ No newline")) {
+                index += 1;
+                continue;
+            }
+            const prefix = line[0];
+            const text = line.slice(1);
+            if (prefix === " ") {
+                hunkLines.push({ type: "context", text });
+            }
+            else if (prefix === "+") {
+                hunkLines.push({ type: "add", text });
+            }
+            else if (prefix === "-") {
+                hunkLines.push({ type: "del", text });
+            }
+            else {
+                return { ok: false, error: { code: "invalid_diff", message: "invalid diff line" } };
+            }
+            index += 1;
+        }
+        hunks.push({ oldStart, oldCount, newStart, newCount, lines: hunkLines });
+    }
+    if (hunks.length === 0) {
+        return { ok: false, error: { code: "invalid_diff", message: "no hunks found in diff" } };
+    }
+    return { ok: true, path: parsedPath, hunks };
+}
+function parseDiffPath(rawPath) {
+    if (rawPath === "/dev/null")
+        return null;
+    if (rawPath.startsWith("a/") || rawPath.startsWith("b/")) {
+        return rawPath.slice(2);
+    }
+    return rawPath;
+}
+function applyUnifiedDiff(lines, hunks) {
+    const output = [];
+    let cursor = 0;
+    let bytesChanged = 0;
+    for (const hunk of hunks) {
+        if (hunk.oldStart <= 0) {
+            return { ok: false, error: { code: "invalid_hunk", message: "hunk start is invalid" } };
+        }
+        const targetIndex = hunk.oldStart - 1;
+        if (targetIndex < cursor || targetIndex > lines.length) {
+            return {
+                ok: false,
+                error: { code: "hunk_out_of_range", message: "hunk start is out of range", details: { oldStart: hunk.oldStart } }
+            };
+        }
+        output.push(...lines.slice(cursor, targetIndex));
+        cursor = targetIndex;
+        let seenOld = 0;
+        let seenNew = 0;
+        for (const entry of hunk.lines) {
+            if (entry.type === "context") {
+                if (lines[cursor] !== entry.text) {
+                    return {
+                        ok: false,
+                        error: {
+                            code: "hunk_context_mismatch",
+                            message: "context line does not match",
+                            details: { expected: entry.text, actual: lines[cursor] ?? "" }
+                        }
+                    };
+                }
+                output.push(lines[cursor]);
+                cursor += 1;
+                seenOld += 1;
+                seenNew += 1;
+            }
+            else if (entry.type === "del") {
+                if (lines[cursor] !== entry.text) {
+                    return {
+                        ok: false,
+                        error: {
+                            code: "hunk_delete_mismatch",
+                            message: "deleted line does not match",
+                            details: { expected: entry.text, actual: lines[cursor] ?? "" }
+                        }
+                    };
+                }
+                cursor += 1;
+                seenOld += 1;
+                bytesChanged += Buffer.byteLength(entry.text);
+            }
+            else {
+                output.push(entry.text);
+                seenNew += 1;
+                bytesChanged += Buffer.byteLength(entry.text);
+            }
+        }
+        if (seenOld !== hunk.oldCount) {
+            return {
+                ok: false,
+                error: {
+                    code: "hunk_old_count_mismatch",
+                    message: "hunk old line count mismatch",
+                    details: { expected: hunk.oldCount, actual: seenOld }
+                }
+            };
+        }
+        if (seenNew !== hunk.newCount) {
+            return {
+                ok: false,
+                error: {
+                    code: "hunk_new_count_mismatch",
+                    message: "hunk new line count mismatch",
+                    details: { expected: hunk.newCount, actual: seenNew }
+                }
+            };
+        }
+    }
+    output.push(...lines.slice(cursor));
+    return { ok: true, lines: output, bytesChanged };
+}
+function applyStructuredEdit(lines, pathValue, input) {
+    const totalLines = lines.length;
+    if (input.insert) {
+        const line = input.insert.line;
+        if (line < 1 || line > totalLines + 1) {
+            return {
+                ok: false,
+                error: { code: "invalid_range", message: "insert line is out of range", details: { line } }
+            };
+        }
+        const insertLines = normalizeLineEndings(input.insert.text).split("\n");
+        const bytesChanged = Buffer.byteLength(input.insert.text);
+        const afterLines = [
+            ...lines.slice(0, line - 1),
+            ...insertLines,
+            ...lines.slice(line - 1)
+        ];
+        return {
+            ok: true,
+            lines: afterLines,
+            bytesChanged,
+            diffApplied: buildUnifiedDiffForInsert(pathValue, line, insertLines)
+        };
+    }
+    if (input.delete) {
+        const startLine = input.delete.startLine;
+        const endLine = input.delete.endLine;
+        if (startLine < 1 || endLine < 1 || startLine > endLine || endLine > totalLines) {
+            return {
+                ok: false,
+                error: {
+                    code: "invalid_range",
+                    message: "delete range is out of bounds",
+                    details: { startLine, endLine }
+                }
+            };
+        }
+        const removedLines = lines.slice(startLine - 1, endLine);
+        const bytesChanged = Buffer.byteLength(removedLines.join("\n"));
+        const afterLines = [...lines.slice(0, startLine - 1), ...lines.slice(endLine)];
+        return {
+            ok: true,
+            lines: afterLines,
+            bytesChanged,
+            diffApplied: buildUnifiedDiffForDelete(pathValue, startLine, endLine, removedLines)
+        };
+    }
+    if (input.replace) {
+        const startLine = input.replace.startLine;
+        const endLine = input.replace.endLine;
+        if (startLine < 1 || endLine < 1 || startLine > endLine || endLine > totalLines) {
+            return {
+                ok: false,
+                error: {
+                    code: "invalid_range",
+                    message: "replace range is out of bounds",
+                    details: { startLine, endLine }
+                }
+            };
+        }
+        const newLines = normalizeLineEndings(input.replace.newText).split("\n");
+        const removedLines = lines.slice(startLine - 1, endLine);
+        const bytesChanged = Buffer.byteLength(input.replace.newText) + Buffer.byteLength(removedLines.join("\n"));
+        const afterLines = [...lines.slice(0, startLine - 1), ...newLines, ...lines.slice(endLine)];
+        return {
+            ok: true,
+            lines: afterLines,
+            bytesChanged,
+            diffApplied: buildUnifiedDiffForReplace(pathValue, startLine, endLine, removedLines, newLines)
+        };
+    }
+    return { ok: false, error: { code: "invalid_request", message: "no changes provided" } };
+}
 async function buildRefSnippets(filePath, hits, maxSnippetsPerFile) {
     const sorted = [...hits].sort((a, b) => a.lineNumber - b.lineNumber);
     const selected = [];
@@ -2227,6 +2688,21 @@ function safeOutputPath(userPath) {
         return resolved.relative;
     return ".";
 }
+function allowProtectedPaths() {
+    const raw = process.env.BIDDERSWEET_ALLOW_PROTECTED_PATHS;
+    if (!raw)
+        return false;
+    return ["1", "true", "yes"].includes(raw.trim().toLowerCase());
+}
+function isProtectedPath(relPath) {
+    if (allowProtectedPaths())
+        return false;
+    const normalized = normalizeRelativePath(relPath);
+    return PROTECTED_PATH_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+function isLockfilePath(relPath) {
+    return LOCKFILE_NAMES.has(path.basename(relPath));
+}
 async function existsInRepo(relPath) {
     const resolved = resolveRepoPath(relPath);
     if (!resolved.ok)
@@ -2313,6 +2789,34 @@ function toolError(code, message, details) {
             details
         }
     };
+}
+function applyPatchError(pathValue, code, message, details, beforeSha256, afterSha256, diffApplied) {
+    return {
+        path: pathValue,
+        applied: false,
+        beforeSha256,
+        afterSha256,
+        diffApplied,
+        errors: [{ code, message, details }]
+    };
+}
+async function writeFileAtomic(filePath, content, mode) {
+    const dir = path.dirname(filePath);
+    const tmpName = `.biddersweet-tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const tmpPath = path.join(dir, tmpName);
+    try {
+        await fs.writeFile(tmpPath, content, mode ? { mode } : undefined);
+        await fs.rename(tmpPath, filePath);
+    }
+    catch (error) {
+        try {
+            await fs.unlink(tmpPath);
+        }
+        catch {
+            // ignore cleanup errors
+        }
+        throw error;
+    }
 }
 async function main() {
     const transport = new StdioServerTransport();
