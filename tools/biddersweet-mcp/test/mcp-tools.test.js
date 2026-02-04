@@ -148,7 +148,13 @@ test("repo.info returns metadata for configured repo", async () => {
   assert.deepEqual(payload.detectedLanguages, { ruby: true, js: true });
   assert.equal(payload.packageManager, "npm");
   assert.equal(payload.isGitRepo, false);
-  assert.deepEqual(payload.availableDevCommands, ["dev.run_tests", "dev.run_lint", "dev.run", "dev.check"]);
+  assert.deepEqual(payload.availableDevCommands, [
+    "dev.run_tests",
+    "dev.run_lint",
+    "dev.run",
+    "dev.explain_failure",
+    "dev.check"
+  ]);
 });
 
 test("repo.search finds a string", async () => {
@@ -443,6 +449,36 @@ test("dev.run rejects args that are not allowlisted", async () => {
   });
   assert.equal(result.isError, true);
   assert.equal(payload.error.code, "args_not_allowed");
+});
+
+test("dev.explain_failure extracts structured errors", async () => {
+  const stdout = [
+    "src/foo.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.",
+    "FAIL  src/foo.test.ts",
+    "  TypeError: Cannot read properties of undefined (reading 'bar')",
+    "    at Object.<anonymous> (src/foo.test.ts:5:11)"
+  ].join("\n");
+  const stderr = [
+    "src/foo.ts:3:10 error 'x' is defined but never used (no-unused-vars)",
+    "app/models/user.rb:5:3: C: Layout/IndentationWidth: Use 2 spaces for indentation.",
+    "app/models/user.rb:10:in `name'"
+  ].join("\n");
+  const { result, payload } = await callTool("dev.explain_failure", { stdout, stderr });
+  assert.equal(result.isError, false);
+  assert.ok(payload.primaryError);
+  assert.ok(Array.isArray(payload.errors));
+  assert.ok(payload.errors.length >= 2);
+  assert.ok(Array.isArray(payload.stackFrames));
+  assert.ok(payload.stackFrames.length >= 1);
+  assert.equal(typeof payload.summary, "string");
+  assert.ok(payload.confidence >= 0 && payload.confidence <= 1);
+});
+
+test("dev.explain_failure handles empty output", async () => {
+  const { result, payload } = await callTool("dev.explain_failure", { stdout: "", stderr: "" });
+  assert.equal(result.isError, false);
+  assert.equal(payload.primaryError, null);
+  assert.ok(payload.warnings.includes("no_errors_detected"));
 });
 
 test("dev.run_tests returns structured result", async () => {
