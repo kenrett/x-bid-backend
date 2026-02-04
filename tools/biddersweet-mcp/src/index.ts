@@ -11,6 +11,8 @@ import { z } from "zod";
 const MAX_FILE_SIZE_BYTES = 200 * 1024;
 const MAX_PREVIEW_CHARS = 300;
 const MAX_CMD_OUTPUT_BYTES = 10 * 1024;
+const BENCHMARK_MAX_OUTPUT_BYTES = 8 * 1024;
+const BENCHMARK_TIMEOUT_MS = 10_000;
 const DEFAULT_SEARCH_MAX = 50;
 const HARD_SEARCH_MAX = 100;
 const DEFAULT_FIND_REFS_MAX_FILES = 50;
@@ -58,6 +60,14 @@ type DevRunAllowlistEntry = {
   envAllowlist?: string[];
 };
 
+type DevBenchmarkAllowlistEntry = {
+  name: string;
+  command: string[];
+  timeoutMs?: number;
+  maxOutputBytes?: number;
+  envAllowlist?: string[];
+};
+
 const DEV_RUN_ALLOWLIST: DevRunAllowlistEntry[] = [
   {
     name: "node-version",
@@ -65,6 +75,30 @@ const DEV_RUN_ALLOWLIST: DevRunAllowlistEntry[] = [
     allowedArgs: [],
     timeoutMs: 10_000,
     maxOutputBytes: MAX_CMD_OUTPUT_BYTES,
+    envAllowlist: []
+  }
+];
+
+const DEV_BENCHMARK_ALLOWLIST: DevBenchmarkAllowlistEntry[] = [
+  {
+    name: "json-parse-smoke",
+    command: [
+      "node",
+      "-e",
+      [
+        "const fs=require('fs');",
+        "const path=require('path');",
+        "const target=path.join(process.cwd(),'package.json');",
+        "let data='{}';",
+        "try{data=fs.readFileSync(target,'utf8');}catch{}",
+        "let parsed=null;",
+        "for(let i=0;i<2000;i++){parsed=JSON.parse(data);}",
+        "if(!parsed){process.stderr.write('parse_failed');process.exit(1);}",
+        "process.stdout.write(`iterations:2000\\nbytes:${data.length}\\n`);"
+      ].join("")
+    ],
+    timeoutMs: BENCHMARK_TIMEOUT_MS,
+    maxOutputBytes: BENCHMARK_MAX_OUTPUT_BYTES,
     envAllowlist: []
   }
 ];
@@ -210,6 +244,9 @@ const DevRunInputSchema = z.object({
   name: z.string().min(1),
   args: z.array(z.string()).optional()
 });
+const DevBenchmarkInputSchema = z.object({
+  name: z.string().min(1)
+});
 const DevExplainFailureInputSchema = z
   .object({
     stdout: z.string().optional(),
@@ -253,6 +290,7 @@ type RepoProposePatchInput = z.infer<typeof RepoProposePatchInputSchema>;
 type RepoApplyPatchInput = z.infer<typeof RepoApplyPatchInputSchema>;
 type DevRunTargetInput = z.infer<typeof DevRunTargetSchema>;
 type DevRunInput = z.infer<typeof DevRunInputSchema>;
+type DevBenchmarkInput = z.infer<typeof DevBenchmarkInputSchema>;
 type DevExplainFailureInput = z.infer<typeof DevExplainFailureInputSchema>;
 type RailsRoutesInput = z.infer<typeof RailsRoutesInputSchema>;
 type RailsSchemaInput = z.infer<typeof RailsSchemaInputSchema>;
@@ -627,6 +665,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: "dev.benchmark_smoke",
+        description: "Run a short allowlisted benchmark for smoke performance checks.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string" }
+          },
+          required: ["name"],
+          additionalProperties: false
+        }
+      },
+      {
         name: "dev.explain_failure",
         description: "Explain stdout/stderr output with structured error extraction.",
         inputSchema: {
@@ -788,6 +838,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await handleDevRunAllowlisted(parsed);
         return jsonResult(result, Boolean((result as { error?: unknown }).error));
       }
+      case "dev.benchmark_smoke": {
+        const parsed = DevBenchmarkInputSchema.parse(args ?? {});
+        const result = await handleDevBenchmarkSmoke(parsed);
+        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+      }
       case "dev.explain_failure": {
         const parsed = DevExplainFailureInputSchema.parse(args ?? {});
         const result = await handleDevExplainFailure(parsed);
@@ -860,6 +915,9 @@ async function handleRepoInfo(_input: RepoInfoInput) {
   }
   if (DEV_RUN_ALLOWLIST.length > 0) {
     availableDevCommands.push("dev.run");
+  }
+  if (DEV_BENCHMARK_ALLOWLIST.length > 0) {
+    availableDevCommands.push("dev.benchmark_smoke");
   }
   availableDevCommands.push("dev.explain_failure");
   availableDevCommands.push("dev.check");
@@ -2025,6 +2083,35 @@ async function handleDevRunAllowlisted(input: DevRunInput) {
     truncated: result.truncated,
     limits: { timeoutMs, maxOutputBytes },
     envUsed
+  };
+}
+
+async function handleDevBenchmarkSmoke(input: DevBenchmarkInput) {
+  const entry = DEV_BENCHMARK_ALLOWLIST.find((item) => item.name === input.name);
+  if (!entry) {
+    return toolError("benchmark_not_allowed", "benchmark is not allowlisted", { name: input.name });
+  }
+
+  const cmd = [...entry.command];
+  const timeoutMs = entry.timeoutMs ?? BENCHMARK_TIMEOUT_MS;
+  const maxOutputBytes = entry.maxOutputBytes ?? BENCHMARK_MAX_OUTPUT_BYTES;
+  const { env } = buildAllowlistedEnv(entry.envAllowlist ?? []);
+
+  const result = await runAllowlistedCommand(cmd, {
+    timeoutMs,
+    maxOutputBytes,
+    env
+  });
+
+  return {
+    name: entry.name,
+    cmd,
+    durationMs: result.durationMs,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+    truncated: result.truncated
   };
 }
 
