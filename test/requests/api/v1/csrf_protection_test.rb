@@ -37,4 +37,22 @@ class CsrfProtectionTest < ActionDispatch::IntegrationTest
 
     assert_response :success
   end
+
+  test "POST with mismatched CSRF token fails with csrf_failed" do
+    host! "api.lvh.me"
+    get "/api/v1/csrf", headers: { "Origin" => "http://app.lvh.me:5173" }
+    assert_response :success
+
+    post "/api/v1/login",
+         params: { session: { email_address: @user.email_address, password: "password" } },
+         headers: {
+           "Origin" => "http://app.lvh.me:5173",
+           "X-CSRF-Token" => "bad-token"
+         }
+
+    assert_response :unauthorized
+    body = JSON.parse(response.body)
+    assert_equal "invalid_token", body.dig("error", "code")
+    assert_equal "csrf_failed", body.dig("error", "details", "reason")
+  end
 end

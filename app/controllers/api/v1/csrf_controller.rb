@@ -19,7 +19,7 @@ module Api
         )
         cookies.signed[:csrf_token] = {
           value: token,
-          httponly: false,
+          httponly: true,
           **cookie_options
         }.compact
         if ENV["DEBUG_CSRF_PROBE"] == "1"

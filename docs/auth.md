@@ -123,6 +123,16 @@ Two complementary safety nets:
 
 If either mechanism fails, the other still protects the system.
 
+## 🛡️ CSRF Token Flow (SPA)
+
+For browser-based requests without an Authorization header, the frontend must fetch a CSRF token:
+
+1. `GET /api/v1/csrf` returns `{ csrf_token: "..." }` JSON.
+2. The response also sets a signed `csrf_token` cookie that is `HttpOnly`.
+3. The frontend keeps the JSON token in memory and sends it as `X-CSRF-Token` on unsafe requests.
+
+The backend validates that the `X-CSRF-Token` header matches the signed cookie value. No localStorage is required.
+
 ## 📚 Related Diagrams (Recommended Next Reads)
 
 <!-- TODO (Add links) -->
