@@ -3,8 +3,10 @@ require "test_helper"
 class CorsSubdomainAuthCompatibilityTest < ActionDispatch::IntegrationTest
   BIDDERSWEET_ORIGINS = %w[
     https://biddersweet.app
+    https://www.biddersweet.app
     https://afterdark.biddersweet.app
     https://marketplace.biddersweet.app
+    https://account.biddersweet.app
   ].freeze
 
   test "CORS preflight allows biddersweet subdomains and credentialed headers" do
@@ -23,13 +25,13 @@ class CorsSubdomainAuthCompatibilityTest < ActionDispatch::IntegrationTest
   test "auth endpoints reflect allow-origin for biddersweet origins" do
     user = User.create!(name: "CORS User", email_address: "cors_user@example.com", password: "password", bid_credits: 0)
 
-    csrf = csrf_headers(origin: "https://afterdark.biddersweet.app")
+    csrf = csrf_headers(origin: "https://www.biddersweet.app")
     post "/api/v1/login",
          params: { session: { email_address: user.email_address, password: "password" } },
          headers: csrf
 
     assert_response :success
-    assert_equal "https://afterdark.biddersweet.app", response.headers["Access-Control-Allow-Origin"]
+    assert_equal "https://www.biddersweet.app", response.headers["Access-Control-Allow-Origin"]
   end
 
   private

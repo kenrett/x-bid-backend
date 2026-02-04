@@ -10,6 +10,7 @@
 Ensure the frontend origin is one of:
 
 - `https://biddersweet.app`
+- `https://www.biddersweet.app`
 - `https://afterdark.biddersweet.app`
 - `https://marketplace.biddersweet.app`
 - `https://account.biddersweet.app`
