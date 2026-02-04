@@ -17,3 +17,4 @@ This backend serves the API at `api.biddersweet.app` and issues cookie-based ses
 
 - Production cookies are `Secure`, `HttpOnly`, `SameSite=Lax`, and scoped to `domain=.biddersweet.app`.
 - Logout/revocation clears cookies using the same `domain`, `path`, `SameSite`, and `Secure` attributes to ensure browsers remove them.
+- If cross-site requests require `SameSite=None`, set `SESSION_COOKIE_SAMESITE=none` and `ALLOW_SAMESITE_NONE=true` explicitly.

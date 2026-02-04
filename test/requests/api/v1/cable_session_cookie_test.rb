@@ -70,6 +70,24 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_includes set_cookie, "cable_session="
     assert_match(/domain=\.biddersweet\.app/i, set_cookie)
     assert_match(/secure/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
+    assert_match(/path=\/cable/i, set_cookie)
+  end
+
+  test "login sets SameSite=None on cable session cookie when opted in" do
+    with_env("SESSION_COOKIE_SAMESITE" => "none", "ALLOW_SAMESITE_NONE" => "true") do
+      Rails.stub(:env, ActiveSupport::StringInquirer.new("production")) do
+        host! "api.biddersweet.app"
+        https!
+        post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+      end
+    end
+
+    assert_response :success
+    set_cookie = set_cookie_header
+    assert_includes set_cookie, "cable_session="
+    assert_match(/domain=\.biddersweet\.app/i, set_cookie)
+    assert_match(/secure/i, set_cookie)
     assert_match(/samesite=none/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
   end
@@ -113,7 +131,7 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_match(/path=\/cable/i, set_cookie)
     assert_match(/domain=\.biddersweet\.app/i, set_cookie)
     assert_match(/httponly/i, set_cookie)
-    assert_match(/samesite=none/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
     assert_match(/secure/i, set_cookie)
     assert_expired_cookie!(set_cookie)
   end

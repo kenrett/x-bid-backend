@@ -19,14 +19,18 @@ module CookieDomainResolver
   end
 
   def same_site
-    env_override = ENV["COOKIE_SAMESITE"].to_s.strip.downcase
-    return :none if env_override == "none"
-    return :strict if env_override == "strict"
-    return :lax if env_override == "lax"
-
-    return :none if Rails.env.production?
+    env_override = ENV["SESSION_COOKIE_SAMESITE"].presence || ENV["COOKIE_SAMESITE"].presence
+    env_value = env_override.to_s.strip.downcase
+    return :strict if env_value == "strict"
+    return :lax if env_value == "lax"
+    return :none if env_value == "none" && allow_same_site_none?
 
     :lax
+  end
+
+  def allow_same_site_none?
+    raw_value = ENV["ALLOW_SAMESITE_NONE"].to_s.strip.downcase
+    raw_value == "true" || raw_value == "1" || raw_value == "yes"
   end
 
   def secure?(same_site_value = same_site)

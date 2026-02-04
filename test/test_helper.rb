@@ -27,4 +27,21 @@ class ActiveSupport::TestCase
   # Add more helper methods to be used by all tests here...
   include AuthHelpers
   include RoleMatrixHelpers
+
+  def with_env(vars)
+    original = {}
+    vars.each do |key, value|
+      original[key] = ENV[key]
+      ENV[key] = value
+    end
+    yield
+  ensure
+    vars.each_key do |key|
+      if original[key].nil?
+        ENV.delete(key)
+      else
+        ENV[key] = original[key]
+      end
+    end
+  end
 end
