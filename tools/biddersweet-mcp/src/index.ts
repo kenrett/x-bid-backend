@@ -14,6 +14,7 @@ const DEFAULT_SEARCH_MAX = 50;
 const HARD_SEARCH_MAX = 100;
 const DEFAULT_LIST_MAX = 500;
 const HARD_LIST_MAX = 2000;
+const MAX_READ_RANGE_LINES = 400;
 const DEFAULT_CMD_TIMEOUT_MS = 60_000;
 const CHECK_TIMEOUT_MS = 1_500;
 
@@ -50,6 +51,11 @@ const RepoSearchInputSchema = z.object({
 const RepoReadFileInputSchema = z.object({
   path: z.string()
 });
+const RepoReadRangeInputSchema = z.object({
+  path: z.string(),
+  startLine: z.number().int(),
+  endLine: z.number().int()
+});
 const RepoListDirInputSchema = z.object({
   path: z.string().optional().default(""),
   maxEntries: z.number().int().positive().optional()
@@ -62,6 +68,7 @@ const DevRunTargetSchema = z.object({
 type RepoInfoInput = z.infer<typeof RepoInfoInputSchema>;
 type RepoSearchInput = z.infer<typeof RepoSearchInputSchema>;
 type RepoReadFileInput = z.infer<typeof RepoReadFileInputSchema>;
+type RepoReadRangeInput = z.infer<typeof RepoReadRangeInputSchema>;
 type RepoListDirInput = z.infer<typeof RepoListDirInputSchema>;
 type DevRunTargetInput = z.infer<typeof DevRunTargetSchema>;
 
@@ -106,6 +113,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             path: { type: "string" }
           },
           required: ["path"],
+          additionalProperties: false
+        }
+      },
+      {
+        name: "repo.read_range",
+        description: "Read a specific line range within a text file in the repo.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            startLine: { type: "number" },
+            endLine: { type: "number" }
+          },
+          required: ["path", "startLine", "endLine"],
           additionalProperties: false
         }
       },
@@ -171,6 +192,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsed = RepoReadFileInputSchema.parse(args ?? {});
         const result = await handleRepoReadFile(parsed);
         return jsonResult(result);
+      }
+      case "repo.read_range": {
+        const parsed = RepoReadRangeInputSchema.parse(args ?? {});
+        const result = await handleRepoReadRange(parsed);
+        return jsonResult(result, Boolean((result as { error?: unknown }).error));
       }
       case "repo.list_dir": {
         const parsed = RepoListDirInputSchema.parse(args ?? {});
@@ -317,6 +343,105 @@ async function handleRepoReadFile(input: RepoReadFileInput) {
   };
 }
 
+async function handleRepoReadRange(input: RepoReadRangeInput) {
+  const resolved = resolveRepoPath(input.path);
+  if (!resolved.ok) {
+    return toolError("path_outside_root", "path is outside repo root", {
+      path: safeOutputPath(input.path)
+    });
+  }
+
+  if (input.startLine <= 0 || input.endLine <= 0 || input.startLine > input.endLine) {
+    return toolError("invalid_range", "startLine and endLine must be positive and startLine <= endLine", {
+      path: resolved.relative,
+      startLine: input.startLine,
+      endLine: input.endLine
+    });
+  }
+
+  let stat: fsSync.Stats;
+  try {
+    stat = await fs.stat(resolved.resolved);
+  } catch {
+    return toolError("not_found", "file not found", { path: resolved.relative });
+  }
+
+  if (!stat.isFile()) {
+    return toolError("not_a_file", "path is not a file", { path: resolved.relative });
+  }
+
+  if (stat.size > MAX_FILE_SIZE_BYTES) {
+    return toolError("file_too_large", "file exceeds size limit", {
+      path: resolved.relative,
+      sizeBytes: stat.size
+    });
+  }
+
+  const binary = await isBinaryFile(resolved.resolved);
+  if (binary) {
+    return toolError("binary_file", "file is binary", { path: resolved.relative });
+  }
+
+  const content = await fs.readFile(resolved.resolved, "utf8");
+  const normalized = normalizeLineEndings(content);
+  const lines = normalized.length === 0 ? [] : normalized.split("\n");
+  const totalLines = lines.length;
+  const warnings: string[] = [];
+
+  let startLine = input.startLine;
+  let endLine = input.endLine;
+  let truncated = false;
+
+  if (totalLines === 0) {
+    warnings.push("file_is_empty");
+    return {
+      path: resolved.relative,
+      startLine,
+      endLine,
+      text: "",
+      totalLines,
+      truncated,
+      warnings
+    };
+  }
+
+  if (startLine > totalLines) {
+    warnings.push("startLine_out_of_range");
+    return {
+      path: resolved.relative,
+      startLine,
+      endLine,
+      text: "",
+      totalLines,
+      truncated,
+      warnings
+    };
+  }
+
+  if (endLine > totalLines) {
+    warnings.push("endLine_out_of_range");
+    endLine = totalLines;
+  }
+
+  if (endLine - startLine + 1 > MAX_READ_RANGE_LINES) {
+    warnings.push("range_truncated");
+    endLine = startLine + MAX_READ_RANGE_LINES - 1;
+    truncated = true;
+  }
+
+  const text = lines.slice(startLine - 1, endLine).join("\n");
+
+  return {
+    path: resolved.relative,
+    startLine,
+    endLine,
+    text,
+    totalLines,
+    truncated,
+    warnings: warnings.length > 0 ? warnings : undefined
+  };
+}
+
 async function handleRepoListDir(input: RepoListDirInput) {
   const maxEntries = Math.min(input.maxEntries ?? DEFAULT_LIST_MAX, HARD_LIST_MAX);
   const resolved = resolveRepoPath(input.path ?? "");
@@ -351,11 +476,11 @@ async function handleRepoListDir(input: RepoListDirInput) {
   }
 
   const dirEntries = await fs.readdir(resolved.resolved, { withFileTypes: true });
-  const entries = dirEntries
-    .map((entry) => ({
-      name: entry.name,
-      type: entry.isDirectory() ? "dir" : entry.isFile() ? "file" : "other"
-    }))
+  const entries: Array<{ name: string; type: "file" | "dir" | "other" }> = dirEntries
+    .map((entry: fsSync.Dirent): { name: string; type: "file" | "dir" | "other" } => {
+      const type = entry.isDirectory() ? "dir" : entry.isFile() ? "file" : "other";
+      return { name: entry.name, type };
+    })
     .sort((a, b) => {
       if (a.type === b.type) {
         return a.name.localeCompare(b.name);
@@ -760,7 +885,7 @@ async function runCommandWithLimits(
       }, timeoutMs);
     }
 
-    child.on("close", (code) => {
+    child.on("close", (code: number | null) => {
       if (timeout) clearTimeout(timeout);
       let stdout = Buffer.concat(stdoutChunks).toString("utf8");
       let stderr = Buffer.concat(stderrChunks).toString("utf8");
@@ -838,7 +963,7 @@ async function runSimpleCommand(
       }, timeoutMs);
     }
 
-    child.on("close", (code) => {
+    child.on("close", (code: number | null) => {
       if (timeout) clearTimeout(timeout);
       resolve({
         ok: code === 0,
@@ -967,6 +1092,16 @@ function jsonResult(payload: unknown, isError = false) {
         text: JSON.stringify(payload)
       }
     ]
+  };
+}
+
+function toolError(code: string, message: string, details?: Record<string, unknown>) {
+  return {
+    error: {
+      code,
+      message,
+      details
+    }
   };
 }
 

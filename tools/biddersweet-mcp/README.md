@@ -1,26 +1,54 @@
 # biddersweet-mcp
 
-biddersweet-mcp is a local MCP server that exposes repo-scoped navigation (search/read/list) and a small, allowlisted set of dev commands over stdio, returning structured JSON suitable for LLM agents while enforcing strict repo-root containment and safety guardrails.
+biddersweet-mcp is a local MCP server that provides repo-scoped navigation (search/read/list) plus a small, allowlisted set of dev commands over stdio. It always returns structured JSON suitable for LLM agents and enforces strict repo-root containment and safety guardrails.
 
-## Install / build / run
+## Quickstart
 
 ```bash
+cd /Users/kenrettberg/projects/x-bid-backend/tools/biddersweet-mcp
 npm install
 npm run build
-npm run start -- /path/to/repo
+npm run start -- /Users/kenrettberg/projects/x-bid-backend
 ```
 
 Watch mode:
 
 ```bash
+cd /Users/kenrettberg/projects/x-bid-backend/tools/biddersweet-mcp
 npm run dev
 ```
 
 You can also set the repo root via `BIDDERSWEET_REPO_ROOT`.
 
+## VS Code (Codex) setup
+
+Create `/.codex/config.toml` in the repo root:
+
+```toml
+[mcp_servers.biddersweet]
+command = "node"
+args = [
+  "/Users/kenrettberg/projects/x-bid-backend/tools/biddersweet-mcp/dist/index.js",
+  "/Users/kenrettberg/projects/x-bid-backend"
+]
+```
+
+Reload VS Code (or restart the Codex extension) and ensure the project is trusted so the config is picked up.
+
+## Troubleshooting
+
+If you see `Missing script: "build"` or `Missing script: "start"`, it usually means you ran `npm` from the repo root instead of the MCP package directory. Always run commands from `tools/biddersweet-mcp` (or `cd` into it first).
+
+If TypeScript reports missing `node:` modules or `process`/`Buffer` types, ensure dev dependencies are installed from this folder:
+
+```bash
+cd /Users/kenrettberg/projects/x-bid-backend/tools/biddersweet-mcp
+npm install
+```
+
 ## Claude Desktop MCP config
 
-Example `claude_desktop_config.json` snippet:
+`claude_desktop_config.json` snippet (with the actual paths from this repo):
 
 ```json
 {
@@ -28,17 +56,19 @@ Example `claude_desktop_config.json` snippet:
     "biddersweet": {
       "command": "node",
       "args": [
-        "/absolute/path/to/tools/biddersweet-mcp/dist/index.js",
-        "/path/to/repo"
+        "/Users/kenrettberg/projects/x-bid-backend/tools/biddersweet-mcp/dist/index.js",
+        "/Users/kenrettberg/projects/x-bid-backend"
       ]
     }
   }
 }
 ```
 
-## Example tool invocations
+## Tools and examples
 
-`repo.info`:
+### repo.info
+
+Request:
 
 ```json
 {
@@ -47,7 +77,7 @@ Example `claude_desktop_config.json` snippet:
 }
 ```
 
-Example output:
+Example response:
 
 ```json
 {
@@ -60,7 +90,9 @@ Example output:
 }
 ```
 
-`repo.search`:
+### repo.search
+
+Request:
 
 ```json
 {
@@ -69,7 +101,7 @@ Example output:
 }
 ```
 
-Example output:
+Example response:
 
 ```json
 {
@@ -81,7 +113,9 @@ Example output:
 }
 ```
 
-`repo.read_file`:
+### repo.read_file
+
+Request:
 
 ```json
 {
@@ -90,7 +124,7 @@ Example output:
 }
 ```
 
-Example output:
+Example response:
 
 ```json
 {
@@ -99,7 +133,38 @@ Example output:
 }
 ```
 
-`repo.list_dir`:
+### repo.read_range
+
+Request:
+
+```json
+{
+  "tool": "repo.read_range",
+  "arguments": { "path": "README.md", "startLine": 5, "endLine": 20 }
+}
+```
+
+Example response:
+
+```json
+{
+  "path": "README.md",
+  "startLine": 5,
+  "endLine": 20,
+  "text": "Line 5\nLine 6\n...",
+  "totalLines": 120,
+  "truncated": false
+}
+```
+
+Notes:
+- If `startLine` is past the end of the file, the tool returns empty `text` with a warning.
+- If `endLine` exceeds the file length, it is clamped to the last line and a warning is returned.
+- Large ranges are truncated to a fixed cap and return `truncated: true` with a warning.
+
+### repo.list_dir
+
+Request:
 
 ```json
 {
@@ -108,7 +173,7 @@ Example output:
 }
 ```
 
-Example output:
+Example response:
 
 ```json
 {
@@ -121,7 +186,9 @@ Example output:
 }
 ```
 
-`dev.run_tests`:
+### dev.run_tests
+
+Request:
 
 ```json
 {
@@ -130,7 +197,7 @@ Example output:
 }
 ```
 
-Example output:
+Example response:
 
 ```json
 {

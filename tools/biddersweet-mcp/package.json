@@ -7,13 +7,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "mcp": "npm run start -- /Users/kenrettberg/projects/x-bid-backend",
+    "test": "node --test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "typescript": "^5.6.3"
   }
 }
