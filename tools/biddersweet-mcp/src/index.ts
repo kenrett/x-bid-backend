@@ -2421,7 +2421,7 @@ async function parseRailsRoutesStatic(maxResults: number) {
   };
 
   for (const rawLine of lines) {
-    const line = rawLine.replace(/#.*$/, "").trim();
+    const line = stripRubyComment(rawLine).trim();
     if (!line) continue;
 
     if (/^end\b/.test(line)) {
@@ -2511,6 +2511,26 @@ async function parseRailsRoutesStatic(maxResults: number) {
 
   const { routes: sliced, truncated } = truncateRoutes(routes, maxResults);
   return { routes: sliced, warnings, truncated };
+}
+
+function stripRubyComment(line: string) {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (char === "\"" && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (char === "#" && !inSingle && !inDouble) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
 }
 
 function extractOption(input: string, key: string) {
