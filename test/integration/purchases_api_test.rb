@@ -76,6 +76,31 @@ class PurchasesApiTest < ActionDispatch::IntegrationTest
     assert_nil body.dig("bid_pack", "sku")
   end
 
+  test "GET /api/v1/me/purchases/:id is read-only" do
+    purchase = create_purchase(user: @user, status: "applied")
+    CreditTransaction.create!(
+      user: @user,
+      kind: "grant",
+      amount: @bid_pack.bids,
+      reason: "bid_pack_purchase",
+      idempotency_key: "purchase:#{purchase.id}:grant",
+      purchase: purchase,
+      storefront_key: "main"
+    )
+
+    assert_nil purchase.ledger_grant_credit_transaction_id
+
+    assert_no_difference -> { CreditTransaction.count } do
+      assert_no_changes -> { purchase.reload.updated_at } do
+        assert_no_changes -> { purchase.reload.ledger_grant_credit_transaction_id } do
+          get "/api/v1/me/purchases/#{purchase.id}", headers: auth_headers(@user, @session_token)
+        end
+      end
+    end
+
+    assert_response :success
+  end
+
   private
 
   def create_purchase(user:, status:, created_at: Time.current)
