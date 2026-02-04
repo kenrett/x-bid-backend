@@ -1,0 +1,6 @@
+[mcp_servers.biddersweet]
+command = "node"
+args = [
+  "/Users/kenrettberg/projects/x-bid-backend/tools/biddersweet-mcp/dist/index.js",
+  "/Users/kenrettberg/projects/x-bid-backend"
+]
