@@ -19,6 +19,10 @@ const HARD_FIND_REFS_SNIPPETS = 10;
 const MAX_FIND_REFS_OUTPUT_BYTES = 1024 * 1024;
 const FIND_REFS_CONTEXT_RADIUS = 1;
 const MAX_FIND_REFS_HITS = HARD_FIND_REFS_MAX_FILES * HARD_FIND_REFS_SNIPPETS * 10;
+const DEFAULT_TODO_PATTERNS = ["TODO", "FIXME", "HACK", "XXX", "NOTE"];
+const DEFAULT_TODO_MAX = 200;
+const HARD_TODO_MAX = 500;
+const MAX_TODO_OUTPUT_BYTES = 1024 * 1024;
 const DEFAULT_LIST_MAX = 500;
 const HARD_LIST_MAX = 2000;
 const MAX_READ_RANGE_LINES = 400;
@@ -90,6 +94,10 @@ const RepoFindRefsInputSchema = z.object({
   maxFiles: z.number().int().positive().optional(),
   maxSnippetsPerFile: z.number().int().positive().optional()
 });
+const RepoTodoScanInputSchema = z.object({
+  patterns: z.array(z.string().min(1)).optional(),
+  maxResults: z.number().int().positive().optional()
+});
 const DevCheckInputSchema = z.object({});
 const DevRunTargetSchema = z.object({
   target: z.enum(["ruby", "js", "both"]).optional().default("both")
@@ -104,6 +112,7 @@ type RepoDepsInput = z.infer<typeof RepoDepsInputSchema>;
 type RepoTreeInput = z.infer<typeof RepoTreeInputSchema>;
 type RepoSymbolsInput = z.infer<typeof RepoSymbolsInputSchema>;
 type RepoFindRefsInput = z.infer<typeof RepoFindRefsInputSchema>;
+type RepoTodoScanInput = z.infer<typeof RepoTodoScanInputSchema>;
 type DevRunTargetInput = z.infer<typeof DevRunTargetSchema>;
 
 type DevResult = {
@@ -141,6 +150,13 @@ type RepoRefSnippet = {
 type RepoRefHit = {
   path: string;
   lineNumber: number;
+  preview: string;
+};
+
+type RepoTodoResult = {
+  pattern: string;
+  path: string;
+  line: number;
   preview: string;
 };
 
@@ -252,6 +268,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: "repo.todo_scan",
+        description: "Scan for TODO/FIXME/HACK/XXX markers within the repo.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            patterns: { type: "array", items: { type: "string" } },
+            maxResults: { type: "number" }
+          },
+          additionalProperties: false
+        }
+      },
+      {
         name: "dev.check",
         description: "Check for common dev tool availability.",
         inputSchema: emptyInputSchema()
@@ -329,6 +357,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "repo.find_refs": {
         const parsed = RepoFindRefsInputSchema.parse(args ?? {});
         const result = await handleRepoFindRefs(parsed);
+        return jsonResult(result);
+      }
+      case "repo.todo_scan": {
+        const parsed = RepoTodoScanInputSchema.parse(args ?? {});
+        const result = await handleRepoTodoScan(parsed);
         return jsonResult(result);
       }
       case "dev.check": {
@@ -1050,6 +1083,47 @@ async function handleRepoFindRefs(input: RepoFindRefsInput) {
   };
 }
 
+async function handleRepoTodoScan(input: RepoTodoScanInput) {
+  const patterns = (input.patterns ?? DEFAULT_TODO_PATTERNS).filter((pattern) => pattern.trim().length > 0);
+  const maxResults = Math.min(input.maxResults ?? DEFAULT_TODO_MAX, HARD_TODO_MAX);
+
+  const rgAvailable = await isCommandAvailable("rg");
+  let hits: RepoTodoResult[] = [];
+  let truncated = false;
+
+  if (rgAvailable) {
+    const rgResults = await runTodoScanWithRg(patterns);
+    hits = rgResults.results;
+    truncated = rgResults.truncated;
+  } else {
+    const walkResults = await runTodoScanWithWalk(patterns, maxResults + 1);
+    hits = walkResults.results;
+    truncated = walkResults.truncated;
+  }
+
+  hits.sort((a, b) => {
+    if (a.pattern !== b.pattern) return a.pattern.localeCompare(b.pattern);
+    if (a.path !== b.path) return a.path.localeCompare(b.path);
+    return a.line - b.line;
+  });
+
+  if (hits.length > maxResults) {
+    truncated = true;
+  }
+
+  const limited = hits.slice(0, maxResults);
+  const groupedCounts: Record<string, number> = {};
+  for (const item of limited) {
+    groupedCounts[item.pattern] = (groupedCounts[item.pattern] ?? 0) + 1;
+  }
+
+  return {
+    results: limited,
+    groupedCounts,
+    truncated
+  };
+}
+
 async function handleDevCheck(_input: Record<string, never>) {
   const tools = await checkDevTools([
     "rg",
@@ -1404,6 +1478,97 @@ async function runFindRefsWithWalk(symbol: string, languageHint: string) {
   return { hits, truncated };
 }
 
+async function runTodoScanWithRg(patterns: string[]) {
+  const args = ["--line-number", "--no-heading", "--fixed-strings"];
+  for (const skip of SKIP_DIR_NAMES) {
+    args.push("-g", `!${skip}/**`);
+  }
+  if (patterns.length === 0) {
+    return { results: [], truncated: false };
+  }
+  for (const pattern of patterns) {
+    args.push("-e", pattern);
+  }
+  args.push(".");
+
+  const result = await runCommandWithLimits(["rg", ...args], 10_000, MAX_TODO_OUTPUT_BYTES);
+  if (result.exitCode > 1 && result.stdout.length === 0) {
+    return { results: [], truncated: result.truncated };
+  }
+
+  const lines = result.stdout.split("\n").filter(Boolean);
+  const results: RepoTodoResult[] = [];
+  for (const line of lines) {
+    const match = line.match(/^(.*?):(\d+):(.*)$/);
+    if (!match) continue;
+    const relPath = normalizeRelativePath(match[1]);
+    const lineNumber = Number(match[2]);
+    const preview = match[3].slice(0, MAX_PREVIEW_CHARS);
+    const matchedPattern = detectTodoPattern(preview, patterns);
+    if (!matchedPattern) continue;
+    results.push({
+      pattern: matchedPattern,
+      path: relPath,
+      line: lineNumber,
+      preview
+    });
+  }
+
+  return { results, truncated: result.truncated };
+}
+
+async function runTodoScanWithWalk(patterns: string[], maxResults: number) {
+  const results: RepoTodoResult[] = [];
+  let truncated = false;
+
+  const shouldStop = () => results.length >= maxResults;
+
+  async function walk(current: string) {
+    if (shouldStop()) return;
+    let entries: fsSync.Dirent[];
+    try {
+      entries = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (shouldStop()) return;
+      if (entry.isDirectory()) {
+        if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        await walk(path.join(current, entry.name));
+      } else if (entry.isFile()) {
+        const fullPath = path.join(current, entry.name);
+        const relPath = normalizeRelativePath(path.relative(repoRoot, fullPath));
+        const stat = await fs.stat(fullPath).catch(() => null);
+        if (!stat || !stat.isFile() || stat.size > MAX_FILE_SIZE_BYTES) continue;
+        if (await isBinaryFile(fullPath)) continue;
+        const content = normalizeLineEndings(await fs.readFile(fullPath, "utf8"));
+        const lines = content.split("\n");
+        for (let i = 0; i < lines.length; i += 1) {
+          if (shouldStop()) {
+            truncated = true;
+            return;
+          }
+          const matchedPattern = detectTodoPattern(lines[i], patterns);
+          if (!matchedPattern) continue;
+          results.push({
+            pattern: matchedPattern,
+            path: relPath,
+            line: i + 1,
+            preview: lines[i].slice(0, MAX_PREVIEW_CHARS)
+          });
+        }
+      }
+    }
+  }
+
+  await walk(repoRoot);
+  if (results.length >= maxResults) {
+    truncated = true;
+  }
+  return { results, truncated };
+}
+
 async function listCandidateFiles(glob?: string) {
   const warnings: string[] = [];
   const rgAvailable = await isCommandAvailable("rg");
@@ -1528,6 +1693,13 @@ function fileMatchesLanguage(relPath: string, languageHint: string) {
   if (!extensions) return true;
   const ext = path.extname(relPath).toLowerCase();
   return extensions.has(ext);
+}
+
+function detectTodoPattern(preview: string, patterns: string[]) {
+  for (const pattern of patterns) {
+    if (preview.includes(pattern)) return pattern;
+  }
+  return null;
 }
 
 async function buildRefSnippets(
