@@ -181,6 +181,19 @@ const DevRunInputSchema = z.object({
     name: z.string().min(1),
     args: z.array(z.string()).optional()
 });
+const DevExplainFailureInputSchema = z
+    .object({
+    stdout: z.string().optional(),
+    stderr: z.string().optional(),
+    runId: z.string().optional()
+})
+    .refine((value) => {
+    if (value.runId && value.runId.trim().length > 0)
+        return true;
+    const hasStdout = typeof value.stdout === "string";
+    const hasStderr = typeof value.stderr === "string";
+    return hasStdout && hasStderr;
+}, { message: "stdout_and_stderr_required_without_runId" });
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
@@ -414,6 +427,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
+                name: "dev.explain_failure",
+                description: "Explain stdout/stderr output with structured error extraction.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        stdout: { type: "string" },
+                        stderr: { type: "string" },
+                        runId: { type: "string" }
+                    },
+                    additionalProperties: false
+                }
+            },
+            {
                 name: "dev.run_tests",
                 description: "Run allowlisted test commands.",
                 inputSchema: {
@@ -517,6 +543,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const result = await handleDevRunAllowlisted(parsed);
                 return jsonResult(result, Boolean(result.error));
             }
+            case "dev.explain_failure": {
+                const parsed = DevExplainFailureInputSchema.parse(args ?? {});
+                const result = await handleDevExplainFailure(parsed);
+                return jsonResult(result, Boolean(result.error));
+            }
             case "dev.run_tests": {
                 const parsed = DevRunTargetSchema.parse(args ?? {});
                 const result = await handleDevRunTests(parsed);
@@ -552,6 +583,7 @@ async function handleRepoInfo(_input) {
     if (DEV_RUN_ALLOWLIST.length > 0) {
         availableDevCommands.push("dev.run");
     }
+    availableDevCommands.push("dev.explain_failure");
     availableDevCommands.push("dev.check");
     return {
         repoRoot: ".",
@@ -1542,6 +1574,35 @@ async function handleDevRunAllowlisted(input) {
         envUsed
     };
 }
+async function handleDevExplainFailure(input) {
+    try {
+        if (input.runId) {
+            return toolError("run_history_unavailable", "runId lookup not implemented");
+        }
+        const stdout = input.stdout ?? "";
+        const stderr = input.stderr ?? "";
+        const combined = [stdout, stderr].filter(Boolean).join("\n");
+        const parseResult = parseFailureOutput(combined);
+        return {
+            primaryError: parseResult.primaryError,
+            errors: parseResult.errors,
+            stackFrames: parseResult.stackFrames,
+            summary: parseResult.summary,
+            confidence: parseResult.confidence,
+            warnings: parseResult.warnings.length > 0 ? parseResult.warnings : undefined
+        };
+    }
+    catch (error) {
+        return {
+            primaryError: null,
+            errors: [],
+            stackFrames: [],
+            summary: "Failed to parse output; returning best-effort defaults.",
+            confidence: 0.1,
+            warnings: ["explain_failure_internal_error"]
+        };
+    }
+}
 async function handleDevRunTests(input) {
     return handleDevRun(input.target, async () => selectRubyTestCommand(), async (packageManager) => selectJsTestCommand(packageManager));
 }
@@ -1745,6 +1806,127 @@ async function runAllowlistedCommand(command, limits) {
             finalize(-1);
         });
     });
+}
+function parseFailureOutput(text) {
+    const errors = [];
+    const stackFrames = [];
+    const warnings = [];
+    const seen = new Set();
+    const lines = normalizeLineEndings(text).split("\n");
+    const addError = (error) => {
+        const key = `${error.kind ?? ""}|${error.file ?? ""}|${error.line ?? ""}|${error.message}`;
+        if (seen.has(key))
+            return;
+        seen.add(key);
+        errors.push(error);
+    };
+    const addStackFrame = (frame) => {
+        const key = `${frame.file}|${frame.line}|${frame.function ?? ""}`;
+        if (seen.has(key))
+            return;
+        seen.add(key);
+        stackFrames.push(frame);
+    };
+    const tsError1 = /^(.*\.(?:ts|tsx|js|jsx))\((\d+),(\d+)\):\s*error\s*TS\d+:\s*(.*)$/;
+    const tsError2 = /^(.*\.(?:ts|tsx|js|jsx)):(\d+):(\d+)\s*-\s*error\s*TS\d+:\s*(.*)$/;
+    const eslintError = /^(.*):(\d+):(\d+)\s+error\s+(.*?)(?:\s+\(([^)]+)\))?$/;
+    const rubocopError = /^(.*\.rb):(\d+):(\d+):\s*([A-Z]):\s*(.*)$/;
+    const rubyStack = /^\s*(?:from\s+)?(.+\.rb):(\d+):in\s+`([^']+)'/;
+    const jsStackFn = /^\s*at\s+([^(]+)\s+\((.*):(\d+):(\d+)\)/;
+    const jsStackNoFn = /^\s*at\s+(.*):(\d+):(\d+)/;
+    const jsErrorLine = /^\s*(Error|TypeError|ReferenceError|AssertionError|SyntaxError|RangeError|EvalError|URIError|AggregateError):\s*(.*)$/;
+    for (const line of lines) {
+        let match = line.match(tsError1) || line.match(tsError2);
+        if (match) {
+            addError({
+                file: match[1],
+                line: Number(match[2]),
+                message: match[4].trim(),
+                kind: "typescript"
+            });
+            continue;
+        }
+        match = line.match(eslintError);
+        if (match) {
+            addError({
+                file: match[1],
+                line: Number(match[2]),
+                message: match[4].trim(),
+                kind: "eslint"
+            });
+            continue;
+        }
+        match = line.match(rubocopError);
+        if (match) {
+            addError({
+                file: match[1],
+                line: Number(match[2]),
+                message: match[5].trim(),
+                kind: "rubocop"
+            });
+            continue;
+        }
+        match = line.match(jsErrorLine);
+        if (match) {
+            addError({
+                message: match[2].trim(),
+                kind: "js"
+            });
+            continue;
+        }
+        match = line.match(rubyStack);
+        if (match) {
+            addStackFrame({
+                file: match[1],
+                line: Number(match[2]),
+                function: match[3]
+            });
+            continue;
+        }
+        match = line.match(jsStackFn);
+        if (match) {
+            addStackFrame({
+                file: match[2],
+                line: Number(match[3]),
+                function: match[1].trim()
+            });
+            continue;
+        }
+        match = line.match(jsStackNoFn);
+        if (match) {
+            addStackFrame({
+                file: match[1],
+                line: Number(match[2])
+            });
+            continue;
+        }
+    }
+    let primaryError = errors[0] ?? null;
+    if (!primaryError && stackFrames.length > 0) {
+        primaryError = { message: "Stack trace detected", file: stackFrames[0].file, line: stackFrames[0].line };
+    }
+    if (!primaryError) {
+        warnings.push("no_errors_detected");
+    }
+    let confidence = 0.2;
+    if (errors.length > 0)
+        confidence += 0.4;
+    if (primaryError?.file && primaryError?.line)
+        confidence += 0.2;
+    if (stackFrames.length > 0)
+        confidence += 0.1;
+    confidence = Math.min(0.95, Math.max(0, confidence));
+    const summary = primaryError
+        ? `${primaryError.kind ?? "error"}: ${primaryError.message}`
+        : "No errors detected in output.";
+    return {
+        primaryError,
+        errors,
+        stackFrames,
+        summary,
+        confidence,
+        warnings
+    };
 }
 async function runDevCommand(command) {
     const timeoutMs = resolveCommandTimeout();
