@@ -202,6 +202,8 @@ const RailsRoutesInputSchema = z.object({
     mode: z.enum(["static", "command"]).optional().default("static"),
     maxResults: z.number().int().positive().optional()
 });
+const RailsSchemaInputSchema = z.object({});
+const RailsModelsInputSchema = z.object({});
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
@@ -460,6 +462,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
+                name: "rails.schema",
+                description: "Summarize Rails database schema from db/schema.rb or db/structure.sql.",
+                inputSchema: emptyInputSchema()
+            },
+            {
+                name: "rails.models",
+                description: "Summarize Rails models with associations and validations.",
+                inputSchema: emptyInputSchema()
+            },
+            {
                 name: "dev.run_tests",
                 description: "Run allowlisted test commands.",
                 inputSchema: {
@@ -571,6 +583,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "rails.routes": {
                 const parsed = RailsRoutesInputSchema.parse(args ?? {});
                 const result = await handleRailsRoutes(parsed);
+                return jsonResult(result);
+            }
+            case "rails.schema": {
+                const parsed = RailsSchemaInputSchema.parse(args ?? {});
+                const result = await handleRailsSchema(parsed);
+                return jsonResult(result);
+            }
+            case "rails.models": {
+                const parsed = RailsModelsInputSchema.parse(args ?? {});
+                const result = await handleRailsModels(parsed);
                 return jsonResult(result);
             }
             case "dev.run_tests": {
@@ -1656,6 +1678,66 @@ async function handleRailsRoutes(input) {
         truncated: staticResult.truncated
     };
 }
+async function handleRailsSchema(_input) {
+    const warnings = [];
+    const schemaPath = "db/schema.rb";
+    const structurePath = "db/structure.sql";
+    const hasSchema = await existsInRepo(schemaPath);
+    const hasStructure = await existsInRepo(structurePath);
+    if (hasSchema && hasStructure) {
+        warnings.push("both_schema_and_structure_present_using_schema_rb");
+    }
+    if (!hasSchema && !hasStructure) {
+        return {
+            source: null,
+            tables: [],
+            warnings: ["schema_source_missing"]
+        };
+    }
+    if (hasSchema) {
+        const parsed = await parseRailsSchemaRb(schemaPath);
+        return {
+            source: schemaPath,
+            tables: parsed.tables,
+            warnings: [...warnings, ...parsed.warnings]
+        };
+    }
+    const parsed = await parseRailsStructureSql(structurePath);
+    return {
+        source: structurePath,
+        tables: parsed.tables,
+        warnings: [...warnings, ...parsed.warnings]
+    };
+}
+async function handleRailsModels(_input) {
+    const warnings = [];
+    const modelsRoot = "app/models";
+    if (!(await existsInRepo(modelsRoot))) {
+        return { models: [], warnings: ["models_directory_missing"] };
+    }
+    const modelFiles = await listRubyFiles(modelsRoot);
+    if (modelFiles.length === 0) {
+        warnings.push("no_model_files_found");
+    }
+    const models = [];
+    for (const modelPath of modelFiles) {
+        const contentResult = await readRepoTextFile(modelPath);
+        if (!contentResult.ok) {
+            warnings.push(`model_unreadable:${modelPath}:${contentResult.reason}`);
+            continue;
+        }
+        const parsed = parseRailsModelFile(modelPath, contentResult.content);
+        if (!parsed) {
+            warnings.push(`model_parse_failed:${modelPath}`);
+            continue;
+        }
+        models.push(parsed);
+    }
+    return {
+        models,
+        warnings
+    };
+}
 async function handleDevRunTests(input) {
     return handleDevRun(input.target, async () => selectRubyTestCommand(), async (packageManager) => selectJsTestCommand(packageManager));
 }
@@ -2291,6 +2373,381 @@ function truncateRoutes(routes, maxResults) {
         return { routes, truncated: false };
     }
     return { routes: routes.slice(0, maxResults), truncated: true };
+}
+async function parseRailsSchemaRb(relPath) {
+    const warnings = ["schema_parsing_is_best_effort"];
+    const contentResult = await readRepoTextFile(relPath);
+    if (!contentResult.ok) {
+        return { tables: [], warnings: [...warnings, `schema_unreadable:${contentResult.reason}`] };
+    }
+    const lines = normalizeLineEndings(contentResult.content).split("\n");
+    const tables = new Map();
+    let currentTable = null;
+    const getTable = (name) => {
+        const existing = tables.get(name);
+        if (existing)
+            return existing;
+        const created = { name, columns: [], indexes: [], foreignKeys: [] };
+        tables.set(name, created);
+        return created;
+    };
+    for (const rawLine of lines) {
+        const line = stripRubyComment(rawLine).trim();
+        if (!line)
+            continue;
+        const createMatch = line.match(/^create_table\s+"([^"]+)".*do\s+\|t\|/);
+        if (createMatch) {
+            currentTable = getTable(createMatch[1]);
+            continue;
+        }
+        if (currentTable && line === "end") {
+            currentTable = null;
+            continue;
+        }
+        if (currentTable) {
+            if (line.startsWith("t.index")) {
+                const columns = parseRubyIndexColumns(line);
+                if (columns.length > 0) {
+                    const unique = parseRubyBooleanOption(line, "unique");
+                    const index = { columns };
+                    if (typeof unique === "boolean")
+                        index.unique = unique;
+                    currentTable.indexes.push(index);
+                }
+                continue;
+            }
+            const columnMatch = line.match(/^t\.(\w+)\s+"([^"]+)"(.*)$/);
+            if (columnMatch) {
+                const type = columnMatch[1];
+                const name = columnMatch[2];
+                const options = columnMatch[3] ?? "";
+                const column = { name, type };
+                const nullValue = parseRubyBooleanOption(options, "null");
+                if (typeof nullValue === "boolean") {
+                    column.null = nullValue;
+                }
+                const defaultRaw = extractRubyOption(options, "default");
+                if (defaultRaw !== null) {
+                    column.default = parseRubyLiteral(defaultRaw);
+                }
+                currentTable.columns.push(column);
+            }
+            continue;
+        }
+        const addIndexMatch = line.match(/^add_index\s+"([^"]+)"\s*,\s*(\[[^\]]+\]|"[^"]+"|'[^']+')/);
+        if (addIndexMatch) {
+            const table = getTable(addIndexMatch[1]);
+            const columns = parseRubyColumnsLiteral(addIndexMatch[2]);
+            if (columns.length > 0) {
+                const unique = parseRubyBooleanOption(line, "unique");
+                const index = { columns };
+                if (typeof unique === "boolean")
+                    index.unique = unique;
+                table.indexes.push(index);
+            }
+            continue;
+        }
+        const foreignKeyMatch = line.match(/^add_foreign_key\s+"([^"]+)"\s*,\s*"([^"]+)"(.*)$/);
+        if (foreignKeyMatch) {
+            const from = foreignKeyMatch[1];
+            const to = foreignKeyMatch[2];
+            const options = foreignKeyMatch[3] ?? "";
+            const table = getTable(from);
+            const columnRaw = extractRubyOption(options, "column");
+            table.foreignKeys.push({
+                from,
+                to,
+                column: columnRaw ? stripQuotes(columnRaw) : undefined
+            });
+        }
+    }
+    return {
+        tables: Array.from(tables.values()),
+        warnings
+    };
+}
+async function parseRailsStructureSql(relPath) {
+    const warnings = ["schema_parsing_is_best_effort"];
+    const contentResult = await readRepoTextFile(relPath);
+    if (!contentResult.ok) {
+        return { tables: [], warnings: [...warnings, `schema_unreadable:${contentResult.reason}`] };
+    }
+    const lines = normalizeLineEndings(contentResult.content).split("\n");
+    const tables = new Map();
+    const getTable = (name) => {
+        const existing = tables.get(name);
+        if (existing)
+            return existing;
+        const created = { name, columns: [], indexes: [], foreignKeys: [] };
+        tables.set(name, created);
+        return created;
+    };
+    let currentTable = null;
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line)
+            continue;
+        const createMatch = line.match(/^CREATE TABLE\s+"?([^"\s]+)"?\s*\(/i);
+        if (createMatch) {
+            currentTable = getTable(createMatch[1]);
+            continue;
+        }
+        if (currentTable) {
+            if (line.startsWith(");") || line === ")") {
+                currentTable = null;
+                continue;
+            }
+            if (/^(CONSTRAINT|PRIMARY KEY|UNIQUE|CHECK)/i.test(line)) {
+                continue;
+            }
+            const columnMatch = line.match(/^\s*"([^"]+)"\s+(.+?)(?:,)?$/);
+            if (columnMatch) {
+                const name = columnMatch[1];
+                const rest = columnMatch[2];
+                const column = parseSqlColumnDefinition(name, rest);
+                currentTable.columns.push(column);
+            }
+            continue;
+        }
+        const indexMatch = line.match(/^CREATE\s+(UNIQUE\s+)?INDEX\s+.+?\s+ON\s+(?:ONLY\s+)?"?([^"\s]+)"?(?:\s+USING\s+\w+)?\s*\((.+)\)/i);
+        if (indexMatch) {
+            const unique = Boolean(indexMatch[1]);
+            const tableName = indexMatch[2];
+            const columns = parseSqlColumnList(indexMatch[3]);
+            if (columns.length > 0) {
+                getTable(tableName).indexes.push({ columns, unique });
+            }
+            continue;
+        }
+        const fkMatch = line.match(/^ALTER TABLE\s+(?:ONLY\s+)?"?([^"\s]+)"?.+FOREIGN KEY\s*\(([^)]+)\)\s+REFERENCES\s+"?([^"\s]+)"?(?:\s*\(([^)]+)\))?/i);
+        if (fkMatch) {
+            const from = fkMatch[1];
+            const columns = parseSqlColumnList(fkMatch[2]);
+            const to = fkMatch[3];
+            getTable(from).foreignKeys.push({
+                from,
+                to,
+                column: columns.length === 1 ? columns[0] : columns.length > 1 ? columns.join(",") : undefined
+            });
+        }
+    }
+    return {
+        tables: Array.from(tables.values()),
+        warnings
+    };
+}
+async function readRepoTextFile(relPath) {
+    const resolved = resolveRepoPath(relPath);
+    if (!resolved.ok) {
+        return { ok: false, reason: "not_found" };
+    }
+    let stat;
+    try {
+        stat = await fs.stat(resolved.resolved);
+    }
+    catch {
+        return { ok: false, reason: "not_found" };
+    }
+    if (!stat.isFile()) {
+        return { ok: false, reason: "not_a_file" };
+    }
+    if (stat.size > MAX_FILE_SIZE_BYTES) {
+        return { ok: false, reason: "file_too_large" };
+    }
+    const binary = await isBinaryFile(resolved.resolved);
+    if (binary) {
+        return { ok: false, reason: "binary_file" };
+    }
+    try {
+        const content = await fs.readFile(resolved.resolved, "utf8");
+        return { ok: true, content };
+    }
+    catch {
+        return { ok: false, reason: "unreadable" };
+    }
+}
+function parseRubyIndexColumns(line) {
+    const match = line.match(/t\.index\s+(\[[^\]]+\]|"[^"]+"|'[^']+')/);
+    if (!match)
+        return [];
+    return parseRubyColumnsLiteral(match[1]);
+}
+function parseRubyColumnsLiteral(raw) {
+    const trimmed = raw.trim();
+    const matches = Array.from(trimmed.matchAll(/"([^"]+)"|'([^']+)'|:([a-zA-Z_]\w*)/g));
+    const values = matches.map((match) => match[1] ?? match[2] ?? match[3]).filter(Boolean);
+    if (values.length > 0)
+        return values;
+    const singleMatch = trimmed.match(/^["']([^"']+)["']$/) ?? trimmed.match(/^:([a-zA-Z_]\w*)/);
+    return singleMatch ? [singleMatch[1]] : [];
+}
+function parseRubyBooleanOption(input, key) {
+    const raw = extractRubyOption(input, key);
+    if (!raw)
+        return null;
+    if (raw === "true")
+        return true;
+    if (raw === "false")
+        return false;
+    return null;
+}
+function extractRubyOption(input, key) {
+    const regex = new RegExp(`${key}:\\s*([^,]+)`);
+    const match = input.match(regex);
+    if (!match)
+        return null;
+    return match[1].trim();
+}
+function parseRubyLiteral(raw) {
+    const trimmed = raw.trim();
+    if (trimmed === "nil")
+        return null;
+    if (trimmed === "true")
+        return true;
+    if (trimmed === "false")
+        return false;
+    if (trimmed.startsWith("->"))
+        return trimmed;
+    if (/^["']/.test(trimmed))
+        return stripQuotes(trimmed);
+    if (/^-?\d+(\.\d+)?$/.test(trimmed))
+        return Number(trimmed);
+    return trimmed;
+}
+function parseSqlColumnDefinition(name, rest) {
+    const constraintIndex = findConstraintIndex(rest);
+    const typePart = (constraintIndex === -1 ? rest : rest.slice(0, constraintIndex)).trim();
+    const constraintPart = constraintIndex === -1 ? "" : rest.slice(constraintIndex);
+    const column = { name, type: normalizeWhitespace(typePart) || "unknown" };
+    if (/NOT NULL/i.test(constraintPart)) {
+        column.null = false;
+    }
+    else if (/\bNULL\b/i.test(constraintPart)) {
+        column.null = true;
+    }
+    const defaultMatch = constraintPart.match(/DEFAULT\s+([^,]+?)(?=\s+(?:NOT\s+NULL|NULL|CONSTRAINT|PRIMARY|UNIQUE|CHECK|REFERENCES)|,|$)/i);
+    if (defaultMatch) {
+        column.default = defaultMatch[1].trim();
+    }
+    return column;
+}
+function findConstraintIndex(value) {
+    const keywords = [
+        "DEFAULT",
+        "NOT NULL",
+        "NULL",
+        "CONSTRAINT",
+        "PRIMARY KEY",
+        "UNIQUE",
+        "CHECK",
+        "REFERENCES"
+    ];
+    const upper = value.toUpperCase();
+    let index = -1;
+    for (const keyword of keywords) {
+        const pos = upper.indexOf(keyword);
+        if (pos === -1)
+            continue;
+        if (index === -1 || pos < index)
+            index = pos;
+    }
+    return index;
+}
+function normalizeWhitespace(value) {
+    return value.replace(/\s+/g, " ").trim();
+}
+function parseSqlColumnList(raw) {
+    return raw
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => part.replace(/^"|"$/g, ""));
+}
+async function listRubyFiles(relDir) {
+    const resolved = resolveRepoPath(relDir);
+    if (!resolved.ok)
+        return [];
+    const files = [];
+    async function walk(current) {
+        let entries;
+        try {
+            entries = await fs.readdir(current, { withFileTypes: true });
+        }
+        catch {
+            return;
+        }
+        for (const entry of entries) {
+            const fullPath = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                if (SKIP_DIR_NAMES.has(entry.name))
+                    continue;
+                await walk(fullPath);
+            }
+            else if (entry.isFile() && entry.name.endsWith(".rb")) {
+                const relPath = normalizeRelativePath(path.relative(repoRoot, fullPath));
+                files.push(relPath);
+            }
+        }
+    }
+    await walk(resolved.resolved);
+    return files.sort();
+}
+function parseRailsModelFile(modelPath, content) {
+    const normalized = normalizeLineEndings(content);
+    const classMatch = normalized.match(/^\s*class\s+([A-Za-z0-9_:]+)(?:\s*<\s*[A-Za-z0-9_:]+)?/m);
+    if (!classMatch)
+        return null;
+    const associations = [];
+    const validations = [];
+    for (const rawLine of normalized.split("\n")) {
+        const line = stripRubyComment(rawLine).trim();
+        if (!line)
+            continue;
+        const assocMatch = line.match(/\b(belongs_to|has_many|has_one|has_and_belongs_to_many)\s+:([a-zA-Z_]\w*)/);
+        if (assocMatch) {
+            associations.push({ type: assocMatch[1], name: assocMatch[2] });
+            continue;
+        }
+        const validatesMatch = line.match(/\b(validates)\s+(.+)/);
+        if (validatesMatch) {
+            const args = validatesMatch[2];
+            const parsed = parseRailsValidatesArgs(args);
+            if (parsed.attributes.length > 0) {
+                validations.push(parsed);
+            }
+            continue;
+        }
+        const validatesOfMatch = line.match(/\b(validates_[a-z_]+_of)\s+(.+)/);
+        if (validatesOfMatch) {
+            const type = validatesOfMatch[1];
+            const args = validatesOfMatch[2];
+            const attrs = extractSymbols(args);
+            if (attrs.length > 0) {
+                validations.push({ type, attributes: attrs });
+            }
+        }
+    }
+    const entry = { name: classMatch[1], path: modelPath };
+    if (associations.length > 0)
+        entry.associations = associations;
+    if (validations.length > 0)
+        entry.validations = validations;
+    return entry;
+}
+function parseRailsValidatesArgs(args) {
+    const optionsStart = args.search(/\b[a-zA-Z_]\w*\s*:/);
+    const attrPart = optionsStart === -1 ? args : args.slice(0, optionsStart);
+    const optionsPart = optionsStart === -1 ? "" : args.slice(optionsStart);
+    const attributes = extractSymbols(attrPart);
+    const options = Array.from(optionsPart.matchAll(/\b([a-zA-Z_]\w*)\s*:/g)).map((match) => match[1]);
+    return {
+        type: "validates",
+        attributes,
+        options: options.length > 0 ? options : undefined
+    };
+}
+function extractSymbols(value) {
+    return Array.from(value.matchAll(/:([a-zA-Z_]\w*)/g)).map((match) => match[1]);
 }
 async function runDevCommand(command) {
     const timeoutMs = resolveCommandTimeout();
@@ -3542,7 +3999,10 @@ function resolveRepoPath(userPath) {
     return { ok: true, resolved, relative };
 }
 function normalizeRelativePath(relativePath) {
-    return relativePath.split(path.sep).join("/");
+    const normalized = relativePath.split(path.sep).join("/");
+    if (normalized === ".")
+        return ".";
+    return normalized.replace(/^\.\//, "");
 }
 function isWithinRepoRoot(resolvedPath) {
     return resolvedPath === repoRoot || resolvedPath.startsWith(repoRoot + path.sep);
