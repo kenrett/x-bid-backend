@@ -185,6 +185,47 @@ class PaymentsApplyBidPackPurchaseTest < ActiveSupport::TestCase
     assert_equal "pending", Purchase.find_by!(stripe_payment_intent_id: "pi_456").receipt_status
   end
 
+  test "reconciles missing ledger grant link without double-crediting" do
+    purchase = Purchase.create!(
+      user: @user,
+      bid_pack: @bid_pack,
+      amount_cents: 100,
+      currency: "usd",
+      stripe_payment_intent_id: "pi_reconcile",
+      status: "applied"
+    )
+
+    credit = CreditTransaction.create!(
+      user: @user,
+      kind: "grant",
+      amount: @bid_pack.bids,
+      reason: "bid_pack_purchase",
+      idempotency_key: "purchase:#{purchase.id}:grant",
+      purchase: purchase,
+      storefront_key: "main"
+    )
+
+    assert_nil purchase.ledger_grant_credit_transaction_id
+
+    result = nil
+    assert_no_difference -> { CreditTransaction.count } do
+      result = Payments::ApplyBidPackPurchase.call!(
+        user: @user,
+        bid_pack: @bid_pack,
+        stripe_checkout_session_id: nil,
+        stripe_payment_intent_id: "pi_reconcile",
+        stripe_event_id: nil,
+        amount_cents: 100,
+        currency: "usd",
+        source: "test"
+      )
+    end
+
+    assert result.ok?
+    assert result.idempotent
+    assert_equal credit.id, purchase.reload.ledger_grant_credit_transaction_id
+  end
+
   test "duplicate deliveries with different stripe events stay idempotent" do
     Payments::StripeReceiptLookup.stub(:lookup, ->(*) { [ :available, "https://stripe.example/receipts/dup", "ch_dup" ] }) do
       first = Payments::ApplyBidPackPurchase.call!(
