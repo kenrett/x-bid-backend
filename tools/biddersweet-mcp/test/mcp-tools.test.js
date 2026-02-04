@@ -258,6 +258,7 @@ test("repo.info returns metadata for configured repo", async () => {
     "dev.run_tests",
     "dev.run_lint",
     "dev.run",
+    "dev.benchmark_smoke",
     "dev.explain_failure",
     "dev.check"
   ]);
@@ -555,6 +556,26 @@ test("dev.run rejects args that are not allowlisted", async () => {
   });
   assert.equal(result.isError, true);
   assert.equal(payload.error.code, "args_not_allowed");
+});
+
+test("dev.benchmark_smoke executes an allowlisted benchmark", async () => {
+  const { result, payload } = await callTool("dev.benchmark_smoke", { name: "json-parse-smoke" });
+  assert.equal(result.isError, false);
+  assert.equal(payload.name, "json-parse-smoke");
+  assert.ok(Array.isArray(payload.cmd));
+  assert.equal(payload.cmd[0], "node");
+  assert.equal(typeof payload.durationMs, "number");
+  assert.equal(typeof payload.stdout, "string");
+  assert.equal(typeof payload.stderr, "string");
+  assert.equal(typeof payload.exitCode, "number");
+  assert.equal(payload.timedOut, false);
+  assert.equal(typeof payload.truncated, "boolean");
+});
+
+test("dev.benchmark_smoke rejects unknown names", async () => {
+  const { result, payload } = await callTool("dev.benchmark_smoke", { name: "nope" });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error.code, "benchmark_not_allowed");
 });
 
 test("dev.explain_failure extracts structured errors", async () => {
