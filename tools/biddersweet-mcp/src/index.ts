@@ -43,6 +43,10 @@ const HARD_SYMBOLS_MAX = 500;
 const DEFAULT_CMD_TIMEOUT_MS = 60_000;
 const CHECK_TIMEOUT_MS = 1_500;
 const DEV_RUN_BASE_ENV_ALLOWLIST = ["PATH"];
+const DEFAULT_ROUTES_MAX = 500;
+const HARD_ROUTES_MAX = 2000;
+const ROUTES_COMMAND_TIMEOUT_MS = 20_000;
+const ROUTES_COMMAND_MAX_BYTES = 256 * 1024;
 
 type DevRunAllowlistEntry = {
   name: string;
@@ -220,6 +224,10 @@ const DevExplainFailureInputSchema = z
     },
     { message: "stdout_and_stderr_required_without_runId" }
   );
+const RailsRoutesInputSchema = z.object({
+  mode: z.enum(["static", "command"]).optional().default("static"),
+  maxResults: z.number().int().positive().optional()
+});
 
 type RepoInfoInput = z.infer<typeof RepoInfoInputSchema>;
 type RepoSearchInput = z.infer<typeof RepoSearchInputSchema>;
@@ -237,6 +245,7 @@ type RepoApplyPatchInput = z.infer<typeof RepoApplyPatchInputSchema>;
 type DevRunTargetInput = z.infer<typeof DevRunTargetSchema>;
 type DevRunInput = z.infer<typeof DevRunInputSchema>;
 type DevExplainFailureInput = z.infer<typeof DevExplainFailureInputSchema>;
+type RailsRoutesInput = z.infer<typeof RailsRoutesInputSchema>;
 
 type DevResult = {
   ok: boolean;
@@ -312,6 +321,14 @@ type DevExplainStackFrame = {
   file: string;
   line: number;
   function?: string;
+};
+
+type RailsRouteEntry = {
+  verb: string;
+  path: string;
+  controller: string;
+  action: string;
+  name?: string;
 };
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -560,6 +577,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: "rails.routes",
+        description: "Return Rails routes from config/routes.rb or rails routes output.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            mode: { type: "string", enum: ["static", "command"] },
+            maxResults: { type: "number" }
+          },
+          additionalProperties: false
+        }
+      },
+      {
         name: "dev.run_tests",
         description: "Run allowlisted test commands.",
         inputSchema: {
@@ -668,6 +697,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsed = DevExplainFailureInputSchema.parse(args ?? {});
         const result = await handleDevExplainFailure(parsed);
         return jsonResult(result, Boolean((result as { error?: unknown }).error));
+      }
+      case "rails.routes": {
+        const parsed = RailsRoutesInputSchema.parse(args ?? {});
+        const result = await handleRailsRoutes(parsed);
+        return jsonResult(result);
       }
       case "dev.run_tests": {
         const parsed = DevRunTargetSchema.parse(args ?? {});
@@ -1885,6 +1919,39 @@ async function handleDevExplainFailure(input: DevExplainFailureInput) {
   }
 }
 
+async function handleRailsRoutes(input: RailsRoutesInput) {
+  const maxResults = Math.min(input.maxResults ?? DEFAULT_ROUTES_MAX, HARD_ROUTES_MAX);
+  const warnings: string[] = [];
+
+  if (!(await existsInRepo("config/routes.rb"))) {
+    warnings.push("routes_file_missing");
+  }
+
+  if (input.mode === "command") {
+    const commandResult = await runRailsRoutesCommand(maxResults);
+    if (commandResult.ok) {
+      return {
+        modeUsed: "command",
+        routes: commandResult.routes,
+        warnings: commandResult.warnings,
+        truncated: commandResult.truncated
+      };
+    }
+    warnings.push(...commandResult.warnings);
+    warnings.push("command_mode_failed_falling_back_to_static");
+  }
+
+  const staticResult = await parseRailsRoutesStatic(maxResults);
+  warnings.push(...staticResult.warnings);
+
+  return {
+    modeUsed: "static",
+    routes: staticResult.routes,
+    warnings,
+    truncated: staticResult.truncated
+  };
+}
+
 async function handleDevRunTests(input: DevRunTargetInput) {
   return handleDevRun(
     input.target,
@@ -2251,6 +2318,333 @@ function parseFailureOutput(text: string) {
     confidence,
     warnings
   };
+}
+
+async function runRailsRoutesCommand(maxResults: number) {
+  const warnings: string[] = [];
+  const { env } = buildAllowlistedEnv([
+    "RAILS_ENV",
+    "BUNDLE_GEMFILE",
+    "BUNDLE_PATH",
+    "BUNDLE_WITHOUT"
+  ]);
+
+  const result = await runAllowlistedCommand(
+    ["bundle", "exec", "rails", "routes"],
+    {
+      timeoutMs: ROUTES_COMMAND_TIMEOUT_MS,
+      maxOutputBytes: ROUTES_COMMAND_MAX_BYTES,
+      env
+    }
+  );
+
+  if (result.timedOut) {
+    warnings.push("command_timed_out");
+  }
+  if (result.truncated) {
+    warnings.push("command_output_truncated");
+  }
+
+  if (result.exitCode !== 0) {
+    warnings.push("command_failed");
+    return { ok: false as const, routes: [], warnings, truncated: false };
+  }
+
+  const parsed = parseRailsRoutesCommandOutput(result.stdout);
+  if (parsed.routes.length === 0) {
+    warnings.push("no_routes_parsed_from_command_output");
+  }
+
+  const { routes, truncated } = truncateRoutes(parsed.routes, maxResults);
+  return {
+    ok: true as const,
+    routes,
+    warnings: [...warnings, ...parsed.warnings],
+    truncated
+  };
+}
+
+function parseRailsRoutesCommandOutput(output: string) {
+  const warnings: string[] = [];
+  const routes: RailsRouteEntry[] = [];
+  const lines = normalizeLineEndings(output).split("\n");
+
+  const routeLine =
+    /^(?:(\S+)\s+)?(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\s+(\S+)\s+(\S+)#(\S+)\s*$/;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    if (line.startsWith("Prefix") || line.includes("Controller#Action")) continue;
+    const match = line.match(routeLine);
+    if (!match) continue;
+    routes.push({
+      name: match[1],
+      verb: match[2],
+      path: match[3],
+      controller: match[4],
+      action: match[5]
+    });
+  }
+
+  if (routes.length === 0 && output.trim().length > 0) {
+    warnings.push("command_output_unrecognized");
+  }
+
+  return { routes, warnings };
+}
+
+async function parseRailsRoutesStatic(maxResults: number) {
+  const warnings: string[] = ["static_parsing_is_best_effort"];
+  const routes: RailsRouteEntry[] = [];
+  const resolved = resolveRepoPath("config/routes.rb");
+  if (!resolved.ok) {
+    warnings.push("routes_file_missing");
+    return { routes, warnings, truncated: false };
+  }
+
+  let content = "";
+  try {
+    content = await fs.readFile(resolved.resolved, "utf8");
+  } catch {
+    warnings.push("routes_file_unreadable");
+    return { routes, warnings, truncated: false };
+  }
+
+  const lines = normalizeLineEndings(content).split("\n");
+  const scopeStack: Array<{ pathPrefix: string; modulePrefix: string }> = [];
+
+  const currentPrefix = () => scopeStack.map((s) => s.pathPrefix).join("");
+  const currentModule = () => scopeStack.map((s) => s.modulePrefix).join("");
+
+  const addRoute = (entry: RailsRouteEntry) => {
+    routes.push(entry);
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/#.*$/, "").trim();
+    if (!line) continue;
+
+    if (/^end\b/.test(line)) {
+      scopeStack.pop();
+      continue;
+    }
+
+    const namespaceMatch = line.match(/^namespace\s+:([a-zA-Z_]\w*)\s+do\b/);
+    if (namespaceMatch) {
+      const name = namespaceMatch[1];
+      scopeStack.push({ pathPrefix: `/${name}`, modulePrefix: `${name}/` });
+      continue;
+    }
+
+    const scopeMatch = line.match(/^scope\s+(.+?)\s+do\b/);
+    if (scopeMatch) {
+      const scopeArgs = scopeMatch[1];
+      const path = extractOption(scopeArgs, "path") ?? extractScopePositional(scopeArgs);
+      const mod = extractOption(scopeArgs, "module");
+      const pathPrefix = path ? `/${stripQuotes(path)}` : "";
+      const modulePrefix = mod ? `${stripQuotes(mod)}/` : "";
+      scopeStack.push({ pathPrefix, modulePrefix });
+      continue;
+    }
+
+    const rootMatch = line.match(/^root\s+(?:to:\s*)?["']([^"']+)#([^"']+)["']/);
+    if (rootMatch) {
+      addRoute({
+        verb: "GET",
+        path: joinRoutePath(currentPrefix(), "/"),
+        controller: `${currentModule()}${rootMatch[1]}`,
+        action: rootMatch[2]
+      });
+      continue;
+    }
+
+    const verbMatch = line.match(/^(get|post|put|patch|delete|match)\s+["']([^"']+)["'](.*)$/);
+    if (verbMatch) {
+      const verb = verbMatch[1].toUpperCase();
+      const pathValue = verbMatch[2];
+      const tail = verbMatch[3] ?? "";
+      const toMatch =
+        tail.match(/to:\s*["']([^"']+)#([^"']+)["']/) ||
+        tail.match(/=>\s*["']([^"']+)#([^"']+)["']/);
+      if (!toMatch) continue;
+      const verbs = verb === "MATCH" ? extractViaVerbs(tail) : [verb];
+      const name = extractOption(tail, "as");
+      for (const verbValue of verbs) {
+        addRoute({
+          verb: verbValue,
+          path: joinRoutePath(currentPrefix(), pathValue),
+          controller: `${currentModule()}${toMatch[1]}`,
+          action: toMatch[2],
+          name: name ? stripQuotes(name) : undefined
+        });
+      }
+      continue;
+    }
+
+    const resourcesMatch = line.match(/^(resources|resource)\s+:([a-zA-Z_]\w*)(.*)$/);
+    if (resourcesMatch) {
+      const kind = resourcesMatch[1];
+      const resourceName = resourcesMatch[2];
+      const tail = resourcesMatch[3] ?? "";
+      const options = parseResourceOptions(tail);
+      const controller = options.controller ?? resourceName;
+      const pathSegment = options.path ?? resourceName;
+      const only = options.only;
+      const except = options.except;
+      const isSingular = kind === "resource";
+
+      const entries = buildResourceRoutes({
+        resourceName: pathSegment,
+        controller: `${currentModule()}${controller}`,
+        prefix: currentPrefix(),
+        singular: isSingular
+      }).filter((entry) => {
+        if (only && !only.includes(entry.action)) return false;
+        if (except && except.includes(entry.action)) return false;
+        return true;
+      });
+
+      for (const entry of entries) addRoute(entry);
+      continue;
+    }
+  }
+
+  const { routes: sliced, truncated } = truncateRoutes(routes, maxResults);
+  return { routes: sliced, warnings, truncated };
+}
+
+function extractOption(input: string, key: string) {
+  const regex = new RegExp(`${key}:\\s*([^,]+)`);
+  const match = input.match(regex);
+  if (!match) return null;
+  return match[1].trim();
+}
+
+function extractScopePositional(input: string) {
+  const match = input.match(/["']([^"']+)["']/);
+  if (match) return match[1];
+  const symbolMatch = input.match(/:([a-zA-Z_]\w*)/);
+  return symbolMatch ? symbolMatch[1] : null;
+}
+
+function stripQuotes(value: string) {
+  return value.replace(/^["']|["']$/g, "");
+}
+
+function parseResourceOptions(tail: string) {
+  const onlyRaw = extractOption(tail, "only");
+  const exceptRaw = extractOption(tail, "except");
+  const controllerRaw = extractOption(tail, "controller");
+  const pathRaw = extractOption(tail, "path");
+
+  return {
+    only: onlyRaw ? normalizeActionList(onlyRaw) : null,
+    except: exceptRaw ? normalizeActionList(exceptRaw) : null,
+    controller: controllerRaw ? stripQuotes(controllerRaw) : null,
+    path: pathRaw ? stripQuotes(pathRaw) : null
+  };
+}
+
+function normalizeActionList(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.startsWith(":")) {
+    return [trimmed.replace(/^:/, "")];
+  }
+  const listMatch = trimmed.match(/^\[(.*)\]$/);
+  if (!listMatch) return null;
+  return listMatch[1]
+    .split(",")
+    .map((entry) => entry.trim().replace(/^:/, "").replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+}
+
+function extractViaVerbs(tail: string) {
+  const via = extractOption(tail, "via");
+  if (!via) return ["GET"];
+  const normalized = via.trim();
+  if (normalized === ":all" || normalized === "all") {
+    return ["GET", "POST", "PUT", "PATCH", "DELETE"];
+  }
+  if (normalized.startsWith("[")) {
+    return normalized
+      .replace(/[\[\]]/g, "")
+      .split(",")
+      .map((entry) => entry.trim().replace(/^:/, "").toUpperCase())
+      .filter(Boolean);
+  }
+  return [normalized.replace(/^:/, "").toUpperCase()];
+}
+
+function buildResourceRoutes(input: {
+  resourceName: string;
+  controller: string;
+  prefix: string;
+  singular: boolean;
+}): RailsRouteEntry[] {
+  const basePath = input.singular
+    ? joinRoutePath(input.prefix, input.resourceName)
+    : joinRoutePath(input.prefix, input.resourceName);
+  const routes: RailsRouteEntry[] = [];
+
+  if (!input.singular) {
+    routes.push({ verb: "GET", path: basePath, controller: input.controller, action: "index" });
+    routes.push({ verb: "POST", path: basePath, controller: input.controller, action: "create" });
+    routes.push({ verb: "GET", path: `${basePath}/new`, controller: input.controller, action: "new" });
+    routes.push({
+      verb: "GET",
+      path: `${basePath}/:id`,
+      controller: input.controller,
+      action: "show"
+    });
+    routes.push({
+      verb: "GET",
+      path: `${basePath}/:id/edit`,
+      controller: input.controller,
+      action: "edit"
+    });
+    routes.push({
+      verb: "PATCH",
+      path: `${basePath}/:id`,
+      controller: input.controller,
+      action: "update"
+    });
+    routes.push({
+      verb: "PUT",
+      path: `${basePath}/:id`,
+      controller: input.controller,
+      action: "update"
+    });
+    routes.push({
+      verb: "DELETE",
+      path: `${basePath}/:id`,
+      controller: input.controller,
+      action: "destroy"
+    });
+    return routes;
+  }
+
+  routes.push({ verb: "GET", path: basePath, controller: input.controller, action: "show" });
+  routes.push({ verb: "POST", path: basePath, controller: input.controller, action: "create" });
+  routes.push({ verb: "GET", path: `${basePath}/new`, controller: input.controller, action: "new" });
+  routes.push({ verb: "GET", path: `${basePath}/edit`, controller: input.controller, action: "edit" });
+  routes.push({ verb: "PATCH", path: basePath, controller: input.controller, action: "update" });
+  routes.push({ verb: "PUT", path: basePath, controller: input.controller, action: "update" });
+  routes.push({ verb: "DELETE", path: basePath, controller: input.controller, action: "destroy" });
+  return routes;
+}
+
+function joinRoutePath(prefix: string, pathValue: string) {
+  const cleanPrefix = prefix === "/" ? "" : prefix;
+  const cleanPath = pathValue === "/" ? "" : pathValue;
+  const joined = `${cleanPrefix}/${cleanPath}`.replace(/\/+/g, "/");
+  return joined === "" ? "/" : joined;
+}
+
+function truncateRoutes(routes: RailsRouteEntry[], maxResults: number) {
+  if (routes.length <= maxResults) {
+    return { routes, truncated: false };
+  }
+  return { routes: routes.slice(0, maxResults), truncated: true };
 }
 
 async function runDevCommand(command: string[]): Promise<DevResult> {
