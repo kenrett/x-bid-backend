@@ -14,6 +14,9 @@ const HARD_SEARCH_MAX = 100;
 const DEFAULT_LIST_MAX = 500;
 const HARD_LIST_MAX = 2000;
 const MAX_READ_RANGE_LINES = 400;
+const DEFAULT_TREE_DEPTH = 3;
+const DEFAULT_TREE_MAX_NODES = 400;
+const DEFAULT_TREE_MAX_ENTRIES = 200;
 const DEFAULT_CMD_TIMEOUT_MS = 60_000;
 const CHECK_TIMEOUT_MS = 1_500;
 const SKIP_DIR_NAMES = new Set([
@@ -51,6 +54,12 @@ const RepoReadRangeInputSchema = z.object({
 const RepoListDirInputSchema = z.object({
     path: z.string().optional().default(""),
     maxEntries: z.number().int().positive().optional()
+});
+const RepoTreeInputSchema = z.object({
+    path: z.string().optional().default("."),
+    maxDepth: z.number().int().positive().optional(),
+    maxNodes: z.number().int().positive().optional(),
+    maxEntriesPerDir: z.number().int().positive().optional()
 });
 const DevCheckInputSchema = z.object({});
 const DevRunTargetSchema = z.object({
@@ -117,6 +126,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
+                name: "repo.tree",
+                description: "Return a bounded recursive directory tree within the repo.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        path: { type: "string" },
+                        maxDepth: { type: "number" },
+                        maxNodes: { type: "number" },
+                        maxEntriesPerDir: { type: "number" }
+                    },
+                    additionalProperties: false
+                }
+            },
+            {
                 name: "dev.check",
                 description: "Check for common dev tool availability.",
                 inputSchema: emptyInputSchema()
@@ -174,6 +197,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const parsed = RepoListDirInputSchema.parse(args ?? {});
                 const result = await handleRepoListDir(parsed);
                 return jsonResult(result);
+            }
+            case "repo.tree": {
+                const parsed = RepoTreeInputSchema.parse(args ?? {});
+                const result = await handleRepoTree(parsed);
+                return jsonResult(result, Boolean(result.error));
             }
             case "dev.check": {
                 const parsed = DevCheckInputSchema.parse(args ?? {});
@@ -445,6 +473,114 @@ async function handleRepoListDir(input) {
         path: resolved.relative,
         entries: entries.slice(0, maxEntries),
         truncated
+    };
+}
+async function handleRepoTree(input) {
+    const maxDepth = input.maxDepth ?? DEFAULT_TREE_DEPTH;
+    const maxNodes = input.maxNodes ?? DEFAULT_TREE_MAX_NODES;
+    const maxEntriesPerDir = input.maxEntriesPerDir ?? DEFAULT_TREE_MAX_ENTRIES;
+    if (maxDepth <= 0 || maxNodes <= 0 || maxEntriesPerDir <= 0) {
+        return toolError("invalid_params", "maxDepth, maxNodes, and maxEntriesPerDir must be positive integers", {
+            path: input.path ?? ".",
+            maxDepth,
+            maxNodes,
+            maxEntriesPerDir
+        });
+    }
+    const resolved = resolveRepoPath(input.path ?? ".");
+    if (!resolved.ok) {
+        return toolError("path_outside_root", "path is outside repo root", {
+            path: safeOutputPath(input.path ?? ".")
+        });
+    }
+    let stat;
+    try {
+        stat = await fs.stat(resolved.resolved);
+    }
+    catch {
+        return toolError("not_found", "path not found", { path: resolved.relative });
+    }
+    let nodesReturned = 0;
+    let truncated = false;
+    const rootName = resolved.relative === "." ? "." : path.basename(resolved.relative);
+    const shouldStop = () => nodesReturned >= maxNodes;
+    const buildTree = async (fullPath, name, depth) => {
+        if (shouldStop()) {
+            truncated = true;
+            return { name, type: "dir", children: [] };
+        }
+        if (depth > maxDepth) {
+            return { name, type: "dir", children: [] };
+        }
+        const nodeStat = await fs.stat(fullPath);
+        if (!nodeStat.isDirectory()) {
+            nodesReturned += 1;
+            return { name, type: "file" };
+        }
+        nodesReturned += 1;
+        if (depth === maxDepth) {
+            return { name, type: "dir" };
+        }
+        let entries;
+        try {
+            entries = await fs.readdir(fullPath, { withFileTypes: true });
+        }
+        catch {
+            return { name, type: "dir" };
+        }
+        const filtered = entries.filter((entry) => {
+            if (entry.isDirectory() && SKIP_DIR_NAMES.has(entry.name))
+                return false;
+            return true;
+        });
+        filtered.sort((a, b) => {
+            const aDir = a.isDirectory();
+            const bDir = b.isDirectory();
+            if (aDir && !bDir)
+                return -1;
+            if (!aDir && bDir)
+                return 1;
+            return a.name.localeCompare(b.name);
+        });
+        let working = filtered;
+        if (filtered.length > maxEntriesPerDir) {
+            working = filtered.slice(0, maxEntriesPerDir);
+            truncated = true;
+        }
+        const children = [];
+        for (const entry of working) {
+            if (shouldStop()) {
+                truncated = true;
+                break;
+            }
+            const childPath = path.join(fullPath, entry.name);
+            if (entry.isDirectory()) {
+                const child = await buildTree(childPath, entry.name, depth + 1);
+                children.push(child);
+            }
+            else if (entry.isFile()) {
+                nodesReturned += 1;
+                children.push({ name: entry.name, type: "file" });
+            }
+            else {
+                nodesReturned += 1;
+                children.push({ name: entry.name, type: "file" });
+            }
+        }
+        return { name, type: "dir", children: children.length > 0 ? children : undefined };
+    };
+    const tree = stat.isDirectory()
+        ? await buildTree(resolved.resolved, rootName, 0)
+        : (() => {
+            nodesReturned += 1;
+            return { name: rootName, type: "file" };
+        })();
+    return {
+        path: resolved.relative,
+        maxDepth,
+        nodesReturned,
+        truncated,
+        tree
     };
 }
 async function handleDevCheck(_input) {

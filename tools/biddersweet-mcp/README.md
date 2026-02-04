@@ -186,6 +186,40 @@ Example response:
 }
 ```
 
+### repo.tree
+
+Request:
+
+```json
+{
+  "tool": "repo.tree",
+  "arguments": { "path": ".", "maxDepth": 2, "maxNodes": 100, "maxEntriesPerDir": 50 }
+}
+```
+
+Example response:
+
+```json
+{
+  "path": ".",
+  "maxDepth": 2,
+  "nodesReturned": 12,
+  "truncated": false,
+  "tree": {
+    "name": ".",
+    "type": "dir",
+    "children": [
+      { "name": "app", "type": "dir" },
+      { "name": "README.md", "type": "file" }
+    ]
+  }
+}
+```
+
+Notes:
+- Applies the same skip list as `repo.search` (e.g. `node_modules`, `dist`, `.git`).
+- `maxDepth`, `maxNodes`, and `maxEntriesPerDir` enforce bounds and set `truncated: true` if exceeded.
+
 ### dev.run_tests
 
 Request:

@@ -34,6 +34,8 @@ before(async () => {
 
   const largeLines = Array.from({ length: 500 }, (_, i) => `line ${i + 1}`).join("\n");
   await fs.writeFile(path.join(repoRoot, "large.txt"), largeLines);
+  await fs.mkdir(path.join(repoRoot, "node_modules"), { recursive: true });
+  await fs.writeFile(path.join(repoRoot, "node_modules", "ignored.txt"), "ignore");
 
   const transport = new StdioClientTransport({
     command: "node",
@@ -127,6 +129,19 @@ test("repo.list_dir lists directory entries", async () => {
   assert.equal(payload.path, "subdir");
   assert.equal(payload.truncated, false);
   assert.deepEqual(payload.entries, [{ name: "child.txt", type: "file" }]);
+});
+
+test("repo.tree returns bounded directory tree and skips node_modules", async () => {
+  const { payload } = await callTool("repo.tree", { path: ".", maxDepth: 1, maxNodes: 200 });
+  assert.equal(payload.path, ".");
+  assert.equal(payload.maxDepth, 1);
+  assert.ok(payload.nodesReturned > 0);
+  assert.equal(payload.truncated, false);
+  assert.equal(payload.tree.type, "dir");
+  const childNames = (payload.tree.children ?? []).map((child) => child.name);
+  assert.ok(childNames.includes("docs"));
+  assert.ok(childNames.includes("file.txt"));
+  assert.ok(!childNames.includes("node_modules"));
 });
 
 test("dev.check reports tool presence", async () => {
