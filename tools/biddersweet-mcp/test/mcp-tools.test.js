@@ -37,6 +37,50 @@ before(async () => {
   await fs.mkdir(path.join(repoRoot, "node_modules"), { recursive: true });
   await fs.writeFile(path.join(repoRoot, "node_modules", "ignored.txt"), "ignore");
 
+  await fs.writeFile(path.join(repoRoot, ".ruby-version"), "3.2.2\n");
+  await fs.writeFile(
+    path.join(repoRoot, "Gemfile"),
+    'source "https://rubygems.org"\ngem "rails", "~> 7.1.0"\ngem "pg"\n'
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "Gemfile.lock"),
+    [
+      "GEM",
+      "  remote: https://rubygems.org/",
+      "  specs:",
+      "    pg (1.5.4)",
+      "    rails (7.1.2)",
+      "",
+      "PLATFORMS",
+      "  ruby",
+      "",
+      "DEPENDENCIES",
+      "  pg",
+      "  rails (~> 7.1.0)",
+      "",
+      "BUNDLED WITH",
+      "   2.4.10"
+    ].join("\n")
+  );
+  await fs.writeFile(path.join(repoRoot, ".node-version"), "20.11.1\n");
+  await fs.writeFile(
+    path.join(repoRoot, "package.json"),
+    JSON.stringify(
+      {
+        name: "test-repo",
+        private: true,
+        packageManager: "pnpm@8.15.0",
+        workspaces: ["packages/*"],
+        scripts: { test: "vitest" },
+        dependencies: { react: "^18.2.0" },
+        devDependencies: { vitest: "^1.2.0" }
+      },
+      null,
+      2
+    )
+  );
+  await fs.writeFile(path.join(repoRoot, "package-lock.json"), "{}");
+
   const transport = new StdioClientTransport({
     command: "node",
     args: [distEntry, repoRoot],
@@ -129,6 +173,23 @@ test("repo.list_dir lists directory entries", async () => {
   assert.equal(payload.path, "subdir");
   assert.equal(payload.truncated, false);
   assert.deepEqual(payload.entries, [{ name: "child.txt", type: "file" }]);
+});
+
+test("repo.deps summarizes versions and dependencies", async () => {
+  const { payload } = await callTool("repo.deps", {});
+  assert.equal(payload.ruby.version, "3.2.2");
+  assert.equal(payload.ruby.railsVersion, "7.1.2");
+  assert.equal(payload.ruby.bundlerVersion, "2.4.10");
+  assert.equal(payload.node.version, "20.11.1");
+  assert.equal(payload.node.packageManager, "pnpm");
+  assert.equal(payload.node.workspaceType, "workspace");
+  assert.equal(payload.gems.hasGemfileLock, true);
+  assert.ok(payload.gems.top.some((gem) => gem.name === "rails"));
+  assert.ok(payload.js.dependenciesTop.some((dep) => dep.name === "react"));
+  assert.equal(payload.js.scripts.test, "vitest");
+  assert.equal(payload.js.hasLockfile, true);
+  assert.ok(Array.isArray(payload.filesChecked));
+  assert.deepEqual(payload.warnings, []);
 });
 
 test("repo.tree returns bounded directory tree and skips node_modules", async () => {

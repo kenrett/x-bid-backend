@@ -55,6 +55,7 @@ const RepoListDirInputSchema = z.object({
     path: z.string().optional().default(""),
     maxEntries: z.number().int().positive().optional()
 });
+const RepoDepsInputSchema = z.object({});
 const RepoTreeInputSchema = z.object({
     path: z.string().optional().default("."),
     maxDepth: z.number().int().positive().optional(),
@@ -124,6 +125,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ["path"],
                     additionalProperties: false
                 }
+            },
+            {
+                name: "repo.deps",
+                description: "Summarize language/toolchain versions and key dependencies.",
+                inputSchema: emptyInputSchema()
             },
             {
                 name: "repo.tree",
@@ -197,6 +203,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const parsed = RepoListDirInputSchema.parse(args ?? {});
                 const result = await handleRepoListDir(parsed);
                 return jsonResult(result);
+            }
+            case "repo.deps": {
+                const parsed = RepoDepsInputSchema.parse(args ?? {});
+                const result = await handleRepoDeps(parsed);
+                return jsonResult(result, Boolean(result.error));
             }
             case "repo.tree": {
                 const parsed = RepoTreeInputSchema.parse(args ?? {});
@@ -473,6 +484,167 @@ async function handleRepoListDir(input) {
         path: resolved.relative,
         entries: entries.slice(0, maxEntries),
         truncated
+    };
+}
+async function handleRepoDeps(_input) {
+    const warnings = [];
+    const filesChecked = [];
+    const readTextFile = async (relPath) => {
+        const resolved = resolveRepoPath(relPath);
+        if (!resolved.ok)
+            return { missing: true };
+        let stat;
+        try {
+            stat = await fs.stat(resolved.resolved);
+        }
+        catch {
+            return { missing: true };
+        }
+        if (!stat.isFile()) {
+            warnings.push(`${relPath}:not_a_file`);
+            return { missing: true };
+        }
+        if (stat.size > MAX_FILE_SIZE_BYTES) {
+            warnings.push(`${relPath}:file_too_large`);
+            return { missing: true };
+        }
+        const binary = await isBinaryFile(resolved.resolved);
+        if (binary) {
+            warnings.push(`${relPath}:binary_file`);
+            return { missing: true };
+        }
+        const content = await fs.readFile(resolved.resolved, "utf8");
+        filesChecked.push(resolved.relative);
+        return { content: normalizeLineEndings(content) };
+    };
+    const ruby = {};
+    const node = {};
+    const gems = {
+        top: [],
+        hasGemfileLock: false
+    };
+    const js = { dependenciesTop: [], scripts: {}, hasLockfile: false };
+    const rubyVersionFile = await readTextFile(".ruby-version");
+    if ("content" in rubyVersionFile) {
+        ruby.version = rubyVersionFile.content.trim().split("\n")[0] || undefined;
+    }
+    const nodeVersionFile = await readTextFile(".node-version");
+    if ("content" in nodeVersionFile) {
+        node.version = nodeVersionFile.content.trim().split("\n")[0] || undefined;
+    }
+    const gemfile = await readTextFile("Gemfile");
+    if ("content" in gemfile) {
+        const lines = gemfile.content.split("\n");
+        for (const line of lines) {
+            const match = line.match(/^\s*gem\s+["']([^"']+)["'](?:\s*,\s*["']([^"']+)["'])?/);
+            if (!match)
+                continue;
+            const name = match[1];
+            const version = match[2];
+            gems.top.push({ name, version });
+            if (name === "rails" && !ruby.railsVersion && version) {
+                ruby.railsVersion = version;
+            }
+        }
+    }
+    const gemfileLock = await readTextFile("Gemfile.lock");
+    if ("content" in gemfileLock) {
+        gems.hasGemfileLock = true;
+        const lines = gemfileLock.content.split("\n");
+        for (const line of lines) {
+            const match = line.match(/^\s{4}rails\s+\(([^)]+)\)/);
+            if (match) {
+                ruby.railsVersion = match[1];
+                break;
+            }
+        }
+        const bundledIndex = lines.findIndex((line) => line.trim() === "BUNDLED WITH");
+        if (bundledIndex >= 0) {
+            for (let i = bundledIndex + 1; i < lines.length; i += 1) {
+                const version = lines[i].trim();
+                if (version.length === 0)
+                    continue;
+                ruby.bundlerVersion = version;
+                break;
+            }
+        }
+    }
+    const packageJson = await readTextFile("package.json");
+    if ("content" in packageJson) {
+        try {
+            const parsed = JSON.parse(packageJson.content);
+            const deps = [];
+            if (parsed.dependencies) {
+                for (const [name, versionRange] of Object.entries(parsed.dependencies)) {
+                    deps.push({ name, versionRange });
+                }
+            }
+            if (parsed.devDependencies) {
+                for (const [name, versionRange] of Object.entries(parsed.devDependencies)) {
+                    deps.push({ name, versionRange });
+                }
+            }
+            deps.sort((a, b) => a.name.localeCompare(b.name));
+            js.dependenciesTop = deps.slice(0, 50);
+            js.scripts = parsed.scripts ?? {};
+            if (parsed.packageManager) {
+                const pm = parsed.packageManager.split("@")[0];
+                node.packageManager = pm;
+            }
+            if (parsed.workspaces) {
+                node.workspaceType = "workspace";
+            }
+        }
+        catch (error) {
+            warnings.push(`package.json:parse_error`);
+        }
+    }
+    if (!node.packageManager) {
+        const detected = await detectPackageManager();
+        if (detected !== "unknown")
+            node.packageManager = detected;
+    }
+    const lockfiles = ["pnpm-lock.yaml", "yarn.lock", "package-lock.json"];
+    for (const lockfile of lockfiles) {
+        const resolved = resolveRepoPath(lockfile);
+        if (resolved.ok && fsSync.existsSync(resolved.resolved)) {
+            js.hasLockfile = true;
+            if (!filesChecked.includes(resolved.relative)) {
+                filesChecked.push(resolved.relative);
+            }
+        }
+    }
+    if (!node.workspaceType) {
+        const pnpmWorkspace = resolveRepoPath("pnpm-workspace.yaml");
+        if (pnpmWorkspace.ok && fsSync.existsSync(pnpmWorkspace.resolved)) {
+            node.workspaceType = "workspace";
+            filesChecked.push(pnpmWorkspace.relative);
+        }
+        else if (!node.workspaceType) {
+            node.workspaceType = "single";
+        }
+    }
+    const toolingFiles = ["Dockerfile", "render.yaml", "Procfile"];
+    for (const tooling of toolingFiles) {
+        const resolved = resolveRepoPath(tooling);
+        if (resolved.ok && fsSync.existsSync(resolved.resolved)) {
+            filesChecked.push(resolved.relative);
+        }
+    }
+    const githubWorkflows = resolveRepoPath(".github/workflows");
+    if (githubWorkflows.ok && fsSync.existsSync(githubWorkflows.resolved)) {
+        filesChecked.push(githubWorkflows.relative);
+    }
+    return {
+        ruby,
+        node,
+        gems: {
+            top: gems.top.slice(0, 50),
+            hasGemfileLock: gems.hasGemfileLock
+        },
+        js,
+        filesChecked: Array.from(new Set(filesChecked)),
+        warnings
     };
 }
 async function handleRepoTree(input) {
