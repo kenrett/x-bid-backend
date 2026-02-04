@@ -1238,12 +1238,32 @@ async function handleRepoFindRefs(input) {
         strategy = "rg";
         hits = rgResults.hits;
         truncated = rgResults.truncated;
+        if (hits.length === 0 && !truncated) {
+            if (isGitRepo) {
+                const gitResults = await runFindRefsWithGitGrep(symbol, languageHint);
+                strategy = "git_grep";
+                hits = gitResults.hits;
+                truncated = gitResults.truncated;
+            }
+            if (hits.length === 0 && !truncated) {
+                const walkResults = await runFindRefsWithWalk(symbol, languageHint);
+                strategy = "walk";
+                hits = walkResults.hits;
+                truncated = walkResults.truncated;
+            }
+        }
     }
     else if (isGitRepo) {
         const gitResults = await runFindRefsWithGitGrep(symbol, languageHint);
         strategy = "git_grep";
         hits = gitResults.hits;
         truncated = gitResults.truncated;
+        if (hits.length === 0 && !truncated) {
+            const walkResults = await runFindRefsWithWalk(symbol, languageHint);
+            strategy = "walk";
+            hits = walkResults.hits;
+            truncated = walkResults.truncated;
+        }
     }
     else {
         const walkResults = await runFindRefsWithWalk(symbol, languageHint);
