@@ -20,10 +20,54 @@ let gitAvailable = false;
 const execFileAsync = promisify(execFile);
 
 async function callTool(name, args) {
-  const result = await client.callTool({ name, arguments: args });
+  return callToolWithClient(client, name, args);
+}
+
+async function callToolWithClient(targetClient, name, args) {
+  const result = await targetClient.callTool({ name, arguments: args });
   const text = result.content?.[0]?.text ?? "";
   const payload = text ? JSON.parse(text) : null;
   return { result, payload };
+}
+
+async function createClient(env) {
+  const transport = new StdioClientTransport({
+    command: "node",
+    args: [distEntry, repoRoot],
+    cwd: toolRoot,
+    stderr: "pipe",
+    env
+  });
+
+  const newClient = new Client({ name: "mcp-tests", version: "0.0.0" });
+  await newClient.connect(transport);
+  return { client: newClient, transport };
+}
+
+async function waitForAuditEntry(toolName, attempts = 10) {
+  const logPath = path.join(repoRoot, ".mcp-logs", "tool.log");
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const content = await fs.readFile(logPath, "utf8");
+      const lines = content.split("\n").filter(Boolean);
+      const matching = lines.filter((line) => {
+        try {
+          const parsed = JSON.parse(line);
+          return parsed.toolName === toolName;
+        } catch {
+          return false;
+        }
+      });
+      if (matching.length > 0) {
+        const line = matching[matching.length - 1];
+        return { line, entry: JSON.parse(line) };
+      }
+    } catch {
+      // ignore and retry
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`audit log entry not found for ${toolName}`);
 }
 
 before(async () => {
@@ -231,7 +275,8 @@ before(async () => {
     command: "node",
     args: [distEntry, repoRoot],
     cwd: toolRoot,
-    stderr: "pipe"
+    stderr: "pipe",
+    env: { MCP_CAPABILITY: "READ_WRITE" }
   });
 
   client = new Client({ name: "mcp-tests", version: "0.0.0" });
@@ -465,6 +510,44 @@ test("repo.apply_patch applies structured edit with expected sha", async () => {
   assert.ok(payload.diffApplied.includes("+beta-applied"));
   const updated = await fs.readFile(path.join(repoRoot, "src", "patch.txt"), "utf8");
   assert.equal(updated.trim(), ["alpha", "beta-applied", "gamma"].join("\n"));
+});
+
+test("capability mode denies write tools in READ_ONLY", async () => {
+  const readOnly = await createClient({ MCP_CAPABILITY: "READ_ONLY" });
+  try {
+    const original = ["alpha", "beta", "gamma"].join("\n");
+    const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
+    const { result, payload } = await callToolWithClient(readOnly.client, "repo.apply_patch", {
+      path: "src/patch.txt",
+      replace: { startLine: 2, endLine: 2, newText: "blocked" },
+      expectedSha256: expected
+    });
+    assert.equal(result.isError, true);
+    assert.equal(payload.error.code, "capability_denied");
+  } finally {
+    await readOnly.client.close();
+  }
+});
+
+test("audit log writes JSONL entries with summaries", async () => {
+  await callTool("repo.search", { query: "needle", maxResults: 1 });
+  const { entry } = await waitForAuditEntry("repo.search");
+  assert.equal(entry.toolName, "repo.search");
+  assert.equal(entry.argsSummary.query, "needle");
+  assert.equal(typeof entry.durationMs, "number");
+  assert.ok(entry.resultSummary);
+});
+
+test("audit log does not include patch contents", async () => {
+  const secret = "supersecret-1234567890-supersecret-1234567890";
+  await callTool("repo.propose_patch", {
+    path: "src/patch.txt",
+    replace: { startLine: 1, endLine: 1, newText: secret }
+  });
+  const { line, entry } = await waitForAuditEntry("repo.propose_patch");
+  assert.ok(!line.includes(secret));
+  assert.ok(entry.argsSummary.textBytes > 0);
+  assert.equal(entry.argsSummary.newText, undefined);
 });
 
 test("repo.apply_patch applies unified diff", async () => {
