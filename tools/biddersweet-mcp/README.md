@@ -1,6 +1,6 @@
 # biddersweet-mcp
 
-biddersweet-mcp is a local MCP server that provides repo-scoped navigation (search/read/list) plus a small, allowlisted set of dev commands over stdio. It always returns structured JSON suitable for LLM agents and enforces strict repo-root containment and safety guardrails.
+biddersweet-mcp is a local MCP server that provides repo-scoped navigation (search/read/list), limited patch application, and a small allowlisted set of dev commands over stdio. It always returns structured JSON suitable for LLM agents and enforces strict repo-root containment and safety guardrails.
 
 ## Quickstart
 
@@ -19,6 +19,12 @@ npm run dev
 ```
 
 You can also set the repo root via `BIDDERSWEET_REPO_ROOT`.
+
+Shortcut:
+
+```bash
+npm run mcp
+```
 
 ## Safety knobs
 
@@ -44,6 +50,22 @@ In `READ_ONLY`, write tools (currently `repo.apply_patch`) return a structured e
     "details": { "tool": "repo.apply_patch", "mode": "READ_ONLY" }
   }
 }
+```
+
+### Protected paths
+
+Sensitive paths are blocked for read/write (e.g. `.env`, `config/credentials`, `config/master.key`, `credentials`). To bypass in a trusted environment:
+
+```bash
+BIDDERSWEET_ALLOW_PROTECTED_PATHS=1
+```
+
+### Command timeout
+
+Dev commands default to a 60s timeout. Override in milliseconds:
+
+```bash
+BIDDERSWEET_CMD_TIMEOUT_MS=120000
 ```
 
 ### Audit logging
@@ -108,6 +130,13 @@ npm install
 
 ## Tools and examples
 
+Tool index:
+- Repo: `repo.info`, `repo.search`, `repo.read_file`, `repo.read_range`, `repo.list_dir`, `repo.deps`, `repo.symbols`, `repo.tree`, `repo.find_refs`, `repo.todo_scan`, `repo.format_patch`, `repo.propose_patch`, `repo.apply_patch`
+- Dev: `dev.check`, `dev.run`, `dev.benchmark_smoke`, `dev.explain_failure`, `dev.run_tests`, `dev.run_lint`
+- Rails: `rails.routes`, `rails.schema`, `rails.models`
+- JS: `js.workspace`
+- Git: `git.status`, `git.diff`
+
 ### repo.info
 
 Request:
@@ -119,7 +148,7 @@ Request:
 }
 ```
 
-Example response:
+Example response (shape only):
 
 ```json
 {
@@ -128,7 +157,7 @@ Example response:
   "detectedLanguages": { "ruby": true, "js": true },
   "packageManager": "npm",
   "isGitRepo": true,
-  "availableDevCommands": ["dev.run_tests", "dev.run_lint", "dev.check"]
+  "availableDevCommands": ["dev.run_tests", "dev.run_lint", "dev.run", "dev.benchmark_smoke", "dev.explain_failure", "dev.check"]
 }
 ```
 
@@ -243,10 +272,10 @@ Example response:
 
 ```json
 {
-  "ruby": { "version": "3.2.2", "railsVersion": "7.1.2", "bundlerVersion": "2.4.10" },
-  "node": { "version": "20.11.1", "packageManager": "pnpm", "workspaceType": "workspace" },
-  "gems": { "top": [{ "name": "rails", "version": "~> 7.1.0" }], "hasGemfileLock": true },
-  "js": { "dependenciesTop": [{ "name": "react", "versionRange": "^18.2.0" }], "scripts": { "test": "vitest" }, "hasLockfile": true },
+  "ruby": { "version": "3.x", "railsVersion": "8.x", "bundlerVersion": "2.x" },
+  "node": { "version": "20.x", "packageManager": "npm", "workspaceType": "single" },
+  "gems": { "top": [{ "name": "rails", "version": "~> 8.0" }], "hasGemfileLock": true },
+  "js": { "dependenciesTop": [{ "name": "zod", "versionRange": "^3.x" }], "scripts": { "build": "tsc -p tsconfig.json" }, "hasLockfile": true },
   "filesChecked": ["Gemfile", "Gemfile.lock", "package.json", "package-lock.json"],
   "warnings": []
 }
@@ -310,6 +339,191 @@ Notes:
 - Applies the same skip list as `repo.search` (e.g. `node_modules`, `dist`, `.git`).
 - `maxDepth`, `maxNodes`, and `maxEntriesPerDir` enforce bounds and set `truncated: true` if exceeded.
 
+### repo.find_refs
+
+Request:
+
+```json
+{
+  "tool": "repo.find_refs",
+  "arguments": { "symbol": "User", "languageHint": "ruby", "maxFiles": 5, "maxSnippetsPerFile": 2 }
+}
+```
+
+Example response (shape only):
+
+```json
+{
+  "symbol": "User",
+  "results": [
+    {
+      "path": "app/models/user.rb",
+      "occurrences": 3,
+      "snippets": [{ "line": 12, "text": "class User < ApplicationRecord" }]
+    }
+  ],
+  "truncated": false
+}
+```
+
+### repo.todo_scan
+
+Request:
+
+```json
+{
+  "tool": "repo.todo_scan",
+  "arguments": { "patterns": ["TODO", "FIXME"], "maxResults": 50 }
+}
+```
+
+### repo.format_patch
+
+Request:
+
+```json
+{
+  "tool": "repo.format_patch",
+  "arguments": { "diff": "--- a/foo.txt\n+++ b/foo.txt\n@@\n-Old\n+New\n" }
+}
+```
+
+### repo.propose_patch
+
+Request:
+
+```json
+{
+  "tool": "repo.propose_patch",
+  "arguments": { "path": "README.md", "replace": { "startLine": 1, "endLine": 1, "newText": "# Updated\n" } }
+}
+```
+
+### repo.apply_patch
+
+Request:
+
+```json
+{
+  "tool": "repo.apply_patch",
+  "arguments": {
+    "path": "README.md",
+    "expectedSha256": "abc123...",
+    "replace": { "startLine": 1, "endLine": 1, "newText": "# Updated\n" }
+  }
+}
+```
+
+### dev.run
+
+Request:
+
+```json
+{
+  "tool": "dev.run",
+  "arguments": { "name": "node-version" }
+}
+```
+
+### dev.benchmark_smoke
+
+Request:
+
+```json
+{
+  "tool": "dev.benchmark_smoke",
+  "arguments": { "name": "json-parse-smoke" }
+}
+```
+
+### dev.explain_failure
+
+Request:
+
+```json
+{
+  "tool": "dev.explain_failure",
+  "arguments": { "stdout": "...", "stderr": "...", "runId": "abc123" }
+}
+```
+
+### rails.routes
+
+Request:
+
+```json
+{
+  "tool": "rails.routes",
+  "arguments": { "mode": "static", "maxResults": 50 }
+}
+```
+
+### rails.schema
+
+Request:
+
+```json
+{
+  "tool": "rails.schema",
+  "arguments": {}
+}
+```
+
+### rails.models
+
+Request:
+
+```json
+{
+  "tool": "rails.models",
+  "arguments": {}
+}
+```
+
+### js.workspace
+
+Request:
+
+```json
+{
+  "tool": "js.workspace",
+  "arguments": {}
+}
+```
+
+### git.status
+
+Request:
+
+```json
+{
+  "tool": "git.status",
+  "arguments": {}
+}
+```
+
+### git.diff
+
+Request:
+
+```json
+{
+  "tool": "git.diff",
+  "arguments": { "path": "README.md", "staged": false }
+}
+```
+
+### dev.run_lint
+
+Request:
+
+```json
+{
+  "tool": "dev.run_lint",
+  "arguments": { "target": "both" }
+}
+```
+
 ### dev.run_tests
 
 Request:
@@ -356,4 +570,5 @@ Example response:
 - All filesystem paths are resolved against the repo root and rejected if they escape it or include `..` after normalization.
 - Absolute paths are only allowed if they still resolve within the repo root.
 - Files larger than 200KB are refused (no truncation), and binary files are refused using a null-byte heuristic.
+- Protected paths (secrets/credentials) are blocked unless `BIDDERSWEET_ALLOW_PROTECTED_PATHS=1` is set.
 - Dev commands run with `child_process.spawn` (no shell), are strictly allowlisted, have a 60s timeout (configurable), and cap combined stdout+stderr to 10KB with truncation metadata.

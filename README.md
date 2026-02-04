@@ -1,6 +1,6 @@
-# README
+# X-Bid Backend
 
-This is the Ruby on Rails API backend for the **X-Bid** auction platform. It handles user authentication, auction management, bid packs, and real-time bidding logic.
+This is the Ruby on Rails API backend for the X-Bid auction platform. It handles authentication, auctions, bid packs, and real-time bidding.
 
 ## Backend Architecture Overview
 
@@ -44,9 +44,9 @@ We use command-based application services to perform domain actions, and domain 
 
 ## Prerequisites
 
-*   **Ruby:** See the `.ruby-version` file.
-*   **Rails:** See `Gemfile` for the exact version (`~> 8.0.2`).
-*   **Database:** PostgreSQL
+* Ruby: `3.4.5` (see `.ruby-version`).
+* Rails: `~> 8.0.2` (see `Gemfile`).
+* Database: PostgreSQL.
 
 ## Getting Started
 
@@ -69,16 +69,16 @@ Follow these steps to get the application running locally.
 4.  **Create and seed the database:**
     This will create the database, run all migrations, and populate the database with sample users, bid packs, and auctions.
     ```bash
-    bin/rails db:setup
+    bin/rails db:create db:migrate db:seed
     ```
 
 5.  **Run the server:**
-```bash
-bin/rails server
-```
-The API will be available at `http://localhost:3000`.
+    ```bash
+    bin/rails server
+    ```
+    The API will be available at `http://localhost:3000`.
 
-**Shortcut:** `bin/setup` will run `bundle install`, then `db:create db:migrate db:seed` for you.
+**Shortcut:** `bin/setup` runs `bundle install`, then `db:create db:migrate db:seed`.
 
 ### Running Tests
 
@@ -154,11 +154,17 @@ errors as `{ error: { code, message } }` using `result.code`/`result.message`.
 The app relies on the following environment/config values:
 
 * `SECRET_KEY_BASE`: JWT signing secret (required in production).
-* `DATABASE_URL` or local PostgreSQL credentials in `config/database.yml`.
-* `FRONTEND_URL`: used for password reset links and Stripe return URLs (default: `http://localhost:5173`).
-* `SESSION_TOKEN_TTL`: optional; session token TTL override (defaults to 30 minutes if unset).
+* `DATABASE_URL`: primary database connection (see `config/database.yml`).
+* `QUEUE_DATABASE_URL`: optional override for Solid Queue (defaults to `DATABASE_URL`).
+* `REDIS_URL`: required in production for cache/rate limiting.
+* `FRONTEND_URL`: base URL for password reset links and checkout returns (defaults to `http://localhost:5173`).
+* `FRONTEND_WINS_URL`: optional override for win-claim links (defaults to `FRONTEND_URL` + `/wins`).
+* `FRONTEND_ORIGINS` or `CORS_ALLOWED_ORIGINS`: CORS allowlist overrides.
+* `SESSION_COOKIE_DOMAIN` and `COOKIE_SAMESITE`: optional cookie scoping overrides.
+* `SESSION_TOKEN_TTL`: optional session TTL override (defaults to 30 minutes).
 * Stripe keys: `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` (required for checkout flows).
-* Mailer SMTP settings (for production email delivery) if not using letter_opener in development.
+* Mailer SMTP settings for production delivery.
+* Active Storage S3: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, optional `AWS_ENDPOINT`, `AWS_FORCE_PATH_STYLE`.
 
 ---
 
@@ -166,7 +172,8 @@ The app relies on the following environment/config values:
 
 Interactive API docs are served by `oas_rails`. Once the server is running, you can access the documentation in your browser at:
 
-*   **http://localhost:3000/api-docs**
+* **http://localhost:3000/api-docs**
+* **http://localhost:3000/docs** (redirects to `/api-docs`)
 
 The documentation provides a complete list of endpoints, parameters, and example responses. The list below is a high-level overview.
 
@@ -181,46 +188,76 @@ All endpoints are prefixed with `/api/v1`.
 
 ### Authentication
 
-*   `POST /users`: Register a new user.
-*   `POST /login`: Log in to receive a JWT.
-    * Response includes `is_admin` and `is_superuser` flags (also returned by session refresh).
-*   `DELETE /logout`: Log out (for client-side session clearing).
-*   `GET /logged_in`: Check if the current user's JWT is valid.
-*   `POST /session/refresh`: Refresh the active session token.
-*   `POST /password/forgot` and `POST /password/reset`: Request and complete password resets. Forgot always returns 202 to avoid user enumeration; reset enforces valid token.
+* `POST /users` and `POST /signup`: Register a new user.
+* `POST /login`: Log in to receive a JWT (response includes `is_admin` and `is_superuser`, also returned by session refresh).
+* `POST /session/refresh`: Refresh the active session token.
+* `GET /session/remaining`: Session TTL remaining.
+* `DELETE /logout`: Log out (client-side session clearing).
+* `GET /logged_in`: Check if the current user's JWT is valid.
+* `POST /password/forgot` and `POST /password/reset`: Request and complete password resets.
+* `POST /email_verifications/resend` and `GET /email_verifications/verify`: Email verification.
 
 ### Auctions
 
-*   `GET /auctions`: Get a list of all auctions (no pagination today).
-*   `GET /auctions/:id`: Get details for a single auction.
-*   `POST /auctions`: Create a new auction (admin only).
-*   `PATCH /auctions/:id`: Update an auction (admin only).
-*   `DELETE /auctions/:id`: Retire an auction (sets status to inactive; 422 if bids exist or already inactive).
+* `GET /auctions`: Get a list of all auctions (no pagination today).
+* `GET /auctions/:id`: Get details for a single auction.
+* `POST /auctions/:id/extend_time`: Extend auction time (admin only).
+* `POST /auctions/:id/watch` and `DELETE /auctions/:id/watch`: Watch/unwatch an auction.
+* `POST /auctions`: Create a new auction (admin only).
+* `PATCH /auctions/:id`: Update an auction (admin only).
+* `DELETE /auctions/:id`: Retire an auction (sets status to inactive; 422 if bids exist or already inactive).
 
 ### Bidding
 
-*   `POST /auctions/:auction_id/bids`: Places a bid on an auction. Requires authentication + verified email (`403` `email_unverified` if unverified).
-*   `GET /auctions/:auction_id/bid_history`: Retrieves the list of bids for a specific auction (newest-first by `created_at`).
+* `POST /auctions/:auction_id/bids`: Places a bid on an auction. Requires authentication + verified email (`403` `email_unverified` if unverified).
+* `GET /auctions/:auction_id/bid_history`: Retrieves the list of bids for a specific auction (newest-first by `created_at`).
 
 ### Bid Packs
 
-*   `GET /bid_packs`: Get a list of available bid packs for purchase.
-*   `POST /api/v1/admin/bid_packs` and `PATCH/PUT/DELETE /api/v1/admin/bid_packs/:id`: Admin CRUD for bid packs (DELETE retires a bid pack; hard delete is blocked to preserve purchase history). Reactivation allowed via update (`status: "active"` or `active: true`).
+* `GET /bid_packs`: Get a list of available bid packs for purchase.
+* `POST /api/v1/admin/bid-packs` and `PATCH/PUT/DELETE /api/v1/admin/bid-packs/:id`: Admin CRUD for bid packs (DELETE retires a bid pack; hard delete is blocked to preserve purchase history). Reactivation allowed via update (`status: "active"` or `active: true`).
 
 ### Checkout (Bid Pack Purchases)
 
-*   `POST /checkouts`: Create a Stripe Checkout session. Requires authentication + verified email (`403` `email_unverified` if unverified).
-*   `GET /checkout/status`: Fetch a Stripe checkout session status.
-*   `GET /checkout/success`: Apply a successful checkout (idempotent) and credit the user. Requires authentication + verified email (`403` `email_unverified` if unverified).
+* `POST /checkouts`: Create a Stripe Checkout session. Requires authentication + verified email (`403` `email_unverified` if unverified).
+* `GET /checkout/status`: Fetch a Stripe checkout session status.
+* `GET /checkout/success`: Apply a successful checkout (idempotent) and credit the user. Requires authentication + verified email (`403` `email_unverified` if unverified).
+
+### Account, Wallet, and Profile
+
+* `GET /account` and `PATCH /account`: View/update account.
+* `POST /account/password`: Change password.
+* `GET /account/security`: Security settings (2FA status, etc.).
+* `POST /account/2fa/setup`, `POST /account/2fa/verify`, `POST /account/2fa/disable`: 2FA flows.
+* `POST /account/email-change`: Start email change.
+* `GET /account/notifications` and `PUT /account/notifications`: Notification preferences.
+* `GET /account/sessions`, `DELETE /account/sessions`, `DELETE /account/sessions/:id`: Session management.
+* `GET /account/export`, `POST /account/export`, `GET /account/export/download`: Account data export.
+* `GET /wallet` and `GET /wallet/transactions`: Credits and wallet history.
+* `GET /me` and related endpoints for purchases, activity, wins, and notifications.
+* `POST /me/wins/:auction_id/claim`: Claim a win.
+
+### Uploads
+
+* `POST /uploads`: Create a signed upload.
+* `GET /uploads/:signed_id`: Fetch upload metadata.
 
 ### Admin & Audit
 
-*   `GET /api/v1/admin/users`: List admin/superadmin users (superadmin only). Member actions to grant/revoke admin/superadmin and ban users (superadmin only):  
-    `POST /api/v1/admin/users/:id/grant_admin`, `.../revoke_admin`, `.../grant_superadmin`, `.../revoke_superadmin`, `.../ban`.
-*   `GET /api/v1/admin/payments`: List purchases with optional `search=userEmail` filter (admin/superadmin).
-*   `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }` (admin/superadmin). Audit logs are also written automatically for admin actions such as auction create/update/delete, bid pack create/update/deactivate, and admin role changes/bans.
-*   `GET /api/v1/maintenance`: Public maintenance flag `{ maintenance: { enabled, updated_at } }` (no auth).  
-*   `GET/POST /api/v1/admin/maintenance`: Superadmin-only maintenance mode status/toggle (`enabled` query/body param; returns maintenance JSON). When enabled, all non-admin traffic is blocked with 503 `{ error: { code: "maintenance_mode", message: "Maintenance in progress" } }`; allowed during maintenance: `/up`, `/api/v1/login`, `/api/v1/maintenance`, and any request with a valid admin/superadmin token.
+* `GET /api/v1/admin/users`: List admin/superadmin users (superadmin only). Member actions to grant/revoke admin/superadmin and ban users.
+* `GET /api/v1/admin/payments`: List purchases with optional `search=userEmail` filter.
+* `GET /api/v1/admin/payments/:id`: Payment details.
+* `POST /api/v1/admin/payments/:id/refund` and `POST /api/v1/admin/payments/:id/repair_credits`: Payment actions.
+* `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }`.
+* `POST /api/v1/admin/fulfillments/:id/process`, `.../ship`, `.../complete`: Fulfillment workflow.
+* `GET /api/v1/maintenance`: Public maintenance flag `{ maintenance: { enabled, updated_at } }` (no auth).
+* `GET /api/v1/admin/maintenance` and `POST /api/v1/admin/maintenance`: Superadmin-only maintenance mode status/toggle.
+
+### Health and Diagnostics
+
+* `GET /api/v1/health`: Basic health check.
+* `GET /cable/health`: Action Cable health.
+* `GET /up`: Rails health check.
 
 ---
 
