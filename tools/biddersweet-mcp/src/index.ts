@@ -42,6 +42,27 @@ const DEFAULT_SYMBOLS_MAX = 200;
 const HARD_SYMBOLS_MAX = 500;
 const DEFAULT_CMD_TIMEOUT_MS = 60_000;
 const CHECK_TIMEOUT_MS = 1_500;
+const DEV_RUN_BASE_ENV_ALLOWLIST = ["PATH"];
+
+type DevRunAllowlistEntry = {
+  name: string;
+  command: string[];
+  allowedArgs?: string[];
+  timeoutMs?: number;
+  maxOutputBytes?: number;
+  envAllowlist?: string[];
+};
+
+const DEV_RUN_ALLOWLIST: DevRunAllowlistEntry[] = [
+  {
+    name: "node-version",
+    command: ["node", "--version"],
+    allowedArgs: [],
+    timeoutMs: 10_000,
+    maxOutputBytes: MAX_CMD_OUTPUT_BYTES,
+    envAllowlist: []
+  }
+];
 
 const SKIP_DIR_NAMES = new Set([
   "node_modules",
@@ -180,6 +201,10 @@ const DevCheckInputSchema = z.object({});
 const DevRunTargetSchema = z.object({
   target: z.enum(["ruby", "js", "both"]).optional().default("both")
 });
+const DevRunInputSchema = z.object({
+  name: z.string().min(1),
+  args: z.array(z.string()).optional()
+});
 
 type RepoInfoInput = z.infer<typeof RepoInfoInputSchema>;
 type RepoSearchInput = z.infer<typeof RepoSearchInputSchema>;
@@ -195,6 +220,7 @@ type RepoFormatPatchInput = z.infer<typeof RepoFormatPatchInputSchema>;
 type RepoProposePatchInput = z.infer<typeof RepoProposePatchInputSchema>;
 type RepoApplyPatchInput = z.infer<typeof RepoApplyPatchInputSchema>;
 type DevRunTargetInput = z.infer<typeof DevRunTargetSchema>;
+type DevRunInput = z.infer<typeof DevRunInputSchema>;
 
 type DevResult = {
   ok: boolean;
@@ -479,6 +505,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: emptyInputSchema()
       },
       {
+        name: "dev.run",
+        description: "Run a command by allowlisted name with strict limits.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            args: { type: "array", items: { type: "string" } }
+          },
+          required: ["name"],
+          additionalProperties: false
+        }
+      },
+      {
         name: "dev.run_tests",
         description: "Run allowlisted test commands.",
         inputSchema: {
@@ -578,6 +617,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await handleDevCheck(parsed);
         return jsonResult(result);
       }
+      case "dev.run": {
+        const parsed = DevRunInputSchema.parse(args ?? {});
+        const result = await handleDevRunAllowlisted(parsed);
+        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+      }
       case "dev.run_tests": {
         const parsed = DevRunTargetSchema.parse(args ?? {});
         const result = await handleDevRunTests(parsed);
@@ -612,6 +656,9 @@ async function handleRepoInfo(_input: RepoInfoInput) {
   const availableDevCommands: string[] = [];
   if (gemfile || packageJson) {
     availableDevCommands.push("dev.run_tests", "dev.run_lint");
+  }
+  if (DEV_RUN_ALLOWLIST.length > 0) {
+    availableDevCommands.push("dev.run");
   }
   availableDevCommands.push("dev.check");
 
@@ -1721,6 +1768,44 @@ async function handleDevCheck(_input: Record<string, never>) {
   return { tools };
 }
 
+async function handleDevRunAllowlisted(input: DevRunInput) {
+  const entry = DEV_RUN_ALLOWLIST.find((item) => item.name === input.name);
+  if (!entry) {
+    return toolError("command_not_allowed", "command is not allowlisted", { name: input.name });
+  }
+
+  const args = input.args ?? [];
+  const validationError = validateDevRunArgs(entry, args);
+  if (validationError) {
+    return toolError("args_not_allowed", validationError, { name: entry.name, args });
+  }
+
+  const cmd = [...entry.command, ...args];
+  const timeoutMs = entry.timeoutMs ?? DEFAULT_CMD_TIMEOUT_MS;
+  const maxOutputBytes = entry.maxOutputBytes ?? MAX_CMD_OUTPUT_BYTES;
+  const { env, envUsed } = buildAllowlistedEnv(entry.envAllowlist ?? []);
+
+  const result = await runAllowlistedCommand(cmd, {
+    timeoutMs,
+    maxOutputBytes,
+    env
+  });
+
+  return {
+    name: entry.name,
+    cmd,
+    cwd: ".",
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    durationMs: result.durationMs,
+    timedOut: result.timedOut,
+    truncated: result.truncated,
+    limits: { timeoutMs, maxOutputBytes },
+    envUsed
+  };
+}
+
 async function handleDevRunTests(input: DevRunTargetInput) {
   return handleDevRun(
     input.target,
@@ -1851,6 +1936,108 @@ function missingCommandResult(target: "ruby" | "js"): DevResult {
     truncatedBytes: 0,
     durationMs: 0
   };
+}
+
+function validateDevRunArgs(entry: DevRunAllowlistEntry, args: string[]) {
+  if (args.length === 0) return null;
+  if (!entry.allowedArgs || entry.allowedArgs.length === 0) {
+    return "arguments are not permitted for this command";
+  }
+  const allowed = new Set(entry.allowedArgs);
+  const invalid = args.find((arg) => !allowed.has(arg));
+  if (invalid) {
+    return `argument_not_allowlisted:${invalid}`;
+  }
+  return null;
+}
+
+function buildAllowlistedEnv(extraAllowlist: string[]) {
+  const allowlist = new Set([...DEV_RUN_BASE_ENV_ALLOWLIST, ...extraAllowlist]);
+  const env: Record<string, string> = {};
+  const envUsed: string[] = [];
+
+  for (const name of allowlist) {
+    const value = process.env[name];
+    if (value !== undefined) {
+      env[name] = value;
+      envUsed.push(name);
+    }
+  }
+
+  envUsed.sort();
+  return { env, envUsed };
+}
+
+async function runAllowlistedCommand(
+  command: string[],
+  limits: { timeoutMs: number; maxOutputBytes: number; env: Record<string, string> }
+): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean; truncated: boolean; durationMs: number }> {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const child = spawn(command[0], command.slice(1), {
+      cwd: repoRoot,
+      env: limits.env,
+      shell: false
+    });
+
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let truncated = false;
+    let timedOut = false;
+
+    const onData = (chunk: Buffer, stream: "stdout" | "stderr") => {
+      const remaining = limits.maxOutputBytes - (stdoutBytes + stderrBytes);
+      if (remaining <= 0) {
+        truncated = true;
+        return;
+      }
+      const slice = chunk.length > remaining ? chunk.slice(0, remaining) : chunk;
+      if (slice.length < chunk.length) truncated = true;
+      if (stream === "stdout") {
+        stdoutChunks.push(slice);
+        stdoutBytes += slice.length;
+      } else {
+        stderrChunks.push(slice);
+        stderrBytes += slice.length;
+      }
+    };
+
+    child.stdout?.on("data", (chunk: Buffer) => onData(chunk, "stdout"));
+    child.stderr?.on("data", (chunk: Buffer) => onData(chunk, "stderr"));
+
+    let timeout: NodeJS.Timeout | undefined;
+    if (limits.timeoutMs > 0) {
+      timeout = setTimeout(() => {
+        timedOut = true;
+        truncated = true;
+        child.kill("SIGKILL");
+      }, limits.timeoutMs);
+    }
+
+    const finalize = (exitCode: number) => {
+      if (timeout) clearTimeout(timeout);
+      const stdout = normalizeLineEndings(Buffer.concat(stdoutChunks).toString("utf8"));
+      const stderr = normalizeLineEndings(Buffer.concat(stderrChunks).toString("utf8"));
+      resolve({
+        exitCode,
+        stdout,
+        stderr,
+        timedOut,
+        truncated,
+        durationMs: Date.now() - startTime
+      });
+    };
+
+    child.on("close", (code: number | null) => {
+      finalize(typeof code === "number" ? code : -1);
+    });
+
+    child.on("error", () => {
+      finalize(-1);
+    });
+  });
 }
 
 async function runDevCommand(command: string[]): Promise<DevResult> {
