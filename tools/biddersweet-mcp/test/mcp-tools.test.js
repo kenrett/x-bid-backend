@@ -1,5 +1,6 @@
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -65,6 +66,10 @@ before(async () => {
       "// FIXME: recover on timeout",
       "// NOTE: remove after migration"
     ].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "src", "patch.txt"),
+    ["alpha", "beta", "gamma"].join("\n")
   );
 
   await fs.writeFile(path.join(repoRoot, ".ruby-version"), "3.2.2\n");
@@ -266,6 +271,30 @@ test("repo.todo_scan finds todo markers with stable ordering", async () => {
   assert.equal(payload.groupedCounts.TODO, 1);
   assert.equal(payload.groupedCounts.FIXME, 1);
   assert.equal(payload.groupedCounts.NOTE, 1);
+});
+
+test("repo.propose_patch generates unified diff without applying", async () => {
+  const { payload } = await callTool("repo.propose_patch", {
+    path: "src/patch.txt",
+    replace: { startLine: 2, endLine: 2, newText: "beta-updated" }
+  });
+  assert.equal(payload.path, "src/patch.txt");
+  assert.equal(payload.applied, false);
+  assert.ok(payload.diff.includes("@@ -2,1 +2,1 @@"));
+  assert.ok(payload.diff.includes("-beta"));
+  assert.ok(payload.diff.includes("+beta-updated"));
+});
+
+test("repo.propose_patch enforces expected sha", async () => {
+  const original = ["alpha", "beta", "gamma"].join("\n");
+  const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
+  const { result, payload } = await callTool("repo.propose_patch", {
+    path: "src/patch.txt",
+    delete: { startLine: 1, endLine: 1 },
+    expectedSha256: `${expected}bad`
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error.code, "sha_mismatch");
 });
 
 test("repo.tree returns bounded directory tree and skips node_modules", async () => {
