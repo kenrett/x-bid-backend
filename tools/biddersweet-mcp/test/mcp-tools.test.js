@@ -278,6 +278,41 @@ test("repo.todo_scan finds todo markers with stable ordering", async () => {
   assert.equal(payload.groupedCounts.NOTE, 1);
 });
 
+test("repo.format_patch normalizes diff and returns stats", async () => {
+  const diff = [
+    "--- a/src/apply.txt",
+    "+++ b/src/apply.txt",
+    "@@ -1,3 +1,4 @@",
+    " first",
+    "+between",
+    " second",
+    " third"
+  ].join("\n");
+  const { payload } = await callTool("repo.format_patch", { diff });
+  assert.equal(payload.valid, true);
+  assert.deepEqual(payload.filesChanged, ["src/apply.txt"]);
+  assert.equal(payload.stats.files, 1);
+  assert.equal(payload.stats.insertions, 1);
+  assert.equal(payload.stats.deletions, 0);
+  assert.ok(payload.normalizedDiff.startsWith("diff --git a/src/apply.txt b/src/apply.txt"));
+  assert.ok(payload.normalizedDiff.includes("@@ -1,3 +1,4 @@"));
+  assert.ok(payload.warnings.includes("missing_diff_header"));
+});
+
+test("repo.format_patch detects malformed diff", async () => {
+  const diff = [
+    "diff --git a/src/apply.txt b/src/apply.txt",
+    "--- a/src/apply.txt",
+    "+++ b/src/apply.txt",
+    "@@ -1,2 +1,2 @@",
+    " first",
+    "+second"
+  ].join("\n");
+  const { payload } = await callTool("repo.format_patch", { diff });
+  assert.equal(payload.valid, false);
+  assert.ok(payload.warnings.some((warning) => warning.startsWith("invalid_hunk")));
+});
+
 test("repo.propose_patch generates unified diff without applying", async () => {
   const { payload } = await callTool("repo.propose_patch", {
     path: "src/patch.txt",

@@ -99,6 +99,9 @@ const RepoTodoScanInputSchema = z.object({
     patterns: z.array(z.string().min(1)).optional(),
     maxResults: z.number().int().positive().optional()
 });
+const RepoFormatPatchInputSchema = z.object({
+    diff: z.string().min(1)
+});
 const RepoProposePatchInputSchema = z
     .object({
     path: z.string(),
@@ -283,6 +286,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
+                name: "repo.format_patch",
+                description: "Validate and normalize a unified diff patch.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        diff: { type: "string" }
+                    },
+                    required: ["diff"],
+                    additionalProperties: false
+                }
+            },
+            {
                 name: "repo.propose_patch",
                 description: "Generate a unified diff patch for a change without writing to disk.",
                 inputSchema: {
@@ -447,6 +462,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "repo.todo_scan": {
                 const parsed = RepoTodoScanInputSchema.parse(args ?? {});
                 const result = await handleRepoTodoScan(parsed);
+                return jsonResult(result);
+            }
+            case "repo.format_patch": {
+                const parsed = RepoFormatPatchInputSchema.parse(args ?? {});
+                const result = await handleRepoFormatPatch(parsed);
                 return jsonResult(result);
             }
             case "repo.propose_patch": {
@@ -1142,6 +1162,66 @@ async function handleRepoTodoScan(input) {
         results: limited,
         groupedCounts,
         truncated
+    };
+}
+async function handleRepoFormatPatch(input) {
+    const warnings = [];
+    const normalizedInput = normalizeLineEndings(input.diff).trimEnd();
+    if (normalizedInput.length === 0) {
+        return formatPatchResult(false, "", [], 0, 0, ["empty_diff"]);
+    }
+    const hasDiffHeader = normalizedInput.split("\n").some((line) => line.startsWith("diff --git "));
+    if (!hasDiffHeader) {
+        warnings.push("missing_diff_header");
+    }
+    const segments = splitUnifiedDiffSegments(normalizedInput, warnings);
+    if (segments.length === 0) {
+        return formatPatchResult(false, "", [], 0, 0, [...warnings, "invalid_diff"]);
+    }
+    const normalizedSegments = [];
+    const filesChanged = [];
+    const seenFiles = new Set();
+    let insertions = 0;
+    let deletions = 0;
+    for (const segment of segments) {
+        const parsed = parseUnifiedDiff(segment);
+        if (!parsed.ok) {
+            return formatPatchResult(false, "", [], 0, 0, [...warnings, `invalid_diff:${parsed.error.code}`]);
+        }
+        if (!parsed.path) {
+            return formatPatchResult(false, "", [], 0, 0, [...warnings, "missing_path"]);
+        }
+        const pathValue = normalizeRelativePath(parsed.path);
+        const hunkResult = normalizeUnifiedDiffHunks(parsed.hunks);
+        if (!hunkResult.ok) {
+            return formatPatchResult(false, "", [], 0, 0, [...warnings, `invalid_hunk:${hunkResult.error}`]);
+        }
+        if (!seenFiles.has(pathValue)) {
+            seenFiles.add(pathValue);
+            filesChanged.push(pathValue);
+        }
+        insertions += hunkResult.insertions;
+        deletions += hunkResult.deletions;
+        normalizedSegments.push([
+            `diff --git a/${pathValue} b/${pathValue}`,
+            `--- a/${pathValue}`,
+            `+++ b/${pathValue}`,
+            ...hunkResult.lines
+        ].join("\n"));
+    }
+    return formatPatchResult(true, normalizedSegments.join("\n"), filesChanged, insertions, deletions, warnings.length > 0 ? warnings : undefined);
+}
+function formatPatchResult(valid, normalizedDiff, filesChanged, insertions, deletions, warnings) {
+    return {
+        normalizedDiff,
+        filesChanged,
+        stats: {
+            files: filesChanged.length,
+            insertions,
+            deletions
+        },
+        warnings: warnings && warnings.length > 0 ? warnings : undefined,
+        valid
     };
 }
 async function handleRepoProposePatch(input) {
@@ -2067,6 +2147,85 @@ function parseDiffPath(rawPath) {
         return rawPath.slice(2);
     }
     return rawPath;
+}
+function splitUnifiedDiffSegments(diff, warnings) {
+    const lines = diff.split("\n");
+    const segments = [];
+    let current = [];
+    let sawDiffHeader = false;
+    let sawPrelude = false;
+    for (const line of lines) {
+        if (line.startsWith("diff --git ")) {
+            if (current.length > 0) {
+                segments.push(current.join("\n"));
+            }
+            current = [line];
+            sawDiffHeader = true;
+            continue;
+        }
+        if (!sawDiffHeader) {
+            if (line.trim().length > 0) {
+                sawPrelude = true;
+                current.push(line);
+            }
+            else if (current.length > 0) {
+                current.push(line);
+            }
+            continue;
+        }
+        current.push(line);
+    }
+    if (current.length > 0) {
+        segments.push(current.join("\n"));
+    }
+    if (sawDiffHeader) {
+        if (sawPrelude)
+            warnings.push("leading_content_ignored");
+        return segments.filter((segment) => segment.trim().length > 0 && segment.startsWith("diff --git "));
+    }
+    return diff.trim().length > 0 ? [diff] : [];
+}
+function normalizeUnifiedDiffHunks(hunks) {
+    if (hunks.length === 0) {
+        return { ok: false, error: "no_hunks" };
+    }
+    const lines = [];
+    let insertions = 0;
+    let deletions = 0;
+    for (const hunk of hunks) {
+        if (hunk.oldStart <= 0 || hunk.newStart <= 0) {
+            return { ok: false, error: "hunk_start_invalid" };
+        }
+        let seenOld = 0;
+        let seenNew = 0;
+        const hunkLines = [];
+        for (const entry of hunk.lines) {
+            if (entry.type === "context") {
+                seenOld += 1;
+                seenNew += 1;
+                hunkLines.push(` ${entry.text}`);
+            }
+            else if (entry.type === "add") {
+                seenNew += 1;
+                insertions += 1;
+                hunkLines.push(`+${entry.text}`);
+            }
+            else {
+                seenOld += 1;
+                deletions += 1;
+                hunkLines.push(`-${entry.text}`);
+            }
+        }
+        if (hunkLines.length === 0) {
+            return { ok: false, error: "empty_hunk" };
+        }
+        if (seenOld !== hunk.oldCount || seenNew !== hunk.newCount) {
+            return { ok: false, error: "hunk_count_mismatch" };
+        }
+        lines.push(`@@ -${hunk.oldStart},${seenOld} +${hunk.newStart},${seenNew} @@`);
+        lines.push(...hunkLines);
+    }
+    return { ok: true, lines, insertions, deletions };
 }
 function applyUnifiedDiff(lines, hunks) {
     const output = [];
