@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -22,6 +23,7 @@ const DEFAULT_TODO_PATTERNS = ["TODO", "FIXME", "HACK", "XXX", "NOTE"];
 const DEFAULT_TODO_MAX = 200;
 const HARD_TODO_MAX = 500;
 const MAX_TODO_OUTPUT_BYTES = 1024 * 1024;
+const MAX_PATCH_BYTES = 50 * 1024;
 const DEFAULT_LIST_MAX = 500;
 const HARD_LIST_MAX = 2000;
 const MAX_READ_RANGE_LINES = 400;
@@ -90,6 +92,26 @@ const RepoTodoScanInputSchema = z.object({
     patterns: z.array(z.string().min(1)).optional(),
     maxResults: z.number().int().positive().optional()
 });
+const RepoProposePatchInputSchema = z.object({
+    path: z.string(),
+    replace: z.object({
+        startLine: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        newText: z.string()
+    }).optional(),
+    insert: z.object({
+        line: z.number().int().positive(),
+        text: z.string()
+    }).optional(),
+    delete: z.object({
+        startLine: z.number().int().positive(),
+        endLine: z.number().int().positive()
+    }).optional(),
+    expectedSha256: z.string().optional()
+}).refine((value) => {
+    const variants = [value.replace, value.insert, value.delete].filter(Boolean);
+    return variants.length === 1;
+}, { message: "exactly_one_operation_required" });
 const DevCheckInputSchema = z.object({});
 const DevRunTargetSchema = z.object({
     target: z.enum(["ruby", "js", "both"]).optional().default("both")
@@ -214,6 +236,47 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
+                name: "repo.propose_patch",
+                description: "Generate a unified diff patch for a change without writing to disk.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        path: { type: "string" },
+                        replace: {
+                            type: "object",
+                            properties: {
+                                startLine: { type: "number" },
+                                endLine: { type: "number" },
+                                newText: { type: "string" }
+                            },
+                            required: ["startLine", "endLine", "newText"],
+                            additionalProperties: false
+                        },
+                        insert: {
+                            type: "object",
+                            properties: {
+                                line: { type: "number" },
+                                text: { type: "string" }
+                            },
+                            required: ["line", "text"],
+                            additionalProperties: false
+                        },
+                        delete: {
+                            type: "object",
+                            properties: {
+                                startLine: { type: "number" },
+                                endLine: { type: "number" }
+                            },
+                            required: ["startLine", "endLine"],
+                            additionalProperties: false
+                        },
+                        expectedSha256: { type: "string" }
+                    },
+                    required: ["path"],
+                    additionalProperties: false
+                }
+            },
+            {
                 name: "dev.check",
                 description: "Check for common dev tool availability.",
                 inputSchema: emptyInputSchema()
@@ -296,6 +359,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const parsed = RepoTodoScanInputSchema.parse(args ?? {});
                 const result = await handleRepoTodoScan(parsed);
                 return jsonResult(result);
+            }
+            case "repo.propose_patch": {
+                const parsed = RepoProposePatchInputSchema.parse(args ?? {});
+                const result = await handleRepoProposePatch(parsed);
+                return jsonResult(result, Boolean(result?.error));
             }
             case "dev.check": {
                 const parsed = DevCheckInputSchema.parse(args ?? {});
@@ -982,6 +1050,128 @@ async function handleRepoTodoScan(input) {
         truncated
     };
 }
+async function handleRepoProposePatch(input) {
+    const resolved = resolveRepoPath(input.path);
+    if (!resolved.ok) {
+        return toolError("path_outside_root", "path is outside repo root", {
+            path: safeOutputPath(input.path)
+        });
+    }
+    let stat;
+    try {
+        stat = await fs.stat(resolved.resolved);
+    }
+    catch {
+        return toolError("not_found", "file not found", { path: resolved.relative });
+    }
+    if (!stat.isFile()) {
+        return toolError("not_a_file", "path is not a file", { path: resolved.relative });
+    }
+    if (stat.size > MAX_FILE_SIZE_BYTES) {
+        return toolError("file_too_large", "file exceeds size limit", {
+            path: resolved.relative,
+            sizeBytes: stat.size
+        });
+    }
+    if (await isBinaryFile(resolved.resolved)) {
+        return toolError("binary_file", "file is binary", { path: resolved.relative });
+    }
+    const content = normalizeLineEndings(await fs.readFile(resolved.resolved, "utf8"));
+    const beforeSha256 = sha256(content);
+    if (input.expectedSha256 && input.expectedSha256 !== beforeSha256) {
+        return toolError("sha_mismatch", "expectedSha256 does not match file content", {
+            path: resolved.relative,
+            expectedSha256: input.expectedSha256,
+            actualSha256: beforeSha256
+        });
+    }
+    const lines = content.length === 0 ? [] : content.split("\n");
+    const totalLines = lines.length;
+    let afterLines = [];
+    let diff = "";
+    let bytesChanged = 0;
+    const warnings = [];
+    if (input.insert) {
+        const line = input.insert.line;
+        if (line < 1 || line > totalLines + 1) {
+            return toolError("invalid_range", "insert line is out of range", {
+                path: resolved.relative,
+                line
+            });
+        }
+        const insertLines = normalizeLineEndings(input.insert.text).split("\n");
+        bytesChanged = Buffer.byteLength(input.insert.text);
+        if (bytesChanged > MAX_PATCH_BYTES) {
+            return toolError("patch_too_large", "proposed change exceeds size cap", {
+                path: resolved.relative,
+                maxBytes: MAX_PATCH_BYTES
+            });
+        }
+        afterLines = [
+            ...lines.slice(0, line - 1),
+            ...insertLines,
+            ...lines.slice(line - 1)
+        ];
+        diff = buildUnifiedDiffForInsert(resolved.relative, line, insertLines);
+    }
+    else if (input.delete) {
+        const startLine = input.delete.startLine;
+        const endLine = input.delete.endLine;
+        if (startLine < 1 || endLine < 1 || startLine > endLine || endLine > totalLines) {
+            return toolError("invalid_range", "delete range is out of bounds", {
+                path: resolved.relative,
+                startLine,
+                endLine
+            });
+        }
+        const removed = lines.slice(startLine - 1, endLine).join("\n");
+        bytesChanged = Buffer.byteLength(removed);
+        if (bytesChanged > MAX_PATCH_BYTES) {
+            return toolError("patch_too_large", "proposed change exceeds size cap", {
+                path: resolved.relative,
+                maxBytes: MAX_PATCH_BYTES
+            });
+        }
+        afterLines = [...lines.slice(0, startLine - 1), ...lines.slice(endLine)];
+        diff = buildUnifiedDiffForDelete(resolved.relative, startLine, endLine, lines.slice(startLine - 1, endLine));
+    }
+    else if (input.replace) {
+        const startLine = input.replace.startLine;
+        const endLine = input.replace.endLine;
+        if (startLine < 1 || endLine < 1 || startLine > endLine || endLine > totalLines) {
+            return toolError("invalid_range", "replace range is out of bounds", {
+                path: resolved.relative,
+                startLine,
+                endLine
+            });
+        }
+        const newLines = normalizeLineEndings(input.replace.newText).split("\n");
+        const removed = lines.slice(startLine - 1, endLine).join("\n");
+        bytesChanged = Buffer.byteLength(input.replace.newText) + Buffer.byteLength(removed);
+        if (bytesChanged > MAX_PATCH_BYTES) {
+            return toolError("patch_too_large", "proposed change exceeds size cap", {
+                path: resolved.relative,
+                maxBytes: MAX_PATCH_BYTES
+            });
+        }
+        afterLines = [...lines.slice(0, startLine - 1), ...newLines, ...lines.slice(endLine)];
+        diff = buildUnifiedDiffForReplace(resolved.relative, startLine, endLine, lines.slice(startLine - 1, endLine), newLines);
+    }
+    else {
+        warnings.push("no_changes");
+        afterLines = [...lines];
+    }
+    const afterContent = afterLines.join("\n");
+    const afterSha256 = sha256(afterContent);
+    return {
+        path: resolved.relative,
+        beforeSha256,
+        afterSha256,
+        diff,
+        applied: false,
+        warnings: warnings.length > 0 ? warnings : undefined
+    };
+}
 async function handleDevCheck(_input) {
     const tools = await checkDevTools([
         "rg",
@@ -1536,6 +1726,40 @@ function detectTodoPattern(preview, patterns) {
             return pattern;
     }
     return null;
+}
+function sha256(value) {
+    return crypto.createHash("sha256").update(value, "utf8").digest("hex");
+}
+function buildUnifiedDiffForInsert(pathValue, line, insertLines) {
+    return [
+        `diff --git a/${pathValue} b/${pathValue}`,
+        `--- a/${pathValue}`,
+        `+++ b/${pathValue}`,
+        `@@ -${line},0 +${line},${insertLines.length} @@`,
+        ...insertLines.map((text) => `+${text}`)
+    ].join("\n");
+}
+function buildUnifiedDiffForDelete(pathValue, startLine, endLine, removedLines) {
+    const count = endLine - startLine + 1;
+    return [
+        `diff --git a/${pathValue} b/${pathValue}`,
+        `--- a/${pathValue}`,
+        `+++ b/${pathValue}`,
+        `@@ -${startLine},${count} +${startLine},0 @@`,
+        ...removedLines.map((text) => `-${text}`)
+    ].join("\n");
+}
+function buildUnifiedDiffForReplace(pathValue, startLine, endLine, removedLines, newLines) {
+    const oldCount = endLine - startLine + 1;
+    const newCount = newLines.length;
+    return [
+        `diff --git a/${pathValue} b/${pathValue}`,
+        `--- a/${pathValue}`,
+        `+++ b/${pathValue}`,
+        `@@ -${startLine},${oldCount} +${startLine},${newCount} @@`,
+        ...removedLines.map((text) => `-${text}`),
+        ...newLines.map((text) => `+${text}`)
+    ].join("\n");
 }
 async function buildRefSnippets(filePath, hits, maxSnippetsPerFile) {
     const sorted = [...hits].sort((a, b) => a.lineNumber - b.lineNumber);
