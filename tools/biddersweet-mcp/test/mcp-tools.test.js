@@ -25,6 +25,8 @@ before(async () => {
   repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "biddersweet-mcp-test-"));
   await fs.mkdir(path.join(repoRoot, "docs"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "subdir"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "app", "models"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
 
   await fs.writeFile(path.join(repoRoot, "docs", "search.txt"), "alpha\nneedle beta\ngamma\n");
   await fs.writeFile(path.join(repoRoot, "file.txt"), "one\ntwo\nthree\nfour");
@@ -36,6 +38,26 @@ before(async () => {
   await fs.writeFile(path.join(repoRoot, "large.txt"), largeLines);
   await fs.mkdir(path.join(repoRoot, "node_modules"), { recursive: true });
   await fs.writeFile(path.join(repoRoot, "node_modules", "ignored.txt"), "ignore");
+  await fs.writeFile(
+    path.join(repoRoot, "app", "models", "user.rb"),
+    ["class User", "  def name", "    \"Test\"", "  end", "end"].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "src", "app.ts"),
+    ["export function greet() {}", "export type Person = { name: string }", "const local = () => {}"].join(
+      "\n"
+    )
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "src", "refs.ts"),
+    [
+      "export const targetSymbol = 1;",
+      "export function useTargetSymbol() { return targetSymbol; }",
+      "const local = targetSymbol + 1;",
+      "export const another = targetSymbol;",
+      "console.log(targetSymbol);"
+    ].join("\n")
+  );
 
   await fs.writeFile(path.join(repoRoot, ".ruby-version"), "3.2.2\n");
   await fs.writeFile(
@@ -101,14 +123,14 @@ after(async () => {
   }
 });
 
-test("repo.info returns metadata for empty repo", async () => {
+test("repo.info returns metadata for configured repo", async () => {
   const { payload } = await callTool("repo.info", {});
   assert.equal(payload.repoRoot, ".");
   assert.equal(payload.railsPresent, false);
-  assert.deepEqual(payload.detectedLanguages, { ruby: false, js: false });
-  assert.equal(payload.packageManager, "unknown");
+  assert.deepEqual(payload.detectedLanguages, { ruby: true, js: true });
+  assert.equal(payload.packageManager, "npm");
   assert.equal(payload.isGitRepo, false);
-  assert.deepEqual(payload.availableDevCommands, ["dev.check"]);
+  assert.deepEqual(payload.availableDevCommands, ["dev.run_tests", "dev.run_lint", "dev.check"]);
 });
 
 test("repo.search finds a string", async () => {
@@ -192,6 +214,37 @@ test("repo.deps summarizes versions and dependencies", async () => {
   assert.deepEqual(payload.warnings, []);
 });
 
+test("repo.symbols returns definitions with optional filters", async () => {
+  const { payload } = await callTool("repo.symbols", {
+    glob: "app/**/*.rb",
+    kinds: ["class", "method"],
+    maxResults: 50
+  });
+  assert.ok(["ctags", "heuristic"].includes(payload.strategy));
+  assert.equal(payload.truncated, false);
+  assert.ok(payload.results.some((item) => item.name === "User" && item.kind === "class"));
+  assert.ok(payload.results.some((item) => item.name === "name" && item.kind === "method"));
+  assert.ok(payload.results.every((item) => item.path.startsWith("app/")));
+});
+
+test("repo.find_refs returns summarized references with snippets", async () => {
+  const { payload } = await callTool("repo.find_refs", {
+    symbol: "targetSymbol",
+    languageHint: "ts",
+    maxFiles: 5,
+    maxSnippetsPerFile: 2
+  });
+  assert.equal(payload.symbol, "targetSymbol");
+  assert.ok(["rg", "git_grep", "walk"].includes(payload.strategy));
+  assert.equal(payload.truncated, false);
+  assert.ok(payload.files.length >= 1);
+  const entry = payload.files.find((file) => file.path === "src/refs.ts");
+  assert.ok(entry);
+  assert.equal(entry.occurrences, 5);
+  assert.equal(entry.snippets.length, 2);
+  assert.ok(entry.snippets.every((snippet) => typeof snippet.preview === "string"));
+});
+
 test("repo.tree returns bounded directory tree and skips node_modules", async () => {
   const { payload } = await callTool("repo.tree", { path: ".", maxDepth: 1, maxNodes: 200 });
   assert.equal(payload.path, ".");
@@ -212,16 +265,22 @@ test("dev.check reports tool presence", async () => {
   assert.ok(Object.prototype.hasOwnProperty.call(payload.tools, "git"));
 });
 
-test("dev.run_tests reports missing languages in empty repo", async () => {
+test("dev.run_tests returns structured result", async () => {
   const { payload } = await callTool("dev.run_tests", { target: "both" });
-  assert.equal(payload.ok, false);
-  assert.equal(payload.results.ruby.stderr, "ruby_not_detected");
-  assert.equal(payload.results.js.stderr, "js_not_detected");
+  assert.ok(payload.results.ruby);
+  assert.ok(payload.results.js);
+  assert.ok(Array.isArray(payload.results.ruby.command));
+  assert.ok(Array.isArray(payload.results.js.command));
+  assert.equal(typeof payload.results.ruby.stderr, "string");
+  assert.equal(typeof payload.results.js.stderr, "string");
 });
 
-test("dev.run_lint reports missing languages in empty repo", async () => {
+test("dev.run_lint returns structured result", async () => {
   const { payload } = await callTool("dev.run_lint", { target: "both" });
-  assert.equal(payload.ok, false);
-  assert.equal(payload.results.ruby.stderr, "ruby_not_detected");
-  assert.equal(payload.results.js.stderr, "js_not_detected");
+  assert.ok(payload.results.ruby);
+  assert.ok(payload.results.js);
+  assert.ok(Array.isArray(payload.results.ruby.command));
+  assert.ok(Array.isArray(payload.results.js.command));
+  assert.equal(typeof payload.results.ruby.stderr, "string");
+  assert.equal(typeof payload.results.js.stderr, "string");
 });

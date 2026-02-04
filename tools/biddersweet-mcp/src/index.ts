@@ -12,12 +12,21 @@ const MAX_PREVIEW_CHARS = 300;
 const MAX_CMD_OUTPUT_BYTES = 10 * 1024;
 const DEFAULT_SEARCH_MAX = 50;
 const HARD_SEARCH_MAX = 100;
+const DEFAULT_FIND_REFS_MAX_FILES = 50;
+const HARD_FIND_REFS_MAX_FILES = 200;
+const DEFAULT_FIND_REFS_SNIPPETS = 3;
+const HARD_FIND_REFS_SNIPPETS = 10;
+const MAX_FIND_REFS_OUTPUT_BYTES = 1024 * 1024;
+const FIND_REFS_CONTEXT_RADIUS = 1;
+const MAX_FIND_REFS_HITS = HARD_FIND_REFS_MAX_FILES * HARD_FIND_REFS_SNIPPETS * 10;
 const DEFAULT_LIST_MAX = 500;
 const HARD_LIST_MAX = 2000;
 const MAX_READ_RANGE_LINES = 400;
 const DEFAULT_TREE_DEPTH = 3;
 const DEFAULT_TREE_MAX_NODES = 400;
 const DEFAULT_TREE_MAX_ENTRIES = 200;
+const DEFAULT_SYMBOLS_MAX = 200;
+const HARD_SYMBOLS_MAX = 500;
 const DEFAULT_CMD_TIMEOUT_MS = 60_000;
 const CHECK_TIMEOUT_MS = 1_500;
 
@@ -70,6 +79,17 @@ const RepoTreeInputSchema = z.object({
   maxNodes: z.number().int().positive().optional(),
   maxEntriesPerDir: z.number().int().positive().optional()
 });
+const RepoSymbolsInputSchema = z.object({
+  glob: z.string().optional(),
+  kinds: z.array(z.string()).optional(),
+  maxResults: z.number().int().positive().optional()
+});
+const RepoFindRefsInputSchema = z.object({
+  symbol: z.string().min(1),
+  languageHint: z.enum(["ruby", "js", "ts", "any"]).optional(),
+  maxFiles: z.number().int().positive().optional(),
+  maxSnippetsPerFile: z.number().int().positive().optional()
+});
 const DevCheckInputSchema = z.object({});
 const DevRunTargetSchema = z.object({
   target: z.enum(["ruby", "js", "both"]).optional().default("both")
@@ -82,6 +102,8 @@ type RepoReadRangeInput = z.infer<typeof RepoReadRangeInputSchema>;
 type RepoListDirInput = z.infer<typeof RepoListDirInputSchema>;
 type RepoDepsInput = z.infer<typeof RepoDepsInputSchema>;
 type RepoTreeInput = z.infer<typeof RepoTreeInputSchema>;
+type RepoSymbolsInput = z.infer<typeof RepoSymbolsInputSchema>;
+type RepoFindRefsInput = z.infer<typeof RepoFindRefsInputSchema>;
 type DevRunTargetInput = z.infer<typeof DevRunTargetSchema>;
 
 type DevResult = {
@@ -99,6 +121,27 @@ type RepoTreeNode = {
   name: string;
   type: "file" | "dir";
   children?: RepoTreeNode[];
+};
+
+type RepoSymbol = {
+  name: string;
+  kind: string;
+  path: string;
+  line: number;
+  language: string;
+};
+
+type RepoRefSnippet = {
+  line: number;
+  preview: string;
+  contextStartLine?: number;
+  contextEndLine?: number;
+};
+
+type RepoRefHit = {
+  path: string;
+  lineNumber: number;
+  preview: string;
 };
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -167,6 +210,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: emptyInputSchema()
       },
       {
+        name: "repo.symbols",
+        description: "Return an index of symbols (definitions) within the repo.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            glob: { type: "string" },
+            kinds: { type: "array", items: { type: "string" } },
+            maxResults: { type: "number" }
+          },
+          additionalProperties: false
+        }
+      },
+      {
         name: "repo.tree",
         description: "Return a bounded recursive directory tree within the repo.",
         inputSchema: {
@@ -177,6 +233,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             maxNodes: { type: "number" },
             maxEntriesPerDir: { type: "number" }
           },
+          additionalProperties: false
+        }
+      },
+      {
+        name: "repo.find_refs",
+        description: "Find references to a symbol across the repo with contextual snippets.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            symbol: { type: "string" },
+            languageHint: { type: "string", enum: ["ruby", "js", "ts", "any"] },
+            maxFiles: { type: "number" },
+            maxSnippetsPerFile: { type: "number" }
+          },
+          required: ["symbol"],
           additionalProperties: false
         }
       },
@@ -245,10 +316,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await handleRepoDeps(parsed);
         return jsonResult(result, Boolean((result as { error?: unknown }).error));
       }
+      case "repo.symbols": {
+        const parsed = RepoSymbolsInputSchema.parse(args ?? {});
+        const result = await handleRepoSymbols(parsed);
+        return jsonResult(result, Boolean((result as { error?: unknown }).error));
+      }
       case "repo.tree": {
         const parsed = RepoTreeInputSchema.parse(args ?? {});
         const result = await handleRepoTree(parsed);
         return jsonResult(result, Boolean((result as { error?: unknown }).error));
+      }
+      case "repo.find_refs": {
+        const parsed = RepoFindRefsInputSchema.parse(args ?? {});
+        const result = await handleRepoFindRefs(parsed);
+        return jsonResult(result);
       }
       case "dev.check": {
         const parsed = DevCheckInputSchema.parse(args ?? {});
@@ -725,6 +806,54 @@ async function handleRepoDeps(_input: RepoDepsInput) {
   };
 }
 
+async function handleRepoSymbols(input: RepoSymbolsInput) {
+  const maxResults = Math.min(input.maxResults ?? DEFAULT_SYMBOLS_MAX, HARD_SYMBOLS_MAX);
+  const kindsFilter = (input.kinds ?? []).map((kind) => kind.toLowerCase());
+
+  const files = await listCandidateFiles(input.glob);
+
+  let strategy: "ctags" | "heuristic" = "heuristic";
+  let results: RepoSymbol[] = [];
+  const warnings: string[] = [...files.warnings];
+
+  const ctagsAvailable = await isCommandAvailable("ctags");
+  if (ctagsAvailable && files.paths.length > 0) {
+    const ctags = await runCtags(files.paths, maxResults);
+    if (ctags.ok) {
+      strategy = "ctags";
+      results = ctags.results;
+      if (ctags.truncated) warnings.push("truncated");
+    } else {
+      warnings.push("ctags_failed");
+    }
+  }
+
+  if (strategy === "heuristic") {
+    const heuristic = await runHeuristicSymbols(files.paths, maxResults, kindsFilter);
+    results = heuristic.results;
+    if (heuristic.truncated) warnings.push("truncated");
+  }
+
+  if (kindsFilter.length > 0) {
+    results = results.filter((result) => kindsFilter.includes(result.kind.toLowerCase()));
+  }
+
+  results.sort((a, b) => {
+    if (a.path === b.path) return a.line - b.line;
+    return a.path.localeCompare(b.path);
+  });
+
+  const truncated = results.length > maxResults || warnings.includes("truncated");
+  const sliced = results.slice(0, maxResults);
+
+  return {
+    results: sliced,
+    truncated,
+    strategy,
+    warnings
+  };
+}
+
 async function handleRepoTree(input: RepoTreeInput) {
   const maxDepth = input.maxDepth ?? DEFAULT_TREE_DEPTH;
   const maxNodes = input.maxNodes ?? DEFAULT_TREE_MAX_NODES;
@@ -843,6 +972,81 @@ async function handleRepoTree(input: RepoTreeInput) {
     nodesReturned,
     truncated,
     tree
+  };
+}
+
+async function handleRepoFindRefs(input: RepoFindRefsInput) {
+  const symbol = input.symbol;
+  const maxFiles = Math.min(input.maxFiles ?? DEFAULT_FIND_REFS_MAX_FILES, HARD_FIND_REFS_MAX_FILES);
+  const maxSnippetsPerFile = Math.min(
+    input.maxSnippetsPerFile ?? DEFAULT_FIND_REFS_SNIPPETS,
+    HARD_FIND_REFS_SNIPPETS
+  );
+  const languageHint = input.languageHint ?? "any";
+
+  const rgAvailable = await isCommandAvailable("rg");
+  const gitAvailable = await isCommandAvailable("git");
+  const isGitRepo = gitAvailable ? await detectGitRepo() : false;
+
+  let strategy: "rg" | "git_grep" | "walk" = "walk";
+  let hits: RepoRefHit[] = [];
+  let truncated = false;
+
+  if (rgAvailable) {
+    const rgResults = await runFindRefsWithRg(symbol, languageHint);
+    strategy = "rg";
+    hits = rgResults.hits;
+    truncated = rgResults.truncated;
+  } else if (isGitRepo) {
+    const gitResults = await runFindRefsWithGitGrep(symbol, languageHint);
+    strategy = "git_grep";
+    hits = gitResults.hits;
+    truncated = gitResults.truncated;
+  } else {
+    const walkResults = await runFindRefsWithWalk(symbol, languageHint);
+    strategy = "walk";
+    hits = walkResults.hits;
+    truncated = walkResults.truncated;
+  }
+
+  const grouped = new Map<string, { occurrences: number; hits: RepoRefHit[] }>();
+  const perFileHitCap = Math.max(maxSnippetsPerFile * 5, maxSnippetsPerFile);
+
+  for (const hit of hits) {
+    const entry = grouped.get(hit.path) ?? { occurrences: 0, hits: [] };
+    entry.occurrences += 1;
+    if (entry.hits.length < perFileHitCap) {
+      entry.hits.push(hit);
+    }
+    grouped.set(hit.path, entry);
+  }
+
+  const sortedFiles = Array.from(grouped.entries()).sort((a, b) => {
+    if (a[1].occurrences === b[1].occurrences) {
+      return a[0].localeCompare(b[0]);
+    }
+    return b[1].occurrences - a[1].occurrences;
+  });
+
+  if (sortedFiles.length > maxFiles) {
+    truncated = true;
+  }
+
+  const files = [];
+  for (const [filePath, info] of sortedFiles.slice(0, maxFiles)) {
+    const snippets = await buildRefSnippets(filePath, info.hits, maxSnippetsPerFile);
+    files.push({
+      path: filePath,
+      occurrences: info.occurrences,
+      snippets
+    });
+  }
+
+  return {
+    symbol,
+    files,
+    truncated,
+    strategy
   };
 }
 
@@ -1095,6 +1299,490 @@ async function runSearchWithWalk(query: string, maxResults: number) {
   if (results.length >= maxResults) {
     truncated = true;
   }
+  return { results, truncated };
+}
+
+async function runFindRefsWithRg(symbol: string, languageHint: string) {
+  const args = ["--line-number", "--no-heading", "--fixed-strings"];
+  for (const skip of SKIP_DIR_NAMES) {
+    args.push("-g", `!${skip}/**`);
+  }
+  const globs = languageHint === "any" ? [] : languageHintToGlobs(languageHint);
+  for (const glob of globs) {
+    args.push("-g", glob);
+  }
+  args.push("--", symbol, ".");
+
+  const result = await runCommandWithLimits(["rg", ...args], 10_000, MAX_FIND_REFS_OUTPUT_BYTES);
+  const hits: RepoRefHit[] = [];
+  if (result.exitCode > 1 && result.stdout.length === 0) {
+    return { hits, truncated: result.truncated };
+  }
+
+  const lines = result.stdout.split("\n").filter(Boolean);
+  for (const line of lines) {
+    const match = line.match(/^(.*?):(\d+):(.*)$/);
+    if (!match) continue;
+    const relPath = normalizeRelativePath(match[1]);
+    if (!fileMatchesLanguage(relPath, languageHint)) continue;
+    hits.push({
+      path: relPath,
+      lineNumber: Number(match[2]),
+      preview: match[3].slice(0, MAX_PREVIEW_CHARS)
+    });
+  }
+
+  return { hits, truncated: result.truncated };
+}
+
+async function runFindRefsWithGitGrep(symbol: string, languageHint: string) {
+  const args = ["-C", repoRoot, "grep", "-n", "--fixed-strings"];
+  for (const skip of SKIP_DIR_NAMES) {
+    args.push(`--exclude-dir=${skip}`);
+  }
+  args.push("--", symbol, ".");
+
+  const result = await runCommandWithLimits(["git", ...args], 10_000, MAX_FIND_REFS_OUTPUT_BYTES);
+  const hits: RepoRefHit[] = [];
+  if (result.exitCode > 1 && result.stdout.length === 0) {
+    return { hits, truncated: result.truncated };
+  }
+
+  const lines = result.stdout.split("\n").filter(Boolean);
+  for (const line of lines) {
+    const match = line.match(/^(.*?):(\d+):(.*)$/);
+    if (!match) continue;
+    const relPath = normalizeRelativePath(match[1]);
+    if (!fileMatchesLanguage(relPath, languageHint)) continue;
+    hits.push({
+      path: relPath,
+      lineNumber: Number(match[2]),
+      preview: match[3].slice(0, MAX_PREVIEW_CHARS)
+    });
+  }
+
+  return { hits, truncated: result.truncated };
+}
+
+async function runFindRefsWithWalk(symbol: string, languageHint: string) {
+  const hits: RepoRefHit[] = [];
+  let truncated = false;
+
+  const shouldStop = () => hits.length >= MAX_FIND_REFS_HITS;
+
+  async function walk(current: string) {
+    if (shouldStop()) return;
+    let entries: fsSync.Dirent[];
+    try {
+      entries = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (shouldStop()) return;
+      if (entry.isDirectory()) {
+        if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        await walk(path.join(current, entry.name));
+      } else if (entry.isFile()) {
+        const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (!fileMatchesLanguage(relPath, languageHint)) continue;
+        const remaining = MAX_FIND_REFS_HITS - hits.length;
+        const fileResult = await searchFile(path.join(current, entry.name), relPath, symbol, remaining);
+        hits.push(...fileResult.results);
+        if (fileResult.truncated || hits.length >= MAX_FIND_REFS_HITS) {
+          truncated = true;
+          return;
+        }
+      }
+    }
+  }
+
+  await walk(repoRoot);
+  if (hits.length >= MAX_FIND_REFS_HITS) {
+    truncated = true;
+  }
+  return { hits, truncated };
+}
+
+async function listCandidateFiles(glob?: string) {
+  const warnings: string[] = [];
+  const rgAvailable = await isCommandAvailable("rg");
+  let files: string[] = [];
+
+  if (rgAvailable) {
+    const args = ["--files"];
+    for (const skip of SKIP_DIR_NAMES) {
+      args.push("-g", `!${skip}/**`);
+    }
+    if (glob) {
+      args.push("-g", glob);
+    }
+    const result = await runSimpleCommand("rg", args, 10_000, 512 * 1024);
+    if (result.ok) {
+      files = result.stdout.split("\n").filter(Boolean).map(normalizeRelativePath);
+    } else {
+      warnings.push("rg_failed");
+    }
+  }
+
+  if (!rgAvailable || files.length === 0) {
+    files = await listFilesWithWalk(glob);
+  }
+
+  if (glob) {
+    const matcher = globToRegex(glob);
+    files = files.filter((file) => matcher.test(file));
+  }
+
+  return { paths: files, warnings };
+}
+
+async function listFilesWithWalk(glob?: string) {
+  const files: string[] = [];
+  const matcher = glob ? globToRegex(glob) : null;
+
+  async function walk(current: string) {
+    let entries: fsSync.Dirent[];
+    try {
+      entries = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        await walk(path.join(current, entry.name));
+      } else if (entry.isFile()) {
+        const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (!matcher || matcher.test(relPath)) {
+          files.push(relPath);
+        }
+      }
+    }
+  }
+
+  await walk(repoRoot);
+  return files;
+}
+
+function globToRegex(glob: string) {
+  let regex = "^";
+  let i = 0;
+  while (i < glob.length) {
+    const char = glob[i];
+    if (char === "*") {
+      if (glob[i + 1] === "*") {
+        regex += ".*";
+        i += 2;
+      } else {
+        regex += "[^/]*";
+        i += 1;
+      }
+      continue;
+    }
+    if (char === "?") {
+      regex += ".";
+      i += 1;
+      continue;
+    }
+    if ("\\.[]{}()+-^$|".includes(char)) {
+      regex += `\\${char}`;
+    } else {
+      regex += char;
+    }
+    i += 1;
+  }
+  regex += "$";
+  return new RegExp(regex);
+}
+
+function languageHintToGlobs(languageHint: string) {
+  switch (languageHint) {
+    case "ruby":
+      return ["**/*.rb", "**/*.rake", "**/*.ru", "**/*.erb", "**/*.gemspec"];
+    case "js":
+      return ["**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs"];
+    case "ts":
+      return ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mts", "**/*.cts"];
+    default:
+      return [];
+  }
+}
+
+function languageHintToExtensions(languageHint: string) {
+  switch (languageHint) {
+    case "ruby":
+      return new Set([".rb", ".rake", ".ru", ".erb", ".gemspec"]);
+    case "js":
+      return new Set([".js", ".jsx", ".mjs", ".cjs"]);
+    case "ts":
+      return new Set([".ts", ".tsx", ".d.ts", ".mts", ".cts"]);
+    default:
+      return null;
+  }
+}
+
+function fileMatchesLanguage(relPath: string, languageHint: string) {
+  if (languageHint === "any") return true;
+  const extensions = languageHintToExtensions(languageHint);
+  if (!extensions) return true;
+  const ext = path.extname(relPath).toLowerCase();
+  return extensions.has(ext);
+}
+
+async function buildRefSnippets(
+  filePath: string,
+  hits: RepoRefHit[],
+  maxSnippetsPerFile: number
+): Promise<RepoRefSnippet[]> {
+  const sorted = [...hits].sort((a, b) => a.lineNumber - b.lineNumber);
+  const selected: RepoRefHit[] = [];
+  const minSpacing = FIND_REFS_CONTEXT_RADIUS * 2 + 1;
+
+  for (const hit of sorted) {
+    if (selected.length >= maxSnippetsPerFile) break;
+    const tooClose = selected.some((existing) => Math.abs(existing.lineNumber - hit.lineNumber) <= minSpacing);
+    if (tooClose) continue;
+    selected.push(hit);
+  }
+
+  const fileLines = await loadFileLinesForSnippets(filePath);
+  const snippets: RepoRefSnippet[] = [];
+
+  for (const hit of selected) {
+    if (snippets.length >= maxSnippetsPerFile) break;
+    const line = hit.lineNumber;
+    if (fileLines) {
+      const totalLines = fileLines.lines.length;
+      const lineIndex = line - 1;
+      const lineText = fileLines.lines[lineIndex] ?? hit.preview;
+      const contextStart = Math.max(1, line - FIND_REFS_CONTEXT_RADIUS);
+      const contextEnd = Math.min(totalLines, line + FIND_REFS_CONTEXT_RADIUS);
+      snippets.push({
+        line,
+        preview: lineText.slice(0, MAX_PREVIEW_CHARS),
+        contextStartLine: contextStart,
+        contextEndLine: contextEnd
+      });
+    } else {
+      snippets.push({
+        line,
+        preview: hit.preview
+      });
+    }
+  }
+
+  return snippets;
+}
+
+async function loadFileLinesForSnippets(filePath: string) {
+  const resolved = resolveRepoPath(filePath);
+  if (!resolved.ok) return null;
+  let stat: fsSync.Stats;
+  try {
+    stat = await fs.stat(resolved.resolved);
+  } catch {
+    return null;
+  }
+  if (!stat.isFile() || stat.size > MAX_FILE_SIZE_BYTES) return null;
+  if (await isBinaryFile(resolved.resolved)) return null;
+  const content = await fs.readFile(resolved.resolved, "utf8");
+  const normalized = normalizeLineEndings(content);
+  const lines = normalized.length === 0 ? [] : normalized.split("\n");
+  return { lines };
+}
+
+function normalizeSymbolPath(symbolPath: string) {
+  if (path.isAbsolute(symbolPath)) {
+    if (!isWithinRepoRoot(symbolPath)) return null;
+    return normalizeRelativePath(path.relative(repoRoot, symbolPath));
+  }
+  const normalized = normalizeRelativePath(symbolPath);
+  return normalized;
+}
+
+async function runCtags(paths: string[], maxResults: number) {
+  const args = [
+    "--output-format=json",
+    "--fields=+n",
+    "--excmd=number",
+    "--sort=no",
+    "-f",
+    "-"
+  ];
+  const result = await runSimpleCommand("ctags", [...args, ...paths], 20_000, 1024 * 1024);
+  if (!result.ok) {
+    return { ok: false as const, results: [], truncated: false };
+  }
+
+  const results: RepoSymbol[] = [];
+  const lines = result.stdout.split("\n").filter(Boolean);
+  for (const line of lines) {
+    let parsed: { name?: string; kind?: string; path?: string; line?: number; language?: string };
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!parsed.name || !parsed.path || !parsed.line || !parsed.kind) continue;
+    const normalizedPath = normalizeSymbolPath(parsed.path);
+    if (!normalizedPath) continue;
+    results.push({
+      name: parsed.name,
+      kind: parsed.kind,
+      path: normalizedPath,
+      line: parsed.line,
+      language: parsed.language ?? "unknown"
+    });
+    if (results.length > maxResults) {
+      return { ok: true as const, results, truncated: true };
+    }
+  }
+
+  return { ok: true as const, results, truncated: false };
+}
+
+async function runHeuristicSymbols(
+  paths: string[],
+  maxResults: number,
+  kindsFilter: string[]
+) {
+  const results: RepoSymbol[] = [];
+  let truncated = false;
+  const includeKind = (kind: string) =>
+    kindsFilter.length === 0 || kindsFilter.includes(kind.toLowerCase());
+
+  for (const relPath of paths) {
+    if (results.length > maxResults) {
+      truncated = true;
+      break;
+    }
+    const fullPath = path.join(repoRoot, relPath);
+    let stat: fsSync.Stats;
+    try {
+      stat = await fs.stat(fullPath);
+    } catch {
+      continue;
+    }
+    if (!stat.isFile() || stat.size > MAX_FILE_SIZE_BYTES) continue;
+    if (await isBinaryFile(fullPath)) continue;
+
+    const ext = path.extname(relPath).toLowerCase();
+    let language: string | null = null;
+    if (ext === ".rb") language = "ruby";
+    if ([".js", ".jsx"].includes(ext)) language = "javascript";
+    if ([".ts", ".tsx"].includes(ext)) language = "typescript";
+    if (!language) continue;
+
+    const content = normalizeLineEndings(await fs.readFile(fullPath, "utf8"));
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length; i += 1) {
+      const lineNumber = i + 1;
+      const line = lines[i];
+
+      if (language === "ruby") {
+        const classMatch = line.match(/^\s*(class|module)\s+([A-Z][\w:]*)/);
+        if (classMatch) {
+          const kind = classMatch[1] === "class" ? "class" : "module";
+          if (includeKind(kind)) {
+            results.push({
+              name: classMatch[2],
+              kind,
+              path: relPath,
+              line: lineNumber,
+              language
+            });
+          }
+        }
+        const defMatch = line.match(/^\s*def\s+([A-Za-z0-9_!?=\.]+)/);
+        if (defMatch && includeKind("method")) {
+          results.push({
+            name: defMatch[1],
+            kind: "method",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+      } else {
+        const classMatch =
+          line.match(/^\s*export\s+class\s+(\w+)/) || line.match(/^\s*class\s+(\w+)/);
+        if (classMatch && includeKind("class")) {
+          results.push({
+            name: classMatch[1],
+            kind: "class",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+        const funcMatch =
+          line.match(/^\s*export\s+function\s+(\w+)/) || line.match(/^\s*function\s+(\w+)/);
+        if (funcMatch && includeKind("function")) {
+          results.push({
+            name: funcMatch[1],
+            kind: "function",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+        const arrowMatch = line.match(
+          /^\s*(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)?\s*=>/
+        );
+        if (arrowMatch && includeKind("function")) {
+          results.push({
+            name: arrowMatch[1],
+            kind: "function",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+        const fnExprMatch = line.match(
+          /^\s*(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?function\b/
+        );
+        if (fnExprMatch && includeKind("function")) {
+          results.push({
+            name: fnExprMatch[1],
+            kind: "function",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+        const interfaceMatch =
+          line.match(/^\s*export\s+interface\s+(\w+)/) || line.match(/^\s*interface\s+(\w+)/);
+        if (interfaceMatch && includeKind("interface")) {
+          results.push({
+            name: interfaceMatch[1],
+            kind: "interface",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+        const typeMatch =
+          line.match(/^\s*export\s+type\s+(\w+)/) || line.match(/^\s*type\s+(\w+)/);
+        if (typeMatch && includeKind("type")) {
+          results.push({
+            name: typeMatch[1],
+            kind: "type",
+            path: relPath,
+            line: lineNumber,
+            language
+          });
+        }
+      }
+
+      if (results.length > maxResults) {
+        truncated = true;
+        break;
+      }
+    }
+    if (truncated) break;
+  }
+
   return { results, truncated };
 }
 

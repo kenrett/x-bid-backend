@@ -210,6 +210,30 @@ Example response:
 }
 ```
 
+### repo.symbols
+
+Request:
+
+```json
+{
+  "tool": "repo.symbols",
+  "arguments": { "glob": "app/**/*.rb", "kinds": ["class", "method"], "maxResults": 200 }
+}
+```
+
+Example response:
+
+```json
+{
+  "results": [
+    { "name": "User", "kind": "class", "path": "app/models/user.rb", "line": 1, "language": "ruby" }
+  ],
+  "truncated": false,
+  "strategy": "heuristic",
+  "warnings": []
+}
+```
+
 ### repo.tree
 
 Request:
