@@ -186,6 +186,30 @@ Example response:
 }
 ```
 
+### repo.deps
+
+Request:
+
+```json
+{
+  "tool": "repo.deps",
+  "arguments": {}
+}
+```
+
+Example response:
+
+```json
+{
+  "ruby": { "version": "3.2.2", "railsVersion": "7.1.2", "bundlerVersion": "2.4.10" },
+  "node": { "version": "20.11.1", "packageManager": "pnpm", "workspaceType": "workspace" },
+  "gems": { "top": [{ "name": "rails", "version": "~> 7.1.0" }], "hasGemfileLock": true },
+  "js": { "dependenciesTop": [{ "name": "react", "versionRange": "^18.2.0" }], "scripts": { "test": "vitest" }, "hasLockfile": true },
+  "filesChecked": ["Gemfile", "Gemfile.lock", "package.json", "package-lock.json"],
+  "warnings": []
+}
+```
+
 ### repo.tree
 
 Request:
