@@ -54,7 +54,19 @@ In `READ_ONLY`, write tools (currently `repo.apply_patch`) return a structured e
 
 ### Protected paths
 
-Sensitive paths are blocked for read/write (e.g. `.env`, `config/credentials`, `config/master.key`, `credentials`). To bypass in a trusted environment:
+Sensitive paths are blocked across read, write, and discovery tools (including `repo.search`, `repo.read_file`, `repo.read_range`, `repo.list_dir`, `repo.tree`, `repo.find_refs`, `repo.todo_scan`, `repo.symbols`, `repo.propose_patch`, and `repo.apply_patch`).
+
+Blocked patterns include:
+- `.env` and `.env.*`
+- `config/credentials*`
+- `config/master.key`
+- `credentials*`
+
+Behavior:
+- Direct access returns a structured `protected_path` error/refusal.
+- Directory/list/search-style tools silently omit protected files from results.
+
+To bypass in a trusted environment:
 
 ```bash
 BIDDERSWEET_ALLOW_PROTECTED_PATHS=1

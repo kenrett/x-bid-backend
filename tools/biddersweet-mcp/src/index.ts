@@ -1068,6 +1068,14 @@ async function handleRepoReadFile(input: RepoReadFileInput) {
     };
   }
 
+  if (isProtectedPath(resolved.relative)) {
+    return {
+      path: resolved.relative,
+      refused: true,
+      reason: "protected_path"
+    };
+  }
+
   let stat: fsSync.Stats;
   try {
     stat = await fs.stat(resolved.resolved);
@@ -1118,6 +1126,10 @@ async function handleRepoReadRange(input: RepoReadRangeInput) {
     return toolError("path_outside_root", "path is outside repo root", {
       path: safeOutputPath(input.path)
     });
+  }
+
+  if (isProtectedPath(resolved.relative)) {
+    return toolError("protected_path", "path is protected", { path: resolved.relative });
   }
 
   if (input.startLine <= 0 || input.endLine <= 0 || input.startLine > input.endLine) {
@@ -1223,6 +1235,15 @@ async function handleRepoListDir(input: RepoListDirInput) {
     };
   }
 
+  if (isProtectedPath(resolved.relative)) {
+    return {
+      path: resolved.relative,
+      entries: [],
+      truncated: false,
+      error: "protected_path"
+    };
+  }
+
   let stat: fsSync.Stats;
   try {
     stat = await fs.stat(resolved.resolved);
@@ -1246,6 +1267,7 @@ async function handleRepoListDir(input: RepoListDirInput) {
 
   const dirEntries = await fs.readdir(resolved.resolved, { withFileTypes: true });
   const entries: Array<{ name: string; type: "file" | "dir" | "other" }> = dirEntries
+    .filter((entry: fsSync.Dirent) => !isProtectedPath(joinRelativePath(resolved.relative, entry.name)))
     .map((entry: fsSync.Dirent): { name: string; type: "file" | "dir" | "other" } => {
       const type = entry.isDirectory() ? "dir" : entry.isFile() ? "file" : "other";
       return { name: entry.name, type };
@@ -1516,6 +1538,10 @@ async function handleRepoTree(input: RepoTreeInput) {
     });
   }
 
+  if (isProtectedPath(resolved.relative)) {
+    return toolError("protected_path", "path is protected", { path: resolved.relative });
+  }
+
   let stat: fsSync.Stats;
   try {
     stat = await fs.stat(resolved.resolved);
@@ -1530,7 +1556,7 @@ async function handleRepoTree(input: RepoTreeInput) {
 
   const shouldStop = () => nodesReturned >= maxNodes;
 
-  const buildTree = async (fullPath: string, name: string, depth: number): Promise<RepoTreeNode> => {
+  const buildTree = async (fullPath: string, relPath: string, name: string, depth: number): Promise<RepoTreeNode> => {
     if (shouldStop()) {
       truncated = true;
       return { name, type: "dir", children: [] };
@@ -1560,6 +1586,7 @@ async function handleRepoTree(input: RepoTreeInput) {
 
     const filtered = entries.filter((entry) => {
       if (entry.isDirectory() && SKIP_DIR_NAMES.has(entry.name)) return false;
+      if (isProtectedPath(joinRelativePath(relPath, entry.name))) return false;
       return true;
     });
 
@@ -1585,8 +1612,9 @@ async function handleRepoTree(input: RepoTreeInput) {
         break;
       }
       const childPath = path.join(fullPath, entry.name);
+      const childRelPath = joinRelativePath(relPath, entry.name);
       if (entry.isDirectory()) {
-        const child = await buildTree(childPath, entry.name, depth + 1);
+        const child = await buildTree(childPath, childRelPath, entry.name, depth + 1);
         children.push(child);
       } else if (entry.isFile()) {
         nodesReturned += 1;
@@ -1601,7 +1629,7 @@ async function handleRepoTree(input: RepoTreeInput) {
   };
 
   const tree = stat.isDirectory()
-    ? await buildTree(resolved.resolved, rootName, 0)
+    ? await buildTree(resolved.resolved, resolved.relative, rootName, 0)
     : (() => {
         nodesReturned += 1;
         return { name: rootName, type: "file" };
@@ -1847,6 +1875,10 @@ async function handleRepoProposePatch(input: RepoProposePatchInput) {
     return toolError("path_outside_root", "path is outside repo root", {
       path: safeOutputPath(input.path)
     });
+  }
+
+  if (isProtectedPath(resolved.relative)) {
+    return toolError("protected_path", "path is protected", { path: resolved.relative });
   }
 
   let stat: fsSync.Stats;
@@ -3364,11 +3396,17 @@ async function parseRailsStructureSql(relPath: string) {
 
 async function readRepoTextFile(relPath: string): Promise<
   | { ok: true; content: string }
-  | { ok: false; reason: "not_found" | "not_a_file" | "file_too_large" | "binary_file" | "unreadable" }
+  | {
+      ok: false;
+      reason: "not_found" | "protected_path" | "not_a_file" | "file_too_large" | "binary_file" | "unreadable";
+    }
 > {
   const resolved = resolveRepoPath(relPath);
   if (!resolved.ok) {
     return { ok: false, reason: "not_found" };
+  }
+  if (isProtectedPath(resolved.relative)) {
+    return { ok: false, reason: "protected_path" };
   }
   let stat: fsSync.Stats;
   try {
@@ -3583,7 +3621,17 @@ function extractSymbols(value: string) {
 
 async function readRepoJsonFile(relPath: string): Promise<
   | { ok: true; data: unknown }
-  | { ok: false; reason: "not_found" | "not_a_file" | "file_too_large" | "binary_file" | "unreadable" | "invalid_json" }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "protected_path"
+        | "not_a_file"
+        | "file_too_large"
+        | "binary_file"
+        | "unreadable"
+        | "invalid_json";
+    }
 > {
   const contentResult = await readRepoTextFile(relPath);
   if (!contentResult.ok) return { ok: false, reason: contentResult.reason };
@@ -3916,6 +3964,7 @@ async function runSearchWithRg(query: string, maxResults: number) {
     const match = line.match(/^(.*?):(\d+):(\d+):(.*)$/);
     if (!match) continue;
     const relPath = normalizeRelativePath(match[1]);
+    if (isProtectedPath(relPath)) continue;
     const lineNumber = Number(match[2]);
     const column = Number(match[3]);
     const preview = match[4].slice(0, MAX_PREVIEW_CHARS);
@@ -3937,6 +3986,7 @@ async function runSearchWithGitGrep(query: string, maxResults: number) {
     const match = line.match(/^(.*?):(\d+):(.*)$/);
     if (!match) continue;
     const relPath = normalizeRelativePath(match[1]);
+    if (isProtectedPath(relPath)) continue;
     const lineNumber = Number(match[2]);
     const preview = match[3].slice(0, MAX_PREVIEW_CHARS);
     results.push({ path: relPath, lineNumber, preview });
@@ -3963,11 +4013,14 @@ async function runSearchWithWalk(query: string, maxResults: number) {
       if (shouldStop()) return;
       if (entry.isDirectory()) {
         if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        const relPathNormalized = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (isProtectedPath(relPathNormalized)) continue;
         await walk(path.join(current, entry.name));
       } else if (entry.isFile()) {
         const fullPath = path.join(current, entry.name);
         const relPath = path.relative(repoRoot, fullPath);
         const relPathNormalized = normalizeRelativePath(relPath);
+        if (isProtectedPath(relPathNormalized)) continue;
         const fileResult = await searchFile(fullPath, relPathNormalized, query, maxResults - results.length);
         results.push(...fileResult.results);
         if (fileResult.truncated) {
@@ -4007,6 +4060,7 @@ async function runFindRefsWithRg(symbol: string, languageHint: string) {
     const match = line.match(/^(.*?):(\d+):(.*)$/);
     if (!match) continue;
     const relPath = normalizeRelativePath(match[1]);
+    if (isProtectedPath(relPath)) continue;
     if (!fileMatchesLanguage(relPath, languageHint)) continue;
     hits.push({
       path: relPath,
@@ -4036,6 +4090,7 @@ async function runFindRefsWithGitGrep(symbol: string, languageHint: string) {
     const match = line.match(/^(.*?):(\d+):(.*)$/);
     if (!match) continue;
     const relPath = normalizeRelativePath(match[1]);
+    if (isProtectedPath(relPath)) continue;
     if (!fileMatchesLanguage(relPath, languageHint)) continue;
     hits.push({
       path: relPath,
@@ -4065,9 +4120,12 @@ async function runFindRefsWithWalk(symbol: string, languageHint: string) {
       if (shouldStop()) return;
       if (entry.isDirectory()) {
         if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (isProtectedPath(relPath)) continue;
         await walk(path.join(current, entry.name));
       } else if (entry.isFile()) {
         const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (isProtectedPath(relPath)) continue;
         if (!fileMatchesLanguage(relPath, languageHint)) continue;
         const remaining = MAX_FIND_REFS_HITS - hits.length;
         const fileResult = await searchFile(path.join(current, entry.name), relPath, symbol, remaining);
@@ -4111,6 +4169,7 @@ async function runTodoScanWithRg(patterns: string[]) {
     const match = line.match(/^(.*?):(\d+):(.*)$/);
     if (!match) continue;
     const relPath = normalizeRelativePath(match[1]);
+    if (isProtectedPath(relPath)) continue;
     const lineNumber = Number(match[2]);
     const preview = match[3].slice(0, MAX_PREVIEW_CHARS);
     const matchedPattern = detectTodoPattern(preview, patterns);
@@ -4144,10 +4203,13 @@ async function runTodoScanWithWalk(patterns: string[], maxResults: number) {
       if (shouldStop()) return;
       if (entry.isDirectory()) {
         if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (isProtectedPath(relPath)) continue;
         await walk(path.join(current, entry.name));
       } else if (entry.isFile()) {
         const fullPath = path.join(current, entry.name);
         const relPath = normalizeRelativePath(path.relative(repoRoot, fullPath));
+        if (isProtectedPath(relPath)) continue;
         const stat = await fs.stat(fullPath).catch(() => null);
         if (!stat || !stat.isFile() || stat.size > MAX_FILE_SIZE_BYTES) continue;
         if (await isBinaryFile(fullPath)) continue;
@@ -4193,7 +4255,11 @@ async function listCandidateFiles(glob?: string) {
     }
     const result = await runSimpleCommand("rg", args, 10_000, 512 * 1024);
     if (result.ok) {
-      files = result.stdout.split("\n").filter(Boolean).map(normalizeRelativePath);
+      files = result.stdout
+        .split("\n")
+        .filter(Boolean)
+        .map(normalizeRelativePath)
+        .filter((file) => !isProtectedPath(file));
     } else {
       warnings.push("rg_failed");
     }
@@ -4207,6 +4273,8 @@ async function listCandidateFiles(glob?: string) {
     const matcher = globToRegex(glob);
     files = files.filter((file) => matcher.test(file));
   }
+
+  files = files.filter((file) => !isProtectedPath(file));
 
   return { paths: files, warnings };
 }
@@ -4225,9 +4293,12 @@ async function listFilesWithWalk(glob?: string) {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (SKIP_DIR_NAMES.has(entry.name)) continue;
+        const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (isProtectedPath(relPath)) continue;
         await walk(path.join(current, entry.name));
       } else if (entry.isFile()) {
         const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+        if (isProtectedPath(relPath)) continue;
         if (!matcher || matcher.test(relPath)) {
           files.push(relPath);
         }
@@ -5003,6 +5074,9 @@ async function searchFile(
   query: string,
   remaining: number
 ): Promise<{ results: Array<{ path: string; lineNumber: number; preview: string }>; truncated: boolean }> {
+  if (isProtectedPath(relPath)) {
+    return { results: [], truncated: false };
+  }
   let stat: fsSync.Stats;
   try {
     stat = await fs.stat(fullPath);
@@ -5254,6 +5328,11 @@ function normalizeRelativePath(relativePath: string) {
   const normalized = relativePath.split(path.sep).join("/");
   if (normalized === ".") return ".";
   return normalized.replace(/^\.\//, "");
+}
+
+function joinRelativePath(base: string, next: string) {
+  if (base === "." || base.length === 0) return normalizeRelativePath(next);
+  return normalizeRelativePath(`${base}/${next}`);
 }
 
 function isWithinRepoRoot(resolvedPath: string) {

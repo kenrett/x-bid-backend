@@ -859,6 +859,13 @@ async function handleRepoReadFile(input) {
             reason: "not_found"
         };
     }
+    if (isProtectedPath(resolved.relative)) {
+        return {
+            path: resolved.relative,
+            refused: true,
+            reason: "protected_path"
+        };
+    }
     let stat;
     try {
         stat = await fs.stat(resolved.resolved);
@@ -905,6 +912,9 @@ async function handleRepoReadRange(input) {
         return toolError("path_outside_root", "path is outside repo root", {
             path: safeOutputPath(input.path)
         });
+    }
+    if (isProtectedPath(resolved.relative)) {
+        return toolError("protected_path", "path is protected", { path: resolved.relative });
     }
     if (input.startLine <= 0 || input.endLine <= 0 || input.startLine > input.endLine) {
         return toolError("invalid_range", "startLine and endLine must be positive and startLine <= endLine", {
@@ -996,6 +1006,14 @@ async function handleRepoListDir(input) {
             error: "path_outside_root"
         };
     }
+    if (isProtectedPath(resolved.relative)) {
+        return {
+            path: resolved.relative,
+            entries: [],
+            truncated: false,
+            error: "protected_path"
+        };
+    }
     let stat;
     try {
         stat = await fs.stat(resolved.resolved);
@@ -1018,6 +1036,7 @@ async function handleRepoListDir(input) {
     }
     const dirEntries = await fs.readdir(resolved.resolved, { withFileTypes: true });
     const entries = dirEntries
+        .filter((entry) => !isProtectedPath(joinRelativePath(resolved.relative, entry.name)))
         .map((entry) => {
         const type = entry.isDirectory() ? "dir" : entry.isFile() ? "file" : "other";
         return { name: entry.name, type };
@@ -1265,6 +1284,9 @@ async function handleRepoTree(input) {
             path: safeOutputPath(input.path ?? ".")
         });
     }
+    if (isProtectedPath(resolved.relative)) {
+        return toolError("protected_path", "path is protected", { path: resolved.relative });
+    }
     let stat;
     try {
         stat = await fs.stat(resolved.resolved);
@@ -1276,7 +1298,7 @@ async function handleRepoTree(input) {
     let truncated = false;
     const rootName = resolved.relative === "." ? "." : path.basename(resolved.relative);
     const shouldStop = () => nodesReturned >= maxNodes;
-    const buildTree = async (fullPath, name, depth) => {
+    const buildTree = async (fullPath, relPath, name, depth) => {
         if (shouldStop()) {
             truncated = true;
             return { name, type: "dir", children: [] };
@@ -1303,6 +1325,8 @@ async function handleRepoTree(input) {
         const filtered = entries.filter((entry) => {
             if (entry.isDirectory() && SKIP_DIR_NAMES.has(entry.name))
                 return false;
+            if (isProtectedPath(joinRelativePath(relPath, entry.name)))
+                return false;
             return true;
         });
         filtered.sort((a, b) => {
@@ -1326,8 +1350,9 @@ async function handleRepoTree(input) {
                 break;
             }
             const childPath = path.join(fullPath, entry.name);
+            const childRelPath = joinRelativePath(relPath, entry.name);
             if (entry.isDirectory()) {
-                const child = await buildTree(childPath, entry.name, depth + 1);
+                const child = await buildTree(childPath, childRelPath, entry.name, depth + 1);
                 children.push(child);
             }
             else if (entry.isFile()) {
@@ -1342,7 +1367,7 @@ async function handleRepoTree(input) {
         return { name, type: "dir", children: children.length > 0 ? children : undefined };
     };
     const tree = stat.isDirectory()
-        ? await buildTree(resolved.resolved, rootName, 0)
+        ? await buildTree(resolved.resolved, resolved.relative, rootName, 0)
         : (() => {
             nodesReturned += 1;
             return { name: rootName, type: "file" };
@@ -1542,6 +1567,9 @@ async function handleRepoProposePatch(input) {
         return toolError("path_outside_root", "path is outside repo root", {
             path: safeOutputPath(input.path)
         });
+    }
+    if (isProtectedPath(resolved.relative)) {
+        return toolError("protected_path", "path is protected", { path: resolved.relative });
     }
     let stat;
     try {
@@ -2866,6 +2894,9 @@ async function readRepoTextFile(relPath) {
     if (!resolved.ok) {
         return { ok: false, reason: "not_found" };
     }
+    if (isProtectedPath(resolved.relative)) {
+        return { ok: false, reason: "protected_path" };
+    }
     let stat;
     try {
         stat = await fs.stat(resolved.resolved);
@@ -3392,6 +3423,8 @@ async function runSearchWithRg(query, maxResults) {
         if (!match)
             continue;
         const relPath = normalizeRelativePath(match[1]);
+        if (isProtectedPath(relPath))
+            continue;
         const lineNumber = Number(match[2]);
         const column = Number(match[3]);
         const preview = match[4].slice(0, MAX_PREVIEW_CHARS);
@@ -3414,6 +3447,8 @@ async function runSearchWithGitGrep(query, maxResults) {
         if (!match)
             continue;
         const relPath = normalizeRelativePath(match[1]);
+        if (isProtectedPath(relPath))
+            continue;
         const lineNumber = Number(match[2]);
         const preview = match[3].slice(0, MAX_PREVIEW_CHARS);
         results.push({ path: relPath, lineNumber, preview });
@@ -3442,12 +3477,17 @@ async function runSearchWithWalk(query, maxResults) {
             if (entry.isDirectory()) {
                 if (SKIP_DIR_NAMES.has(entry.name))
                     continue;
+                const relPathNormalized = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+                if (isProtectedPath(relPathNormalized))
+                    continue;
                 await walk(path.join(current, entry.name));
             }
             else if (entry.isFile()) {
                 const fullPath = path.join(current, entry.name);
                 const relPath = path.relative(repoRoot, fullPath);
                 const relPathNormalized = normalizeRelativePath(relPath);
+                if (isProtectedPath(relPathNormalized))
+                    continue;
                 const fileResult = await searchFile(fullPath, relPathNormalized, query, maxResults - results.length);
                 results.push(...fileResult.results);
                 if (fileResult.truncated) {
@@ -3484,6 +3524,8 @@ async function runFindRefsWithRg(symbol, languageHint) {
         if (!match)
             continue;
         const relPath = normalizeRelativePath(match[1]);
+        if (isProtectedPath(relPath))
+            continue;
         if (!fileMatchesLanguage(relPath, languageHint))
             continue;
         hits.push({
@@ -3511,6 +3553,8 @@ async function runFindRefsWithGitGrep(symbol, languageHint) {
         if (!match)
             continue;
         const relPath = normalizeRelativePath(match[1]);
+        if (isProtectedPath(relPath))
+            continue;
         if (!fileMatchesLanguage(relPath, languageHint))
             continue;
         hits.push({
@@ -3541,10 +3585,15 @@ async function runFindRefsWithWalk(symbol, languageHint) {
             if (entry.isDirectory()) {
                 if (SKIP_DIR_NAMES.has(entry.name))
                     continue;
+                const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+                if (isProtectedPath(relPath))
+                    continue;
                 await walk(path.join(current, entry.name));
             }
             else if (entry.isFile()) {
                 const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+                if (isProtectedPath(relPath))
+                    continue;
                 if (!fileMatchesLanguage(relPath, languageHint))
                     continue;
                 const remaining = MAX_FIND_REFS_HITS - hits.length;
@@ -3586,6 +3635,8 @@ async function runTodoScanWithRg(patterns) {
         if (!match)
             continue;
         const relPath = normalizeRelativePath(match[1]);
+        if (isProtectedPath(relPath))
+            continue;
         const lineNumber = Number(match[2]);
         const preview = match[3].slice(0, MAX_PREVIEW_CHARS);
         const matchedPattern = detectTodoPattern(preview, patterns);
@@ -3620,11 +3671,16 @@ async function runTodoScanWithWalk(patterns, maxResults) {
             if (entry.isDirectory()) {
                 if (SKIP_DIR_NAMES.has(entry.name))
                     continue;
+                const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+                if (isProtectedPath(relPath))
+                    continue;
                 await walk(path.join(current, entry.name));
             }
             else if (entry.isFile()) {
                 const fullPath = path.join(current, entry.name);
                 const relPath = normalizeRelativePath(path.relative(repoRoot, fullPath));
+                if (isProtectedPath(relPath))
+                    continue;
                 const stat = await fs.stat(fullPath).catch(() => null);
                 if (!stat || !stat.isFile() || stat.size > MAX_FILE_SIZE_BYTES)
                     continue;
@@ -3670,7 +3726,11 @@ async function listCandidateFiles(glob) {
         }
         const result = await runSimpleCommand("rg", args, 10_000, 512 * 1024);
         if (result.ok) {
-            files = result.stdout.split("\n").filter(Boolean).map(normalizeRelativePath);
+            files = result.stdout
+                .split("\n")
+                .filter(Boolean)
+                .map(normalizeRelativePath)
+                .filter((file) => !isProtectedPath(file));
         }
         else {
             warnings.push("rg_failed");
@@ -3683,6 +3743,7 @@ async function listCandidateFiles(glob) {
         const matcher = globToRegex(glob);
         files = files.filter((file) => matcher.test(file));
     }
+    files = files.filter((file) => !isProtectedPath(file));
     return { paths: files, warnings };
 }
 async function listFilesWithWalk(glob) {
@@ -3700,10 +3761,15 @@ async function listFilesWithWalk(glob) {
             if (entry.isDirectory()) {
                 if (SKIP_DIR_NAMES.has(entry.name))
                     continue;
+                const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+                if (isProtectedPath(relPath))
+                    continue;
                 await walk(path.join(current, entry.name));
             }
             else if (entry.isFile()) {
                 const relPath = normalizeRelativePath(path.relative(repoRoot, path.join(current, entry.name)));
+                if (isProtectedPath(relPath))
+                    continue;
                 if (!matcher || matcher.test(relPath)) {
                     files.push(relPath);
                 }
@@ -4394,6 +4460,9 @@ async function runHeuristicSymbols(paths, maxResults, kindsFilter) {
     return { results, truncated };
 }
 async function searchFile(fullPath, relPath, query, remaining) {
+    if (isProtectedPath(relPath)) {
+        return { results: [], truncated: false };
+    }
     let stat;
     try {
         stat = await fs.stat(fullPath);
@@ -4609,6 +4678,11 @@ function normalizeRelativePath(relativePath) {
     if (normalized === ".")
         return ".";
     return normalized.replace(/^\.\//, "");
+}
+function joinRelativePath(base, next) {
+    if (base === "." || base.length === 0)
+        return normalizeRelativePath(next);
+    return normalizeRelativePath(`${base}/${next}`);
 }
 function isWithinRepoRoot(resolvedPath) {
     return resolvedPath === repoRoot || resolvedPath.startsWith(repoRoot + path.sep);
