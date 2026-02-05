@@ -27,7 +27,8 @@ module Api
         result = Account::VerifyEmail.new(raw_token: token).call
         return render_error(code: result.code, message: result.message, status: result.http_status) unless result.ok?
 
-        render json: { status: "verified" }, status: :ok
+        status = result.code == :already_verified ? "already_verified" : "verified"
+        render json: { status: status }, status: :ok
       end
 
       private

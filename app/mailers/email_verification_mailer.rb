@@ -12,7 +12,7 @@ class EmailVerificationMailer < ApplicationMailer
   private
 
   def build_verification_url(raw_token)
-    base = ENV.fetch("APP_URL", "http://localhost:3000")
-    "#{base}/api/v1/email_verifications/verify?token=#{raw_token}"
+    base = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+    "#{base}/verify-email?token=#{raw_token}"
   end
 end
