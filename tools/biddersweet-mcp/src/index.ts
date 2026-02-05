@@ -5,7 +5,12 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CallToolRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ListResourcesRequestSchema,
+  ListToolsRequestSchema
+} from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024;
@@ -53,6 +58,7 @@ const ROUTES_COMMAND_MAX_BYTES = 256 * 1024;
 const DEFAULT_CAPABILITY_MODE = "READ_ONLY";
 const AUDIT_LOG_DIR = ".mcp-logs";
 const AUDIT_LOG_FILE = "tool.log";
+const SERVER_LOG_FILE = "server.log";
 const AUDIT_MAX_STRING = 200;
 const AUDIT_MAX_ARRAY = 20;
 const SENSITIVE_KEY_PATTERN =
@@ -125,6 +131,22 @@ const SKIP_DIR_NAMES = new Set([
 ]);
 
 const repoRoot = resolveRepoRoot();
+const serverLogPath = path.join(repoRoot, AUDIT_LOG_DIR, SERVER_LOG_FILE);
+const appendServerLog = (message: string) => {
+  try {
+    fsSync.mkdirSync(path.join(repoRoot, AUDIT_LOG_DIR), { recursive: true });
+    fsSync.appendFileSync(serverLogPath, `${new Date().toISOString()} ${message}\n`);
+  } catch {
+    // best-effort logging
+  }
+};
+process.on("uncaughtException", (err) => {
+  appendServerLog(`uncaughtException: ${err?.stack || err}`);
+});
+process.on("unhandledRejection", (reason) => {
+  appendServerLog(`unhandledRejection: ${String(reason)}`);
+});
+appendServerLog("server_start");
 
 const server = new Server(
   {
@@ -133,7 +155,8 @@ const server = new Server(
   },
   {
     capabilities: {
-      tools: {}
+      tools: {},
+      resources: {}
     }
   }
 );
@@ -767,6 +790,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       }
     ]
   };
+});
+
+// This server exposes tools only (no resources). Return empty lists to satisfy MCP clients.
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  appendServerLog("resources_list");
+  return { resources: [] };
+});
+
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  appendServerLog("resources_templates_list");
+  return { resourceTemplates: [] };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -5711,10 +5745,13 @@ async function writeFileAtomic(filePath: string, content: string, mode?: number)
 }
 
 async function main() {
+  appendServerLog("connect_start");
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  appendServerLog("connect_ok");
 }
 
-main().catch(() => {
+main().catch((err) => {
+  appendServerLog(`connect_error: ${err?.stack || err}`);
   process.exit(1);
 });
