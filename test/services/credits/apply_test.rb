@@ -39,5 +39,32 @@ class CreditsApplyTest < ActiveSupport::TestCase
     output = io.string
     assert_includes output, "\"event\":\"credits.grant_without_purchase\""
     assert_includes output, "\"stripe_payment_intent_id\":\"pi_missing\""
+    assert_equal 0, @user.reload.bid_credits
+  end
+
+  test "concurrent grants do not lose updates" do
+    keys = %w[apply-concurrent-1 apply-concurrent-2]
+    gate = Queue.new
+
+    threads =
+      keys.map do |key|
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            gate.pop
+            Credits::Apply.apply!(
+              user: @user,
+              reason: "bonus",
+              amount: 3,
+              idempotency_key: key
+            )
+          end
+        end
+      end
+
+    2.times { gate << true }
+    threads.each(&:join)
+
+    assert_equal 2, CreditTransaction.where(idempotency_key: keys).count
+    assert_equal 6, @user.reload.bid_credits
   end
 end

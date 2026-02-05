@@ -5,7 +5,7 @@ module Credits
         raise ArgumentError, "User must be provided" unless user
 
         cached = user.bid_credits.to_i
-        derived = Credits::Balance.for_user(user)
+        derived = Credits::Balance.derived_for_user(user)
         { cached: cached, derived: derived, matches: cached == derived }
       end
     end

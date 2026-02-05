@@ -12,9 +12,8 @@ module Credits
       private
 
       def update_balance(user)
-        balance = Credits::Balance.for_user(user)
-        user.update!(bid_credits: balance)
-        balance
+        balance = Credits::Balance.derived_for_user(user)
+        Credits::MaterializedBalance.set!(user, balance)
       end
     end
   end

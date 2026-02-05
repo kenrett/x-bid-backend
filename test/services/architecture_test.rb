@@ -22,7 +22,8 @@ class ArchitectureTest < ActiveSupport::TestCase
     ]
 
     allowlist = [
-      Rails.root.join("app/services/credits/rebuild_balance.rb").to_s
+      Rails.root.join("app/services/credits/rebuild_balance.rb").to_s,
+      Rails.root.join("app/services/credits/materialized_balance.rb").to_s
     ]
 
     forbidden = [

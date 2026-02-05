@@ -24,8 +24,7 @@ module Credits
         existing = CreditTransaction.find_by(idempotency_key: idempotency_key)
         if existing
           raise ArgumentError, "Idempotency key belongs to a different user" if existing.user_id != user.id
-          remaining = Credits::RebuildBalance.call!(user: user, lock: false)
-          return log_debit(user:, auction:, remaining:)
+          return log_debit(user:, auction:, remaining: user.bid_credits.to_i)
         end
 
         Credits::Ledger.bootstrap!(user)
@@ -48,7 +47,7 @@ module Credits
           entry_type: "bid_spend"
         )
 
-        remaining = Credits::RebuildBalance.call!(user: user, lock: false)
+        remaining = Credits::MaterializedBalance.apply_delta!(user, -1)
         log_debit(user:, auction:, remaining:)
       end
 

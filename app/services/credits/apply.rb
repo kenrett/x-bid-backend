@@ -58,9 +58,9 @@ module Credits
             entry_type: reason
           )
 
-          return Credits::RebuildBalance.call!(user: user, lock: false) if result.existing?
+          return user.bid_credits.to_i if result.existing?
 
-          new_balance = Credits::RebuildBalance.call!(user: user, lock: false)
+          new_balance = Credits::MaterializedBalance.apply_delta!(user, normalized_amount)
           AppLogger.log(
             event: "credits.credit",
             user_id: user.id,
@@ -76,6 +76,8 @@ module Credits
           new_balance
         end
       end
+
+      private
     end
   end
 end

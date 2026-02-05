@@ -221,7 +221,7 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
     audit = JSON.parse(response.body)["balance_audit"]
     assert_equal false, audit["matches"]
     assert_equal user.reload.bid_credits, audit["cached"]
-    assert_equal Credits::Balance.for_user(user), audit["derived"]
+    assert_equal Credits::Balance.derived_for_user(user), audit["derived"]
   end
 
   test "repair_credits creates missing ledger row and returns reconciliation view" do

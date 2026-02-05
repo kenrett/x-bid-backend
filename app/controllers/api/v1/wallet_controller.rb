@@ -8,11 +8,11 @@ class Api::V1::WalletController < ApplicationController
   # @response Wallet balance (200) [WalletBalance]
   # @response Unauthorized (401) [Error]
   def show
-    derived = Credits::Balance.for_user(@current_user)
+    derived = Credits::Balance.derived_for_user(@current_user)
     audit = Credits::AuditBalance.call(user: @current_user)
 
     render json: {
-      credits_balance: derived,
+      credits_balance: Credits::Balance.for_user(@current_user),
       balance_source: balance_source_for(@current_user),
       balance_audit: audit,
       as_of: Time.current.utc.iso8601
