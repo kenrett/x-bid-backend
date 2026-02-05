@@ -13,9 +13,9 @@ module Admin
         return ServiceResult.fail("Delta must be non-zero", code: :invalid_delta) if @delta.zero?
 
         @user.with_lock do
-          derived_balance = Credits::Balance.for_user(@user)
-          new_balance = derived_balance + @delta
-          return insufficient_balance(derived_balance) if new_balance.negative?
+          current_balance = Credits::Balance.for_user(@user)
+          new_balance = current_balance + @delta
+          return insufficient_balance(current_balance) if new_balance.negative?
 
           Credits::Apply.apply!(
             user: @user,
@@ -27,9 +27,9 @@ module Admin
             metadata: { request_path: @request&.path, delta: @delta, source: "admin_adjust_credits" }.compact
           )
 
-          updated_balance = Credits::RebuildBalance.call!(user: @user, lock: false)
+          updated_balance = @user.reload.bid_credits
           AuditLogger.log(action: "user.adjust_credits", actor: @actor, target: @user, payload: { delta: @delta, reason: @reason }, request: @request)
-          log_outcome(success: true, old_balance: derived_balance, new_balance: updated_balance)
+          log_outcome(success: true, old_balance: current_balance, new_balance: updated_balance)
           ServiceResult.ok(code: :ok, message: "Credits adjusted", record: @user, data: { user: @user })
         end
       rescue ActiveRecord::RecordInvalid => e
