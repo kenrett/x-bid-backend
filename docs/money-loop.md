@@ -20,7 +20,8 @@ This document explains how money moves through the X‑Bid backend so an enginee
   - Immutability is enforced at both model and DB trigger level.
 - `CreditTransaction` (append-only)
   - Represents *credits* (bid credits) movements, independent of cash.
-  - Used to compute credit balance (`Credits::Balance` / `Credits::RebuildBalance`).
+  - Ledger source of truth; used to compute derived balance (`Credits::Balance.derived_for_user`).
+  - The materialized balance lives on `users.bid_credits` for fast reads.
 - `Bid`
   - Represents placing a bid on an `Auction`.
   - A successful bid consumes exactly one credit and records a `MoneyEvent` (`bid_spent`).
@@ -54,7 +55,7 @@ Idempotency is enforced via a unique index on `(source_type, source_id, event_ty
 After a `Purchase` is persisted:
 - A credit grant is recorded as an append-only `CreditTransaction` (kind `grant`) via `Credits::Apply`.
 - Credit application uses an idempotency key derived from the purchase (e.g. `purchase:<purchase_id>:grant`).
-- The user’s cached `bid_credits` is kept in sync with the ledger-derived balance.
+- The user’s `bid_credits` is the materialized balance; writes update it atomically alongside ledger entries.
 
 ### 4) Credits → Bids → Auction
 
@@ -126,7 +127,7 @@ flowchart LR
   Apply --> Purchase[(Purchase)]
   Apply --> MEp[(MoneyEvent: purchase +amount_cents\nsource: StripePaymentIntent)]
   Apply --> CTg[(CreditTransaction: grant +credits\nidempotent by purchase:<id>:grant)]
-  CTg --> Balance[Credits balance (ledger-derived)]
+  CTg --> Balance[Credits balance (materialized)]
   Balance -->|place bid| PlaceBid[Auctions::PlaceBid]
   PlaceBid --> CTd[(CreditTransaction: debit -1)]
   PlaceBid --> Bid[(Bid)]
@@ -177,3 +178,8 @@ flowchart LR
 ## Known Limitations
 
 - If a refund arrives after the user has already spent the credits from that purchase, automatic credit revocation is skipped to avoid overdrawing the user’s credit balance; the system logs this condition for follow-up/manual reconciliation.
+
+## Reconciliation
+
+- Use `Credits::ReconcileBalances` (or the `credits:reconcile_balances` rake task) to detect drift between the ledger-derived balance and the materialized `bid_credits`.
+- The reconcile flow can run in read-only mode (`fix: false`) to report drift, or with `fix: true` to correct materialized balances with audit logging.
