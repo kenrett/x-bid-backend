@@ -45,8 +45,6 @@ Rails.application.routes.draw do
 
       get "/account/data/export", to: "account_exports#show"
       post "/account/data/export", to: "account_exports#create"
-      get "/account/export", to: "account_exports#show"
-      post "/account/export", to: "account_exports#create"
       get "/account/export/download", to: "account_exports#download"
 
       post "/email_verifications/resend", to: "email_verifications#resend"
@@ -90,9 +88,6 @@ Rails.application.routes.draw do
       namespace :admin do
         get "/maintenance", to: "maintenance#show"
         post "/maintenance", to: "maintenance#update"
-      end
-
-      namespace :admin do
         resources :bid_packs, path: "bid-packs", only: [ :index, :show, :new, :create, :edit, :update, :destroy ]
         resources :auctions, only: [ :index, :show, :create, :update, :destroy ] do
           member do

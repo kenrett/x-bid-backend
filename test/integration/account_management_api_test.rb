@@ -271,15 +271,15 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_credentials", JSON.parse(response.body).dig("error", "code").to_s
   end
 
-  test "POST/GET /api/v1/account/export creates and returns latest export" do
+  test "POST/GET /api/v1/account/data/export creates and returns latest export" do
     session_token = create_session_token_for(@user)
 
-    post "/api/v1/account/export", headers: auth_headers(@user, session_token)
+    post "/api/v1/account/data/export", headers: auth_headers(@user, session_token)
     assert_response :accepted
     export = JSON.parse(response.body).fetch("export")
     assert_includes %w[pending ready], export["status"]
 
-    get "/api/v1/account/export", headers: auth_headers(@user, session_token)
+    get "/api/v1/account/data/export", headers: auth_headers(@user, session_token)
     assert_response :success
     latest = JSON.parse(response.body).fetch("export")
     assert_equal export["id"], latest["id"]

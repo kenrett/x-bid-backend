@@ -3285,68 +3285,6 @@
         ]
       }
     },
-    "/api/v1/account/export": {
-      "get": {
-        "description": "GET /api/v1/account/data/export",
-        "operationId": "GET__api_v1_account_export",
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/resp_053"
-          },
-          "401": {
-            "$ref": "#/components/responses/resp_069"
-          },
-          "403": {
-            "$ref": "#/components/responses/resp_048"
-          },
-          "404": {
-            "$ref": "#/components/responses/resp_044"
-          },
-          "500": {
-            "$ref": "#/components/responses/resp_022"
-          }
-        },
-        "security": [
-          {
-            "bearer_jwt": []
-          }
-        ],
-        "summary": "Get the latest account export status",
-        "tags": [
-          "Api"
-        ]
-      },
-      "post": {
-        "description": "POST /api/v1/account/data/export",
-        "operationId": "POST__api_v1_account_export",
-        "responses": {
-          "202": {
-            "$ref": "#/components/responses/resp_031"
-          },
-          "401": {
-            "$ref": "#/components/responses/resp_069"
-          },
-          "403": {
-            "$ref": "#/components/responses/resp_048"
-          },
-          "422": {
-            "$ref": "#/components/responses/resp_052"
-          },
-          "500": {
-            "$ref": "#/components/responses/resp_022"
-          }
-        },
-        "security": [
-          {
-            "bearer_jwt": []
-          }
-        ],
-        "summary": "Request an account export (MVP)",
-        "tags": [
-          "Api"
-        ]
-      }
-    },
     "/api/v1/account/export/download": {
       "get": {
         "description": "GET /api/v1/account/export/download",
