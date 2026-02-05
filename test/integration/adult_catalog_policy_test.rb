@@ -127,7 +127,7 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     )
 
     payload = { user_id: user.id, session_token_id: session_token.id, exp: expires_at.to_i }
-    jwt = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    jwt = encode_jwt(payload)
 
     [ session_token, jwt ]
   end

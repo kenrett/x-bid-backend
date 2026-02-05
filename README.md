@@ -194,6 +194,7 @@ All endpoints are prefixed with `/api/v1`.
 * `GET /session/remaining`: Session TTL remaining.
 * `DELETE /logout`: Log out (client-side session clearing).
 * `GET /logged_in`: Check if the current user's JWT is valid.
+* Bearer access tokens include `iat`/`nbf` claims and are verified on decode.
 * `POST /password/forgot` and `POST /password/reset`: Request and complete password resets.
 * `POST /email_verifications/resend` and `GET /email_verifications/verify`: Email verification.
 

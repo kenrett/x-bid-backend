@@ -112,7 +112,7 @@ class AuthorizationBoundariesTest < ActionDispatch::IntegrationTest
     )
 
     payload = { user_id: actor.id, session_token_id: session_token.id, exp: expires_at.to_i }
-    jwt = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    jwt = encode_jwt(payload)
 
     [ { "Authorization" => "Bearer #{jwt}" }, session_token ]
   end

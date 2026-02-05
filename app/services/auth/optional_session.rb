@@ -10,7 +10,7 @@ module Auth
       return nil unless session_token&.active?
 
       session_token
-    rescue JWT::DecodeError, JWT::ExpiredSignature, ActiveRecord::RecordNotFound
+    rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::MissingRequiredClaim, ActiveRecord::RecordNotFound
       nil
     end
 

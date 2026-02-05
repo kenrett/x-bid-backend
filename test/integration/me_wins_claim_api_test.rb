@@ -154,7 +154,7 @@ class MeWinsClaimApiTest < ActionDispatch::IntegrationTest
 
   def auth_headers(user, session_token)
     payload = { user_id: user.id, session_token_id: session_token.id, exp: 1.hour.from_now.to_i }
-    token = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    token = encode_jwt(payload)
     { "Authorization" => "Bearer #{token}" }
   end
 end

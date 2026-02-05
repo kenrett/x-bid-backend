@@ -73,7 +73,7 @@ class ApplicationController < ActionController::API
         message: "Token has expired",
         status: :unauthorized
       )
-    rescue JWT::DecodeError, JWT::VerificationError => e
+    rescue JWT::DecodeError, JWT::VerificationError, JWT::MissingRequiredClaim => e
       render_auth_failure!(
         code: :invalid_token,
         reason: :bad_token_format,
@@ -412,8 +412,13 @@ class ApplicationController < ActionController::API
 
   def encode_jwt(payload = {}, expires_at: nil, **kwargs)
     payload = (payload || {}).to_h.merge(kwargs)
+    issued_at = Time.current.to_i
     expiration_time = (expires_at || 24.hours.from_now).to_i
-    payload_with_exp = payload.merge(exp: expiration_time)
+    payload_with_exp = payload.merge(
+      exp: expiration_time,
+      iat: payload[:iat] || payload["iat"] || issued_at,
+      nbf: payload[:nbf] || payload["nbf"] || issued_at
+    )
     # Explicitly set the algorithm for better security. HS256 is the default, but it's best practice to be explicit.
     JWT.encode(payload_with_exp, Rails.application.secret_key_base, "HS256")
   end
