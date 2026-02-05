@@ -224,6 +224,6 @@ class RackAttackTest < ActionDispatch::IntegrationTest
 
   def jwt_for(user_id:, session_token_id:)
     payload = { "user_id" => user_id, "session_token_id" => session_token_id, "exp" => 1.hour.from_now.to_i }
-    JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    encode_jwt(payload)
   end
 end

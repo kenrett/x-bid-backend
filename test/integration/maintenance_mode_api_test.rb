@@ -39,7 +39,7 @@ class MaintenanceModeApiTest < ActionDispatch::IntegrationTest
 
   def auth_headers
     payload = { user_id: @admin.id, session_token_id: @session_token.id, exp: 1.hour.from_now.to_i }
-    token = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    token = encode_jwt(payload)
     { "Authorization" => "Bearer #{token}" }
   end
 end

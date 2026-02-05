@@ -31,9 +31,18 @@ module AuthHelpers
     )
 
     payload = { user_id: actor.id, session_token_id: session_token.id, exp: expires_at.to_i }
-    jwt = JWT.encode(payload, Rails.application.secret_key_base, "HS256")
+    jwt = encode_jwt(payload)
 
     { "Authorization" => "Bearer #{jwt}" }
+  end
+
+  def encode_jwt(payload, issued_at: Time.current)
+    issued_at_i = issued_at.to_i
+    normalized = payload.merge(
+      iat: payload[:iat] || payload["iat"] || issued_at_i,
+      nbf: payload[:nbf] || payload["nbf"] || issued_at_i
+    )
+    JWT.encode(normalized, Rails.application.secret_key_base, "HS256")
   end
 
   def csrf_headers(origin: nil)

@@ -11,7 +11,8 @@ module Auth
           algorithm: "HS256",
           verify_expiration: true,
           verify_iat: true,
-          verify_not_before: true
+          verify_not_before: true,
+          required_claims: %w[exp iat nbf]
         }
       ).first
       SessionToken.find(decoded["session_token_id"])
