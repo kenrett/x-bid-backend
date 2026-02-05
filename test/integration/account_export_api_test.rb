@@ -3,7 +3,7 @@ require "jwt"
 require "uri"
 
 class AccountExportApiTest < ActionDispatch::IntegrationTest
-  test "GET /api/v1/account/export returns a signed download URL when ready" do
+  test "GET /api/v1/account/data/export returns a signed download URL when ready" do
     user = User.create!(name: "User", email_address: "export_user@example.com", password: "password", bid_credits: 0)
     other = User.create!(name: "Other", email_address: "export_other@example.com", password: "password", bid_credits: 0)
 
@@ -50,10 +50,10 @@ class AccountExportApiTest < ActionDispatch::IntegrationTest
       status: "applied"
     )
 
-    post "/api/v1/account/export", headers: auth_headers(user, session_token)
+    post "/api/v1/account/data/export", headers: auth_headers(user, session_token)
     assert_response :accepted
 
-    get "/api/v1/account/export", headers: auth_headers(user, session_token)
+    get "/api/v1/account/data/export", headers: auth_headers(user, session_token)
     assert_response :success
     body = JSON.parse(response.body)
     export = body.fetch("export")
@@ -142,15 +142,15 @@ class AccountExportApiTest < ActionDispatch::IntegrationTest
     assert CreditTransaction.find_by(id: credit_tx.id).present?
   end
 
-  test "POST /api/v1/account/export is idempotent for recent exports" do
+  test "POST /api/v1/account/data/export is idempotent for recent exports" do
     user = User.create!(name: "User", email_address: "export_idempotent@example.com", password: "password", bid_credits: 0)
     session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("export2"), expires_at: 1.hour.from_now)
 
-    post "/api/v1/account/export", headers: auth_headers(user, session_token)
+    post "/api/v1/account/data/export", headers: auth_headers(user, session_token)
     assert_response :accepted
     first = JSON.parse(response.body).fetch("export")
 
-    post "/api/v1/account/export", headers: auth_headers(user, session_token)
+    post "/api/v1/account/data/export", headers: auth_headers(user, session_token)
     assert_response :accepted
     second = JSON.parse(response.body).fetch("export")
 

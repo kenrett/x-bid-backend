@@ -233,7 +233,7 @@ All endpoints are prefixed with `/api/v1`.
 * `POST /account/email-change`: Start email change.
 * `GET /account/notifications` and `PUT /account/notifications`: Notification preferences.
 * `GET /account/sessions`, `DELETE /account/sessions`, `DELETE /account/sessions/:id`: Session management.
-* `GET /account/export`, `POST /account/export`, `GET /account/export/download`: Account data export.
+* `GET /account/data/export`, `POST /account/data/export`, `GET /account/export/download`: Account data export.
 * `GET /wallet` and `GET /wallet/transactions`: Credits and wallet history.
 * `GET /me` and related endpoints for purchases, activity, wins, and notifications.
 * `POST /me/wins/:auction_id/claim`: Claim a win.
