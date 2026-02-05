@@ -1,21 +1,14 @@
 require "test_helper"
 
 class CorsCredentialsTest < ActionDispatch::IntegrationTest
-  ALLOWED_ORIGINS = %w[
-    https://biddersweet.app
-    https://www.biddersweet.app
-    https://afterdark.biddersweet.app
-    https://marketplace.biddersweet.app
-    https://account.biddersweet.app
-    http://localhost:5173
-    http://afterdark.localhost:5173
-    http://marketplace.localhost:5173
-  ].freeze
+  def allowed_origins
+    FrontendOrigins.allowed_origins
+  end
 
   test "api preflight returns allow-origin and credentials for every allowed origin" do
     requested_headers = "content-type, x-csrf-token, authorization, x-request-id, x-storefront-key, sentry-trace, baggage"
 
-    ALLOWED_ORIGINS.each do |origin|
+    allowed_origins.each do |origin|
       options "/api/v1/login",
         headers: {
           "Origin" => origin,
@@ -39,7 +32,7 @@ class CorsCredentialsTest < ActionDispatch::IntegrationTest
   end
 
   test "cable preflight returns allow-origin and credentials for every allowed origin" do
-    ALLOWED_ORIGINS.each do |origin|
+    allowed_origins.each do |origin|
       options "/cable",
         headers: {
           "Origin" => origin,

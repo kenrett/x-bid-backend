@@ -13,7 +13,7 @@ class SecurityHeadersTest < ActionDispatch::IntegrationTest
     assert_includes csp, "default-src 'self'"
     assert_match(/script-src 'self' https:\/\/js\.stripe\.com https:\/\/static\.cloudflareinsights\.com 'nonce-[^']+'/, csp)
     assert_match(/script-src-elem 'self' https:\/\/js\.stripe\.com https:\/\/static\.cloudflareinsights\.com 'nonce-[^']+'/, csp)
-    assert_includes csp, "connect-src 'self' https://cloudflareinsights.com"
+    assert_includes csp, "connect-src 'self' https://cloudflareinsights.com https://api.biddersweet.app"
     refute_includes csp, "'unsafe-inline'"
   end
 

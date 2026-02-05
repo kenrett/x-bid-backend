@@ -42,6 +42,12 @@ Each helper has a single job, so the flow stays readable and easy to test.
 ### One-Line Summary
 We use command-based application services to perform domain actions, and domain events to announce when something important happens. This keeps the system clean, predictable, and easy for anyone to work on.
 
+## Docs
+
+- `docs/production_hardening_checklist.md` (deploy-day checklist)
+- `docs/OPERATIONS.md` (operational runbook)
+- `docs/deployment.md` (deployment overview)
+
 ## Prerequisites
 
 * Ruby: `3.4.5` (see `.ruby-version`).
