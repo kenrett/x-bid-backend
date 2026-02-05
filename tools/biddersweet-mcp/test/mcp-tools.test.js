@@ -139,6 +139,8 @@ before(async () => {
     ["first", "second", "third"].join("\n")
   );
   await fs.writeFile(path.join(repoRoot, ".env"), "SECRET=1\n");
+  await fs.writeFile(path.join(repoRoot, ".env.local"), "API_TOKEN=needle-local\n");
+  await fs.writeFile(path.join(repoRoot, "config", "master.key"), "local-master-key\n");
   await fs.writeFile(
     path.join(repoRoot, "config", "routes.rb"),
     [
@@ -322,6 +324,13 @@ test("repo.read_file returns file content", async () => {
   assert.equal(payload.content, "one\ntwo\nthree\nfour");
 });
 
+test("repo.read_file refuses protected files", async () => {
+  const { payload } = await callTool("repo.read_file", { path: "config/master.key" });
+  assert.equal(payload.path, "config/master.key");
+  assert.equal(payload.refused, true);
+  assert.equal(payload.reason, "protected_path");
+});
+
 test("repo.read_range returns specific lines", async () => {
   const { payload } = await callTool("repo.read_range", {
     path: "file.txt",
@@ -366,11 +375,28 @@ test("repo.read_range rejects invalid ranges", async () => {
   assert.equal(payload.error.code, "invalid_range");
 });
 
+test("repo.read_range rejects protected files", async () => {
+  const { result, payload } = await callTool("repo.read_range", {
+    path: ".env.local",
+    startLine: 1,
+    endLine: 1
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error.code, "protected_path");
+});
+
 test("repo.list_dir lists directory entries", async () => {
   const { payload } = await callTool("repo.list_dir", { path: "subdir", maxEntries: 10 });
   assert.equal(payload.path, "subdir");
   assert.equal(payload.truncated, false);
   assert.deepEqual(payload.entries, [{ name: "child.txt", type: "file" }]);
+});
+
+test("repo.list_dir hides protected files", async () => {
+  const { payload } = await callTool("repo.list_dir", { path: ".", maxEntries: 500 });
+  const names = payload.entries.map((entry) => entry.name);
+  assert.ok(!names.includes(".env"));
+  assert.ok(!names.includes(".env.local"));
 });
 
 test("repo.deps summarizes versions and dependencies", async () => {
@@ -495,6 +521,15 @@ test("repo.propose_patch enforces expected sha", async () => {
   assert.equal(payload.error.code, "sha_mismatch");
 });
 
+test("repo.propose_patch rejects protected paths", async () => {
+  const { result, payload } = await callTool("repo.propose_patch", {
+    path: ".env",
+    insert: { line: 2, text: "SECRET=2" }
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error.code, "protected_path");
+});
+
 test("repo.apply_patch applies structured edit with expected sha", async () => {
   const original = ["alpha", "beta", "gamma"].join("\n");
   const expected = crypto.createHash("sha256").update(original, "utf8").digest("hex");
@@ -610,6 +645,8 @@ test("repo.tree returns bounded directory tree and skips node_modules", async ()
   assert.ok(childNames.includes("docs"));
   assert.ok(childNames.includes("file.txt"));
   assert.ok(!childNames.includes("node_modules"));
+  assert.ok(!childNames.includes(".env"));
+  assert.ok(!childNames.includes(".env.local"));
 });
 
 test("dev.check reports tool presence", async () => {
