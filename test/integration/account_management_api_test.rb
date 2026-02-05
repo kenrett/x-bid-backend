@@ -137,7 +137,26 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     get "/api/v1/email_verifications/verify", params: { token: raw }
     assert_response :unprocessable_content
     body = JSON.parse(response.body)
-    assert_equal "invalid_token", body.dig("error", "code").to_s
+    assert_equal "expired_token", body.dig("error", "code").to_s
+  end
+
+  test "GET /api/v1/email_verifications/verify is idempotent for already verified users" do
+    raw = SecureRandom.hex(32)
+    @user.update!(
+      email_verified_at: 1.day.ago,
+      email_verification_token_digest: Auth::TokenDigest.digest(raw),
+      email_verification_sent_at: 1.hour.ago
+    )
+
+    get "/api/v1/email_verifications/verify", params: { token: raw }
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "already_verified", body["status"]
+
+    @user.reload
+    assert @user.email_verified_at.present?
+    assert_nil @user.email_verification_token_digest
+    assert_nil @user.email_verification_sent_at
   end
 
   test "POST /api/v1/email_verifications/resend enforces cooldown" do

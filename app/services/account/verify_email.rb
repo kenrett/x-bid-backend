@@ -14,7 +14,12 @@ module Account
       return ServiceResult.fail("Invalid or expired token", code: :invalid_token) unless user
 
       sent_at = user.email_verification_sent_at
-      return ServiceResult.fail("Invalid or expired token", code: :invalid_token) if sent_at.blank? || sent_at < TOKEN_TTL.ago
+      return ServiceResult.fail("Token has expired", code: :expired_token) if sent_at.blank? || sent_at < TOKEN_TTL.ago
+
+      if user.email_verified_at.present?
+        user.update!(email_verification_token_digest: nil, email_verification_sent_at: nil)
+        return ServiceResult.ok(code: :already_verified, data: { user: user })
+      end
 
       User.transaction do
         apply_pending_email!(user)
