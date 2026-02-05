@@ -6099,7 +6099,7 @@
     },
     "/api/v1/wallet": {
       "get": {
-        "description": "GET /api/v1/wallet\nReturns the user's current credits balance (materialized from the ledger for fast reads),\nplus an audit comparison against the ledger-derived balance.",
+        "description": "GET /api/v1/wallet\nReturns the user's current credits balance, derived from the append-only ledger,\nplus an audit comparison against the cached `bid_credits` column.",
         "operationId": "GET__api_v1_wallet",
         "responses": {
           "200": {
