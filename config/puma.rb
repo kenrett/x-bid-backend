@@ -24,8 +24,14 @@
 # Any libraries that use a connection pool or another resource pool should
 # be configured to provide at least as many connections as the number of
 # threads. This includes Active Record's `pool` parameter in `database.yml`.
-threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
-threads threads_count, threads_count
+min_threads = ENV.fetch("RAILS_MIN_THREADS", 2).to_i
+max_threads = ENV.fetch("RAILS_MAX_THREADS", 5).to_i
+threads min_threads, max_threads
+
+# Keep production on a single Puma process by default for low-memory instances
+# (e.g., Render 512MB). Set WEB_CONCURRENCY > 0 only when there is headroom.
+workers_count = ENV.fetch("WEB_CONCURRENCY", 0).to_i
+workers workers_count if workers_count.positive?
 
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 port ENV.fetch("PORT", 3000)
@@ -33,8 +39,12 @@ port ENV.fetch("PORT", 3000)
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart
 
-# Run the Solid Queue supervisor inside of Puma for single-server deployments
-plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
+# Run Solid Queue inside Puma only when explicitly requested and not on web role.
+# Prefer a dedicated worker process (`bin/jobs` or `bin/rails solid_queue:start`).
+process_role = ENV.fetch("PROCESS_ROLE", "web")
+run_solid_queue_in_puma =
+  ENV["SOLID_QUEUE_IN_PUMA"].to_s.casecmp("true").zero? && process_role != "web"
+plugin :solid_queue if run_solid_queue_in_puma
 
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.

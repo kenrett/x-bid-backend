@@ -6,8 +6,11 @@ Rails.application.configure do
   # Code is not reloaded between requests.
   config.enable_reloading = false
 
-  # Eager load code on boot for better performance and memory savings (ignored by Rake tasks).
-  config.eager_load = true
+  # Reduce baseline memory on small instances by allowing process-role-specific eager load.
+  # Web defaults to lazy load unless explicitly overridden with RAILS_EAGER_LOAD=true.
+  process_role = ENV.fetch("PROCESS_ROLE", "web")
+  default_eager_load = process_role == "worker"
+  config.eager_load = ENV.fetch("RAILS_EAGER_LOAD", default_eager_load.to_s) == "true"
 
   # Full error reports are disabled.
   config.consider_all_requests_local = false
@@ -85,11 +88,13 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
   # -----------------------------
-  # ACTION CABLE
+  # ACTION CABLE (web role only)
   # -----------------------------
-  require Rails.root.join("app/lib/frontend_origins")
-  config.action_cable.url = ENV.fetch("ACTION_CABLE_URL", "wss://x-bid-backend.onrender.com/cable")
-  config.action_cable.allowed_request_origins = FrontendOrigins.allowed_origin_patterns
+  if process_role == "web"
+    require Rails.root.join("app/lib/frontend_origins")
+    config.action_cable.url = ENV.fetch("ACTION_CABLE_URL", "wss://x-bid-backend.onrender.com/cable")
+    config.action_cable.allowed_request_origins = FrontendOrigins.allowed_origin_patterns
+  end
 
   # Enable DNS rebinding protection and other host header attacks.
   config.hosts = [
