@@ -140,6 +140,8 @@ before(async () => {
   );
   await fs.writeFile(path.join(repoRoot, ".env"), "SECRET=1\n");
   await fs.writeFile(path.join(repoRoot, ".env.local"), "API_TOKEN=needle-local\n");
+  await fs.writeFile(path.join(repoRoot, "id_rsa"), "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n");
+  await fs.writeFile(path.join(repoRoot, "tls-cert.pem"), "-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----\n");
   await fs.writeFile(path.join(repoRoot, "config", "master.key"), "local-master-key\n");
   await fs.writeFile(
     path.join(repoRoot, "config", "routes.rb"),
@@ -329,6 +331,16 @@ test("repo.read_file refuses protected files", async () => {
   assert.equal(payload.path, "config/master.key");
   assert.equal(payload.refused, true);
   assert.equal(payload.reason, "protected_path");
+});
+
+test("repo.read_file refuses key/cert style protected files", async () => {
+  const pem = await callTool("repo.read_file", { path: "tls-cert.pem" });
+  assert.equal(pem.payload.refused, true);
+  assert.equal(pem.payload.reason, "protected_path");
+
+  const ssh = await callTool("repo.read_file", { path: "id_rsa" });
+  assert.equal(ssh.payload.refused, true);
+  assert.equal(ssh.payload.reason, "protected_path");
 });
 
 test("repo.read_range returns specific lines", async () => {

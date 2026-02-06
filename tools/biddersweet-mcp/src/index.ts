@@ -36,7 +36,14 @@ const PROTECTED_PATH_PATTERNS = [
   /(^|\/)\.env(\.|$)/i,
   /(^|\/)config\/credentials(\.|\/|$)/i,
   /(^|\/)config\/master\.key$/i,
-  /(^|\/)credentials(\.|\/|$)/i
+  /(^|\/)credentials(\.|\/|$)/i,
+  /(^|\/).*\.pem$/i,
+  /(^|\/).*\.p12$/i,
+  /(^|\/).*\.pfx$/i,
+  /(^|\/).*\.jks$/i,
+  /(^|\/).*\.keystore$/i,
+  /(^|\/).*\.key$/i,
+  /(^|\/)id_(rsa|dsa|ecdsa|ed25519)$/i
 ];
 const LOCKFILE_NAMES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Gemfile.lock"]);
 const DEFAULT_LIST_MAX = 500;
