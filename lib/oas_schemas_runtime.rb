@@ -1,4 +1,4 @@
-module OasSchemas
+module OasSchemasRuntime
   STATUSES = %w[inactive scheduled active complete cancelled].freeze
   BID_PACK_STATUSES = %w[active retired].freeze
   PURCHASE_STATUSES = %w[
@@ -711,7 +711,10 @@ module OasSchemas
 end
 
 # Ensure canonical schemas are registered and injected into the generated specification.
-OasSchemas.register_type_parsers!
+OasSchemasRuntime.register_type_parsers!
+
+# Backward-compatible alias for any older references.
+OasSchemas = OasSchemasRuntime unless defined?(OasSchemas)
 
 module OasRails
   class << self
@@ -719,7 +722,7 @@ module OasRails
       alias_method :build_without_canonical_schemas, :build
 
       def build(...)
-        OasSchemas.inject_into(build_without_canonical_schemas(...))
+        OasSchemasRuntime.inject_into(build_without_canonical_schemas(...))
       end
     end
   end
