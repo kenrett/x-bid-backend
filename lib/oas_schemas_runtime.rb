@@ -523,7 +523,7 @@ module OasSchemasRuntime
       ]
     },
     "LoginRequest" => {
-      description: "Login payload accepted by /api/v1/login (nested or flat).",
+      description: "Login payload accepted by /api/v1/login (nested or flat), with optional 2FA code fields.",
       oneOf: [
         {
           type: "object",
@@ -532,7 +532,10 @@ module OasSchemasRuntime
               type: "object",
               properties: {
                 email_address: { type: "string", format: "email" },
-                password: { type: "string" }
+                password: { type: "string" },
+                otp: { type: "string" },
+                recovery_code: { type: "string" },
+                recoveryCode: { type: "string" }
               },
               required: %w[email_address password]
             }
@@ -543,7 +546,9 @@ module OasSchemasRuntime
           type: "object",
           properties: {
             email_address: { type: "string", format: "email" },
-            password: { type: "string" }
+            password: { type: "string" },
+            otp: { type: "string" },
+            recovery_code: { type: "string" }
           },
           required: %w[email_address password]
         },
@@ -551,7 +556,9 @@ module OasSchemasRuntime
           type: "object",
           properties: {
             emailAddress: { type: "string", format: "email" },
-            password: { type: "string" }
+            password: { type: "string" },
+            otp: { type: "string" },
+            recoveryCode: { type: "string" }
           },
           required: %w[emailAddress password]
         }
