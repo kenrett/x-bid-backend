@@ -371,6 +371,14 @@ module OasSchemasRuntime
       },
       required: %w[secret otpauth_uri]
     },
+    "AccountTwoFactorStatusResponse" => {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean" },
+        enabled_at: { type: "string", format: "date-time", nullable: true }
+      },
+      required: %w[enabled enabled_at]
+    },
     "AccountTwoFactorVerifyResponse" => {
       type: "object",
       properties: {

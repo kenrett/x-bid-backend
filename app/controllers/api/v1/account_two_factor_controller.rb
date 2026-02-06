@@ -6,6 +6,17 @@ module Api
       before_action :authenticate_request!
       rescue_from ActionController::ParameterMissing, with: :handle_parameter_missing
 
+      # GET /api/v1/account/2fa
+      # @summary Return 2FA status for current account
+      # @response Success (200) [AccountTwoFactorStatusResponse]
+      # @response Unauthorized (401) [Error]
+      def show
+        render json: {
+          enabled: @current_user.two_factor_enabled?,
+          enabled_at: @current_user.two_factor_enabled_at&.iso8601
+        }, status: :ok
+      end
+
       # POST /api/v1/account/2fa/setup
       # @summary Start 2FA setup and return the provisioning URI
       # @response Success (200) [AccountTwoFactorSetupResponse]
