@@ -3,6 +3,24 @@ require "jwt"
 require "rotp"
 
 class AccountTwoFactorApiTest < ActionDispatch::IntegrationTest
+  test "returns current 2FA status" do
+    user = User.create!(name: "User", email_address: "two_factor_status@example.com", password: "password", bid_credits: 0)
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("two_factor_status"), expires_at: 1.hour.from_now)
+
+    get "/api/v1/account/2fa", headers: auth_headers(user, session_token)
+    assert_response :success
+    assert_equal false, JSON.parse(response.body).fetch("enabled")
+    assert_nil JSON.parse(response.body).fetch("enabled_at")
+
+    user.update!(two_factor_enabled_at: Time.current)
+
+    get "/api/v1/account/2fa", headers: auth_headers(user, session_token)
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal true, body.fetch("enabled")
+    assert body.fetch("enabled_at").present?
+  end
+
   test "enable 2FA and require OTP for login" do
     user = User.create!(name: "User", email_address: "two_factor@example.com", password: "password", bid_credits: 0)
     session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("two_factor"), expires_at: 1.hour.from_now)
