@@ -224,23 +224,15 @@ jobs:
           set -euo pipefail
           echo "OPENAPI_SPEC_PATH=${{ steps.openapi_path.outputs.path }}" >> "$GITHUB_ENV"
 
-      - name: Validate frontend CI configuration
-        run: |
-          set -euo pipefail
-          if [[ -z "${{ vars.FRONTEND_REPO || '' }}" ]]; then
-            echo "::error::Missing required repo variable FRONTEND_REPO (e.g. owner/x-bid-frontend)."
-            exit 1
-          fi
-
       - name: Checkout frontend repo
         # v4.1.7
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
         with:
-          repository: ${{ vars.FRONTEND_REPO }}
+          repository: kenrett/x-bid-frontend
           ref: ${{ vars.FRONTEND_REF || 'main' }}
           path: frontend
           # For private repos, set a PAT with read access as secret FRONTEND_CI_TOKEN.
-          token: ${{ github.token }}
+          token: ${{ secrets.FRONTEND_CI_TOKEN || github.token }}
 
       - name: Set up Node
         # v4.0.2
