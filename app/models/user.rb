@@ -12,6 +12,7 @@ class User < ApplicationRecord
   has_many :password_reset_tokens, dependent: :destroy
   has_many :notifications, dependent: :destroy
   has_many :account_exports, dependent: :destroy
+  has_many :upload_authorizations, dependent: :destroy
 
   enum :role, { user: 0, admin: 1, superadmin: 2 }, default: :user
   enum :status, { active: 0, disabled: 1 }, default: :active
