@@ -7,6 +7,7 @@ module Api
 
       # POST /api/v1/uploads
       def create
+        blob = nil
         uploaded_file = params[:file]
         if uploaded_file.nil?
           return render_invalid_upload!("file is required")
@@ -36,11 +37,13 @@ module Api
           filename: uploaded_file.original_filename,
           content_type: uploaded_file.content_type
         )
+        UploadAuthorization.create!(user: current_user, blob: blob)
 
         log_upload(success: true, uploaded_file: uploaded_file, blob: blob)
 
         render json: upload_payload(blob), status: :ok
-      rescue ActiveStorage::IntegrityError, ActiveStorage::Error => e
+      rescue ActiveStorage::IntegrityError, ActiveStorage::Error, ActiveRecord::ActiveRecordError => e
+        blob&.purge_later
         log_upload(success: false, uploaded_file: uploaded_file, error: e)
         render_invalid_upload!("Upload failed", details: { error_class: e.class.name })
       end
@@ -50,6 +53,15 @@ module Api
         blob = ActiveStorage::Blob.find_signed(params[:signed_id])
         unless blob
           return render_error(code: :not_found, message: "Upload not found", status: :not_found)
+        end
+
+        upload_authorization = UploadAuthorization.find_by(blob_id: blob.id)
+        unless upload_authorization
+          return render_error(code: :not_found, message: "Upload not found", status: :not_found)
+        end
+
+        unless authorized_to_read_upload?(upload_authorization)
+          return render_error(code: :forbidden, message: "Not authorized", status: :forbidden)
         end
 
         ActiveStorage::Current.url_options = { host: request.base_url }
@@ -101,6 +113,12 @@ module Api
         return DEFAULT_CONTENT_TYPES if types.empty?
 
         types
+      end
+
+      def authorized_to_read_upload?(upload_authorization)
+        return true if upload_authorization.user_id == current_user.id
+
+        Authorization::Guard.allow?(actor: current_user, role: :admin)
       end
 
       def render_invalid_upload!(message, details: nil)
