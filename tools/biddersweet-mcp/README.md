@@ -61,6 +61,8 @@ Blocked patterns include:
 - `config/credentials*`
 - `config/master.key`
 - `credentials*`
+- `*.pem`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.key`
+- SSH private key names like `id_rsa`, `id_ed25519`
 
 Behavior:
 - Direct access returns a structured `protected_path` error/refusal.

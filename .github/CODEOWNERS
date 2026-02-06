@@ -1,0 +1,20 @@
+# Default owners
+* @kenrett
+
+# CI and automation
+.github/workflows/* @kenrett
+.codex/* @kenrett
+tools/biddersweet-mcp/** @kenrett
+
+# Security and secrets surfaces
+config/credentials* @kenrett
+config/master.key @kenrett
+config/initializers/* @kenrett
+
+# Auth/session and payments
+app/controllers/api/v1/sessions_controller.rb @kenrett
+app/controllers/api/v1/passwords_controller.rb @kenrett
+app/controllers/api/v1/checkouts_controller.rb @kenrett
+app/controllers/api/v1/admin/payments_controller.rb @kenrett
+app/services/auctions/** @kenrett
+app/services/checkouts/** @kenrett
