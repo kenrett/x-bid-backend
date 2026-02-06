@@ -21,7 +21,10 @@ class AccountTwoFactorApiTest < ActionDispatch::IntegrationTest
 
     post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password" } }
     assert_response :unauthorized
-    assert_equal "two_factor_required", JSON.parse(response.body).dig("error", "code").to_s
+    first_login_body = JSON.parse(response.body)
+    assert_equal "two_factor_required", first_login_body.dig("error", "code").to_s
+    assert_nil first_login_body["challenge_id"]
+    assert_nil first_login_body["two_factor_challenge_id"]
 
     post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password", otp: totp.now } }
     assert_response :success
