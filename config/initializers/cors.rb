@@ -5,61 +5,63 @@
 
 # Read more: https://github.com/cyu/rack-cors
 
-require Rails.root.join("app/lib/frontend_origins")
+if ENV.fetch("PROCESS_ROLE", "web") == "web"
+  require Rails.root.join("app/lib/frontend_origins")
 
-allowed_headers = %w[
-  Authorization
-  Content-Type
-  X-Requested-With
-  X-CSRF-Token
-  X-Request-Id
-  X-Storefront-Key
-  authorization
-  content-type
-  x-csrf-token
-  x-request-id
-  x-storefront-key
-  sentry-trace
-  baggage
-].freeze
-exposed_headers = %w[Authorization X-Request-Id].freeze
-allowed_methods = [ :get, :post, :put, :patch, :delete, :options ].freeze
-cable_headers = %w[Authorization Origin].freeze
-cable_methods = [ :get, :options ].freeze
+  allowed_headers = %w[
+    Authorization
+    Content-Type
+    X-Requested-With
+    X-CSRF-Token
+    X-Request-Id
+    X-Storefront-Key
+    authorization
+    content-type
+    x-csrf-token
+    x-request-id
+    x-storefront-key
+    sentry-trace
+    baggage
+  ].freeze
+  exposed_headers = %w[Authorization X-Request-Id].freeze
+  allowed_methods = [ :get, :post, :put, :patch, :delete, :options ].freeze
+  cable_headers = %w[Authorization Origin].freeze
+  cable_methods = [ :get, :options ].freeze
 
-Rails.application.config.middleware.insert_before 0, Rack::Cors do
-  allow do
-    origins(*FrontendOrigins.allowed_origins)
+  Rails.application.config.middleware.insert_before 0, Rack::Cors do
+    allow do
+      origins(*FrontendOrigins.allowed_origins)
 
-    resource "/api/*",
-      headers: allowed_headers,
-      expose: exposed_headers,
-      methods: allowed_methods,
-      credentials: true
+      resource "/api/*",
+        headers: allowed_headers,
+        expose: exposed_headers,
+        methods: allowed_methods,
+        credentials: true
 
-    resource "/cable",
-      headers: cable_headers,
-      methods: cable_methods,
-      credentials: true
+      resource "/cable",
+        headers: cable_headers,
+        methods: cable_methods,
+        credentials: true
+    end
   end
-end
 
-Rails.application.config.middleware.insert_before Rack::Cors, Middleware::RequestDiagnosticsLogger
+  Rails.application.config.middleware.insert_before Rack::Cors, Middleware::RequestDiagnosticsLogger
 
-if %w[production staging].include?(Rails.env)
-  begin
-    payload = {
-      event: "cors.config",
-      origins: FrontendOrigins.allowed_origins,
-      credentials: true,
-      allowed_headers: allowed_headers,
-      allowed_methods: allowed_methods,
-      exposed_headers: exposed_headers,
-      cable_headers: cable_headers,
-      cable_methods: cable_methods
-    }
-    Rails.logger.info(payload.inspect)
-  rescue StandardError => e
-    Rails.logger.error("cors.config_failed #{e.class}: #{e.message}")
+  if %w[production staging].include?(Rails.env)
+    begin
+      payload = {
+        event: "cors.config",
+        origins: FrontendOrigins.allowed_origins,
+        credentials: true,
+        allowed_headers: allowed_headers,
+        allowed_methods: allowed_methods,
+        exposed_headers: exposed_headers,
+        cable_headers: cable_headers,
+        cable_methods: cable_methods
+      }
+      Rails.logger.info(payload.inspect)
+    rescue StandardError => e
+      Rails.logger.error("cors.config_failed #{e.class}: #{e.message}")
+    end
   end
 end

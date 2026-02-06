@@ -117,10 +117,15 @@ Rails.application.routes.draw do
     end
   end
 
-  # Interactive docs + raw OpenAPI spec
-  mount OasRails::Engine => "/api-docs"
-  get "/docs", to: redirect("/api-docs")
-  get "/docs.json", to: redirect("/api-docs.json")
+  openapi_runtime_enabled =
+    !Rails.env.production? || ENV["ENABLE_OPENAPI_RUNTIME"].to_s.casecmp("true").zero?
+
+  if openapi_runtime_enabled
+    # Interactive docs + raw OpenAPI spec
+    mount OasRails::Engine => "/api-docs"
+    get "/docs", to: redirect("/api-docs")
+    get "/docs.json", to: redirect("/api-docs.json")
+  end
 
   # Quiet missing favicon to avoid log noise
   get "/favicon.ico", to: proc { [ 204, { "Content-Type" => "image/x-icon" }, [] ] }
