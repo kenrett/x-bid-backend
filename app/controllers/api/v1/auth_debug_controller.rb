@@ -27,13 +27,7 @@ module Api
       end
 
       def auth_debug_enabled?
-        return true unless Rails.env.production?
-        return true if ENV["AUTH_DEBUG_ENABLED"].to_s.strip.casecmp("true").zero?
-
-        authenticate_request!
-        return false if performed?
-
-        @current_user&.admin? || @current_user&.superadmin?
+        ENV["AUTH_DEBUG_ENABLED"].to_s.strip.casecmp("true").zero?
       end
     end
   end

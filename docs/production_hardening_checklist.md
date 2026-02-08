@@ -109,13 +109,15 @@ Checklist:
 ## Debug Flags / Test-Only Code
 
 Debug toggles currently in use:
-- `AUTH_DEBUG_ENABLED`: enables `/api/v1/auth/debug` in production (otherwise admin-only).
+- `AUTH_DEBUG_ENABLED`: enables `/api/v1/auth/debug` in any environment (default disabled).
+- `DIAGNOSTICS_ENABLED`: enables `/api/v1/diagnostics/auth` in any environment (default disabled).
 - `DEBUG_CSRF_PROBE=1`: adds `X-CSRF-Probe` + `X-CSRF-Cookie-Present` headers to `/api/v1/csrf`.
 
 Checklist:
 - [ ] Ensure `AUTH_DEBUG_ENABLED` is unset in production unless actively debugging.
+- [ ] Ensure `DIAGNOSTICS_ENABLED` is unset in production unless actively debugging.
 - [ ] Ensure `DEBUG_CSRF_PROBE` is unset in production.
-- [ ] Audit before deploy: `rg "AUTH_DEBUG_ENABLED|DEBUG_CSRF_PROBE"`.
+- [ ] Audit before deploy: `rg "AUTH_DEBUG_ENABLED|DIAGNOSTICS_ENABLED|DEBUG_CSRF_PROBE"`.
 
 ## Secrets + Env Hygiene
 

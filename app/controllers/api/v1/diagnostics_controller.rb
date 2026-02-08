@@ -24,8 +24,6 @@ module Api
       end
 
       def diagnostics_enabled?
-        return true unless Rails.env.production?
-
         ENV["DIAGNOSTICS_ENABLED"].to_s.strip.casecmp("true").zero?
       end
     end
