@@ -10,7 +10,7 @@ This backend serves the API at `api.biddersweet.app` and issues cookie-based ses
 ## Why this is required
 
 - **Cookie sharing across subdomains:** Auth/session cookies are set with `domain=.biddersweet.app` in production so the browser sends them to `api.biddersweet.app` from all storefronts.
-- **ActionCable cookie auth:** The `cable_session` cookie uses the same parent domain so websocket auth works from any storefront.
+- **ActionCable cookie auth:** WebSocket auth currently reads `bs_session_id`; `cable_session` is also issued on `/cable` for compatibility.
 - **CORS with credentials:** We allow credentialed requests only from explicit storefront origins so browsers can attach cookies without CORS failures.
 
 ## Operational notes

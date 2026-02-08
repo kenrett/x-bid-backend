@@ -167,15 +167,16 @@ Fix:
 - ensure backend allows the frontend origin (`http://localhost:5173`)
 - ensure credentials/header config matches your auth approach
 
-### 2) Auth tokens not persisting
+### 2) Session cookie not persisting
 Symptoms:
 - login works, but refresh logs you out
 - API calls fail after navigation
 
 Fix:
-- confirm token storage (`localStorage`)
-- confirm auth hydration (`AuthProvider`)
-- confirm API client attaches `Authorization: Bearer <JWT>`
+- confirm login response sets `bs_session_id` cookie
+- confirm frontend sends credentials (`withCredentials` / `credentials: include`)
+- for unsafe requests without Authorization, call `GET /api/v1/csrf` and send `X-CSRF-Token`
+- if using bearer compatibility mode intentionally, confirm `Authorization: Bearer <JWT>` is attached
 
 ### 3) WebSocket connects but no events arrive
 Symptoms:

@@ -2,8 +2,9 @@
 
 ## Current auth transport
 
-- HTTP API auth is via `Authorization: Bearer <jwt>` (see `ApplicationController#authenticate_request!`).
-- WebSocket (ActionCable) auth accepts a JWT via `Authorization` header, `?token=...` query param, or `cookies.encrypted[:jwt]` (see `ApplicationCable::Connection#websocket_token`).
+- HTTP API auth is cookie-first via signed `bs_session_id` (`Auth::CookieSessionAuthenticator`).
+- Bearer auth (`Authorization: Bearer <jwt>`) is fallback-only (`Auth::BearerAuthenticator`) and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
+- WebSocket (`/cable`) auth currently reads signed `bs_session_id` in `ApplicationCable::Connection`.
 
 ## Required frontend origins
 
@@ -15,13 +16,15 @@ Ensure the frontend origin is one of:
 - `https://marketplace.biddersweet.app`
 - `https://account.biddersweet.app`
 
-## CORS requirements for header-based auth
+## CORS and CSRF requirements (cookie-first auth)
 
-- Allow `Authorization` request header (Bearer JWT).
-- Allow `X-Storefront-Key` request header (storefront resolution / policy context).
-- Confirm preflight (`OPTIONS`) requests succeed for `/api/*`.
+- `Access-Control-Allow-Credentials: true` must be present for allowed origins.
+- Frontend requests must send credentials (`withCredentials` / `credentials: include`).
+- For unsafe requests without Authorization header, include `X-CSRF-Token` from `GET /api/v1/csrf`.
+- If a compatibility client uses bearer auth, allow the `Authorization` request header.
 
-## Cookie notes (only if you add cookie-based HTTP auth later)
+## Cookie notes
 
-- If HTTP auth ever moves to cookies, ensure cookie `Domain=.biddersweet.app` (leading dot) so it is shared across subdomains.
-- Use `Secure` + `HttpOnly` and choose `SameSite` based on whether cross-site requests are needed.
+- Production cookies should resolve to `Domain=.biddersweet.app` when applicable.
+- Session cookies should remain `Secure` + `HttpOnly` with explicit `SameSite` policy.
+- WebSocket compatibility depends on storefront -> API host requests carrying session cookies.

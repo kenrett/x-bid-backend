@@ -1,189 +1,95 @@
-# 🔐 Authentication & Session Lifecycle
+# Authentication and Session Lifecycle
 
-This document explains how authentication works end-to-end in X-Bid, covering:
+This document describes the auth/session contract currently implemented by the backend runtime.
 
-- Login request flow
-- Session token creation
-- JWT usage
-- Frontend session hydration
-- Why this design supports revocation, real-time invalidation, and safety
+## Runtime Contract (Current)
 
-## 🎯 High-Level Goals
+- HTTP API auth is cookie-first through a signed HttpOnly `bs_session_id` cookie.
+- `SessionToken` rows are the source of truth for session validity (active, revoked, expired).
+- Login/signup/refresh responses still include `access_token` and `refresh_token` for compatibility clients.
+- Bearer auth is fallback-only and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
+- ActionCable currently authenticates from the signed `bs_session_id` cookie.
 
-This authentication system is designed to:
+## Session Lifecycle
 
-- Allow server-side session revocation (unlike pure JWT auth)
-- Support real-time logout when sessions are invalidated
-- Keep the frontend and backend continuously in sync
-- Be explicit, observable, and debuggable
+### 1. Session creation (`POST /api/v1/login`, `POST /api/v1/signup`, `POST /api/v1/users`)
 
-## 🔄 Authentication & Session Lifecycle
-### Step-by-Step Explanation
+On successful auth or registration, backend runtime:
 
-### 1. User submits credentials (Frontend)
+- Creates a `SessionToken` row.
+- Issues a raw refresh token (stored hashed in `session_tokens.token_digest`).
+- Returns JSON payload with `access_token`, `refresh_token`, `session_token_id`, and `user`.
+- Sets two signed HttpOnly cookies:
+  - `bs_session_id` (browser/API cookie)
+  - `cable_session` (path `/cable`)
+- Sets `X-Auth-Mode: cookie` response header.
 
-The user enters their email and password into the login form.
+### 2. Authenticated HTTP requests
 
-The frontend sends a request to create a session:
+`Auth::AuthenticateRequest.call(request)` resolves auth in this order:
 
-`POST /api/v1/sessions`
+1. Signed cookie (`bs_session_id`) via `Auth::CookieSessionAuthenticator`.
+2. Bearer token fallback (`Authorization: Bearer ...`) via `Auth::BearerAuthenticator`, when allowed.
 
-#### Expected result
+If bearer fallback is used, backend adds `X-Auth-Deprecation: bearer` to response headers.
 
-On success, the backend responds with a token payload:
+### 3. Session refresh (`POST /api/v1/session/refresh`)
 
-- JWT
-- Session identifiers
-- User metadata
+`/session/refresh` is available for clients that hold a refresh token.
 
-### 2. Backend verifies credentials and creates a `SessionToken`
+- Accepts `refresh_token` (flat or nested under `session`).
+- Revokes the old `SessionToken`.
+- Creates a new `SessionToken` + refresh token pair.
+- Re-issues session cookies (`bs_session_id`, `cable_session`).
+- Returns the same auth response shape as login.
 
-`SessionsController#create`:
+Note: This endpoint is part of the backend contract, but browser clients running cookie-first auth do not need to call it on every page load.
 
-- Verifies credentials
-- Rejects invalid or disabled users
-- Creates a SessionToken row in the database
+### 4. Logout (`DELETE /api/v1/logout`)
 
-#### Why this matters
+- Requires an authenticated session.
+- Revokes the current `SessionToken`.
+- Broadcasts session invalidation.
+- Clears both session cookies server-side.
 
-- The `SessionToken` row is the true source of truth
-- A user can be logged out server-side by revoking the session, even if their JWT hasn’t expired
+Logout is not client-only state clearing.
 
-### 3. Backend issues a JWT referencing the `SessionToken`
+### 5. Session status endpoints
 
-- The backend signs a JWT containing session_token_id
-- The JWT is used for request authentication
-- Session validity is still governed by the database row
+- `GET /api/v1/logged_in`: returns session/user context when session is valid.
+- `GET /api/v1/session/remaining`: returns TTL metadata from active session token.
 
-#### This hybrid model provides:
+Both use the same cookie-first authentication path above.
 
-- Stateless authentication headers
-- Immediate server-side session revocation
+## CSRF Contract (Cookie Auth)
 
-### 4. Frontend persists session details
+For unsafe requests (`POST/PUT/PATCH/DELETE`) without an `Authorization` header:
 
-The frontend stores session data in localStorage, typically:
+1. Call `GET /api/v1/csrf` to receive `{ csrf_token }` and signed `csrf_token` cookie.
+2. Send `X-CSRF-Token` header with the returned token.
+3. Backend verifies header token matches signed cookie.
 
-- token (JWT)
-- refreshToken (if implemented)
-- sessionTokenId
-- user
+No local storage token persistence is required for this flow.
 
-These values are used to hydrate session state when the app reloads.
+## What This Document Explicitly Avoids
 
-### 5. AuthProvider hydrates and maintains session state
+- No assumption that frontend persists auth in `localStorage`.
+- No assumption that frontend must attach bearer tokens on every request.
+- No assumption that ActionCable accepts query-param JWT auth.
 
-On page load, the frontend `AuthProvider`:
+## Code Pointers
 
-- Reads session values from `localStorage`
-- Sets in-memory auth state (current user, token, etc.)
-- Starts polling session validity (e.g. `/api/v1/session/remaining`)
-- Connects to `ActionCable` for real-time events (including invalidation)
-
-`AuthProvider` becomes the frontend’s single source of truth for authentication.
-
-### 6. Authenticated application routes render
-
-Once the session is hydrated:
-
-- Protected routes are accessible
-- API requests include: `Authorization: Bearer <JWT>`
-    
-On the backend, `ApplicationController#authenticate_request!`:
-
-- Decodes the JWT to extract session_token_id
-- Loads the SessionToken
-- Rejects requests if revoked or expired
-- Rejects disabled users (optionally revoking and broadcasting invalidation)
-
-## 🧠 Why This Architecture Is Intentional
-### Why not pure JWT?
-
-Pure JWT systems are awkward for:
-
-- Immediate server-side revocation
-- Forced logout when a user is disabled
-- Admin invalidation without waiting for token expiry
-
-By tying JWTs to `SessionToken` rows, you keep JWT convenience while retaining server-side control.
-
-### Why poll and use WebSockets?
-
-Two complementary safety nets:
-
-#### Polling (e.g. `/api/v1/session/remaining`)
-- Handles silent expiry
-- Keeps UI countdowns accurate
-- Works even if WebSockets are blocked
-
-#### ActionCable (`SessionChannel`)
-
-- Instant logout when sessions are revoked or users are disabled
-- Admin or server-side changes take effect immediately
-
-If either mechanism fails, the other still protects the system.
-
-## 🛡️ CSRF Token Flow (SPA)
-
-For browser-based requests without an Authorization header, the frontend must fetch a CSRF token:
-
-1. `GET /api/v1/csrf` returns `{ csrf_token: "..." }` JSON.
-2. The response also sets a signed `csrf_token` cookie that is `HttpOnly`.
-3. The frontend keeps the JSON token in memory and sends it as `X-CSRF-Token` on unsafe requests.
-
-The backend validates that the `X-CSRF-Token` header matches the signed cookie value. No localStorage is required.
-
-## 📚 Related Diagrams (Recommended Next Reads)
-
-<!-- TODO (Add links) -->
-- Session invalidation (polling + ActionCable) 
-- PlaceBid concurrency flow (lock ordering + retry + broadcast)
-- Stripe webhook idempotency and purchase crediting
-- Auction close → settlement snapshot → retry window expiry job
-
-## 🗂 Files to Look At (Code Pointers)
 ### Backend
 
-- `app/controllers/application_controller.rb`
 - `app/controllers/api/v1/sessions_controller.rb`
-- `app/models/session_token.rb`
+- `app/controllers/application_controller.rb`
+- `app/services/auth/authenticate_request.rb`
+- `app/services/auth/cookie_session_authenticator.rb`
 - `app/channels/application_cable/connection.rb`
+- `app/models/session_token.rb`
 
-### Frontend
+## TL;DR
 
-- `src/features/auth/providers/AuthProvider.tsx`
-- `src/services/cable.ts`
-- `src/api/client.ts`
-
-## 🧾 TL;DR
-
-`JWT`s authenticate requests.
-`SessionToken` rows authorize sessions.
-`ActionCable` keeps everyone honest in real time.
-
-## 📊 Authentication & Session Lifecycle (Flow Diagram)
-```mermaid
-flowchart TD
-  User --> LoginForm
-  LoginForm -->|POST /api/v1/sessions| SessionsController
-  SessionsController --> SessionToken
-  SessionToken --> JWT
-  JWT --> FrontendStorage
-  FrontendStorage --> AuthProvider
-  AuthProvider --> App
-
-  LoginFormNote["User submits email and password<br/>from the login form"]
-  SessionsControllerNote["Validates credentials<br/>Creates SessionToken row<br/>Returns JWT payload"]
-  SessionTokenNote["Server source of truth<br/>Can be revoked or expired<br/>Controls session validity"]
-  JWTNote["JWT contains session_token_id<br/>Sent in Authorization header<br/>Decoded on each request"]
-  StorageNote["Saved in localStorage<br/>token, refreshToken, sessionTokenId, user"]
-  AuthProviderNote["Hydrates auth state on load<br/>Starts polling and ActionCable<br/>Provides auth context"]
-  AppNote["Protected routes available<br/>Auctions, bids, admin"]
-
-  LoginForm -.-> LoginFormNote
-  SessionsController -.-> SessionsControllerNote
-  SessionToken -.-> SessionTokenNote
-  JWT -.-> JWTNote
-  FrontendStorage -.-> StorageNote
-  AuthProvider -.-> AuthProviderNote
-  App -.-> AppNote
+Cookie-first auth (`bs_session_id`) is the runtime default.
+`SessionToken` rows control authorization/revocation.
+Bearer and refresh-token paths exist for compatibility, not as the primary browser-session mechanism.

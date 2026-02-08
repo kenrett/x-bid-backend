@@ -51,8 +51,8 @@ Checklist:
 ## Cookies + CSRF
 
 Cookie names:
-- Browser session: `bs_session_id` (signed)
-- Cable session: `cable_session` (signed, path `/cable`)
+- Browser session: `bs_session_id` (signed; primary HTTP and current ActionCable auth cookie)
+- Cable session: `cable_session` (signed, path `/cable`; compatibility cookie)
 - CSRF: `csrf_token` (signed)
 
 Cookie attributes (as implemented):

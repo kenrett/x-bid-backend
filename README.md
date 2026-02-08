@@ -194,12 +194,13 @@ All endpoints are prefixed with `/api/v1`.
 
 ### Authentication
 
-* `POST /users` and `POST /signup`: Register a new user.
-* `POST /login`: Log in to receive a JWT (response includes `is_admin` and `is_superuser`, also returned by session refresh).
-* `POST /session/refresh`: Refresh the active session token.
-* `GET /session/remaining`: Session TTL remaining.
-* `DELETE /logout`: Log out (client-side session clearing).
-* `GET /logged_in`: Check if the current user's JWT is valid.
+* `POST /users` and `POST /signup`: Register a new user and create a session.
+* `POST /login`: Create a session. Response includes `access_token`/`refresh_token` and user flags, and sets signed HttpOnly cookies (`bs_session_id` for HTTP and `cable_session` for `/cable`).
+* `POST /session/refresh`: Rotate session tokens and re-issue session cookies (supported for clients that use refresh tokens).
+* `GET /session/remaining`: Session TTL remaining for the authenticated session.
+* `DELETE /logout`: Revoke the active session server-side and clear session cookies.
+* `GET /logged_in`: Check whether the current session is valid.
+* HTTP authentication is cookie-first via signed `bs_session_id`; bearer tokens are a compatibility fallback and may return `X-Auth-Deprecation: bearer`.
 * Bearer access tokens include `iat`/`nbf` claims and are verified on decode.
 * `POST /password/forgot` and `POST /password/reset`: Request and complete password resets.
 * `POST /email_verifications/resend` and `GET /email_verifications/verify`: Email verification.
