@@ -5118,6 +5118,9 @@
           "200": {
             "$ref": "#/components/responses/resp_015"
           },
+          "403": {
+            "$ref": "#/components/responses/resp_056"
+          },
           "404": {
             "$ref": "#/components/responses/resp_003"
           }

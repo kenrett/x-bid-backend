@@ -60,6 +60,27 @@ class MarketplaceStorefrontPolicyTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "main cannot fetch marketplace bid history but marketplace can" do
+    winning_user = create_actor(role: :user)
+    bid = Bid.create!(user: winning_user, auction: @marketplace_auction, amount: 11.0, created_at: 1.minute.ago)
+    @marketplace_auction.update!(winning_user: winning_user)
+
+    host!("biddersweet.app")
+    get "/api/v1/auctions/#{@marketplace_auction.id}/bid_history"
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code").to_s
+
+    host!("marketplace.biddersweet.app")
+    get "/api/v1/auctions/#{@marketplace_auction.id}/bid_history"
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal winning_user.id, body.dig("auction", "winning_user_id")
+    assert_equal winning_user.name, body.dig("auction", "winning_user_name")
+    assert_equal bid.id, body.fetch("bids").first.fetch("id")
+    assert_equal winning_user.name, body.fetch("bids").first.fetch("username")
+  end
+
   test "non-admin cannot create auctions (curated-only guardrail)" do
     user = create_actor(role: :user)
     headers = auth_headers_for(user)
