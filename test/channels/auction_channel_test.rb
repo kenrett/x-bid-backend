@@ -53,6 +53,16 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
     subscribe(stream: "list")
     assert subscription.confirmed?
     assert stream_exists_for?(list_stream_name("marketplace"))
+    refute stream_exists_for?(list_stream_name("main"))
+    refute stream_exists_for?(list_stream_name("afterdark"))
+  end
+
+  test "main list subscription is isolated from marketplace list feed" do
+    stub_storefront_connection(storefront_key: "main")
+    subscribe(stream: "list")
+    assert subscription.confirmed?
+    assert stream_exists_for?(list_stream_name("main"))
+    refute stream_exists_for?(list_stream_name("marketplace"))
   end
 
   test "rejects subscription when auction_id is missing" do
@@ -77,6 +87,12 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
   test "rejects subscription when auction is out of storefront scope" do
     stub_storefront_connection(storefront_key: "main")
     subscribe(auction_id: @marketplace_auction.id)
+    assert subscription.rejected?
+  end
+
+  test "rejects adult auction for main storefront as out of scope" do
+    stub_storefront_connection(storefront_key: "main")
+    subscribe(auction_id: @adult_auction.id)
     assert subscription.rejected?
   end
 

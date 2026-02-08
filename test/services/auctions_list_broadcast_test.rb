@@ -35,4 +35,26 @@ class AuctionsListBroadcastTest < ActiveSupport::TestCase
     assert_nil payload[:image_url]
     assert_equal @auction.description, payload[:description]
   end
+
+  test "broadcasts to storefront-scoped stream for non-main auctions" do
+    marketplace_auction = Auction.create!(
+      title: "Marketplace Auction",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 3.0,
+      status: :active,
+      is_marketplace: true,
+      storefront_key: "marketplace"
+    )
+
+    broadcast_args = nil
+    ActionCable.server.stub(:broadcast, ->(*args) { broadcast_args = args }) do
+      Auctions::Events::ListBroadcast.call(auction: marketplace_auction)
+    end
+
+    assert_equal AuctionChannel.list_stream_for("marketplace"), broadcast_args.first
+    refute_equal AuctionChannel.list_stream_for("main"), broadcast_args.first
+    assert_equal marketplace_auction.id, broadcast_args.last[:id]
+  end
 end

@@ -65,6 +65,24 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     assert_equal "not_found", body.dig("error", "code").to_s
   end
 
+  test "main and marketplace cannot fetch adult bid history (safe 404)" do
+    winning_user = create_actor(role: :user)
+    Bid.create!(user: winning_user, auction: @adult_auction, amount: 11.0, created_at: 1.minute.ago)
+    @adult_auction.update!(winning_user: winning_user)
+
+    host!("biddersweet.app")
+    get "/api/v1/auctions/#{@adult_auction.id}/bid_history"
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code").to_s
+
+    host!("marketplace.biddersweet.app")
+    get "/api/v1/auctions/#{@adult_auction.id}/bid_history"
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code").to_s
+  end
+
   test "afterdark adult detail requires age gate acceptance and succeeds after accepting" do
     host!("afterdark.biddersweet.app")
     get "/api/v1/auctions/#{@adult_auction.id}"
@@ -134,7 +152,7 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     assert_equal winning_user.name, body.fetch("bids").first.fetch("username")
   end
 
-  test "main storefront cannot place bids on adult inventory" do
+  test "main and marketplace storefronts cannot place bids on adult inventory" do
     user = create_actor(role: :user)
     user.update!(email_verified_at: Time.current)
     Credits::Apply.apply!(
@@ -145,6 +163,14 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     )
 
     host!("biddersweet.app")
+    assert_no_difference -> { Bid.where(auction: @adult_auction).count } do
+      post "/api/v1/auctions/#{@adult_auction.id}/bids", headers: auth_headers_for(user)
+    end
+
+    assert_response :not_found
+    assert_equal 1, user.reload.bid_credits
+
+    host!("marketplace.biddersweet.app")
     assert_no_difference -> { Bid.where(auction: @adult_auction).count } do
       post "/api/v1/auctions/#{@adult_auction.id}/bids", headers: auth_headers_for(user)
     end
