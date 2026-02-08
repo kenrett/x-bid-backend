@@ -100,6 +100,35 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "throttles bidding by cookie-auth user across IPs without bearer" do
+    throttle = Rack::Attack.throttles.fetch("bids/user")
+    user = User.create!(
+      name: "Cookie Bidder",
+      email_address: "cookie-bidder@example.com",
+      password: "password",
+      bid_credits: 0
+    )
+
+    post "/api/v1/login",
+         params: { session: { email_address: user.email_address, password: "password" } },
+         headers: ip_headers("6.6.6.6")
+    assert_response :ok
+
+    csrf = csrf_headers
+
+    stub_authentication_and_bids_controller do
+      throttle.limit.times do |idx|
+        ip = "11.11.0.#{(idx % 200) + 1}"
+        post "/api/v1/auctions/1/bids", headers: ip_headers(ip).merge(csrf)
+        assert_not_equal 429, response.status
+      end
+
+      post "/api/v1/auctions/1/bids", headers: ip_headers("12.12.12.12").merge(csrf)
+      assert_response :too_many_requests
+      assert_throttled!(expected_message: "Too many bid attempts", expected_retry_after: throttle.period.to_i)
+    end
+  end
+
   test "throttles signup by normalized email and IP" do
     throttle = Rack::Attack.throttles.fetch("signup/email")
 

@@ -143,6 +143,20 @@ module RackAttackRules
     nil
   end
 
+  def self.cookie_user_id(req)
+    request = ActionDispatch::Request.new(req.env)
+    session_token = Auth::CookieSessionAuthenticator.session_token_from_request(request)
+    return nil unless session_token&.active?
+
+    session_token.user_id
+  rescue StandardError
+    nil
+  end
+
+  def self.bidding_user_id(req)
+    cookie_user_id(req) || jwt_user_id(req)
+  end
+
   def self.client_ip(req)
     forwarded_for = req.get_header("HTTP_X_FORWARDED_FOR").to_s
     forwarded = forwarded_for.split(",").map(&:strip).reject(&:blank?)
@@ -260,7 +274,7 @@ Rack::Attack.throttle(
   limit: RackAttackRules.env_int("RATE_LIMIT_BIDS_USER_LIMIT", 50),
   period: RackAttackRules.env_seconds("RATE_LIMIT_BIDS_USER_PERIOD_SECONDS", 1.minute.to_i)
 ) do |req|
-  RackAttackRules.jwt_user_id(req) if RackAttackRules.bidding?(req)
+  RackAttackRules.bidding_user_id(req) if RackAttackRules.bidding?(req)
 end
 
 Rack::Attack.throttle(
