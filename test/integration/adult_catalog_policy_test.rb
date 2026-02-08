@@ -97,6 +97,43 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "afterdark adult bid history requires age gate acceptance and succeeds after accepting" do
+    winning_user = create_actor(role: :user)
+    bid = Bid.create!(user: winning_user, auction: @adult_auction, amount: 11.0, created_at: 1.minute.ago)
+    @adult_auction.update!(winning_user: winning_user)
+
+    viewer = create_actor(role: :user)
+    session_token, jwt = session_jwt_for(viewer)
+
+    host!("afterdark.biddersweet.app")
+    get "/api/v1/auctions/#{@adult_auction.id}/bid_history",
+        headers: {
+          "Authorization" => "Bearer #{jwt}"
+        }
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_equal "AGE_GATE_REQUIRED", body.dig("error", "code").to_s
+    assert_nil session_token.reload.age_verified_at
+
+    post "/api/v1/age_gate/accept",
+         headers: {
+           "Authorization" => "Bearer #{jwt}"
+         }
+    assert_response :no_content
+    assert session_token.reload.age_verified_at.present?
+
+    get "/api/v1/auctions/#{@adult_auction.id}/bid_history",
+        headers: {
+          "Authorization" => "Bearer #{jwt}"
+        }
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal winning_user.id, body.dig("auction", "winning_user_id")
+    assert_equal winning_user.name, body.dig("auction", "winning_user_name")
+    assert_equal bid.id, body.fetch("bids").first.fetch("id")
+    assert_equal winning_user.name, body.fetch("bids").first.fetch("username")
+  end
+
   test "main storefront cannot place bids on adult inventory" do
     user = create_actor(role: :user)
     user.update!(email_verified_at: Time.current)
