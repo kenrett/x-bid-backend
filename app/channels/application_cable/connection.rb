@@ -1,6 +1,6 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_user, :current_session_token
+    identified_by :current_user, :current_session_token, :current_storefront_key
 
     def connect
       set_storefront_context!
@@ -45,9 +45,11 @@ module ApplicationCable
         key = Storefront::Resolver.resolve(request) if defined?(Storefront::Resolver)
       end
 
-      Current.storefront_key = key.to_s.presence || Current.storefront_key
+      normalized = normalize_storefront_key(key.to_s.presence || Current.storefront_key)
+      Current.storefront_key = normalized
+      self.current_storefront_key = normalized
       if defined?(ErrorReporting::StorefrontTagging)
-        ErrorReporting::StorefrontTagging.set!(storefront_key: Current.storefront_key || "unknown")
+        ErrorReporting::StorefrontTagging.set!(storefront_key: normalized || "unknown")
       end
     end
 
@@ -86,7 +88,7 @@ module ApplicationCable
         authorization_present: request.headers["Authorization"].present?,
         cable_session_cookie_present: cookies.encrypted[:cable_session].present?,
         browser_session_cookie_present: cookies.signed[:bs_session_id].present?,
-        storefront_key: Current.storefront_key,
+        storefront_key: current_storefront_key || Current.storefront_key,
         storefront_key_param_present: storefront_key_param_present?
       }
     end
@@ -95,6 +97,14 @@ module ApplicationCable
       request.params[:storefront].present? ||
         request.params[:storefront_key].present? ||
         request.params[:x_storefront].present?
+    end
+
+    def normalize_storefront_key(value)
+      key = value.to_s.presence
+      return StorefrontKeyable::DEFAULT_KEY if key.blank?
+      return key if StorefrontKeyable::CANONICAL_KEYS.include?(key)
+
+      StorefrontKeyable::DEFAULT_KEY
     end
   end
 end

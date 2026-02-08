@@ -1,36 +1,22 @@
 class AuctionChannel < ApplicationCable::Channel
+  LIST_STREAM_PREFIX = "AuctionChannel:list".freeze
+
+  def self.list_stream_for(storefront_key)
+    key = storefront_key.to_s.presence || StorefrontKeyable::DEFAULT_KEY
+    "#{LIST_STREAM_PREFIX}:#{key}"
+  end
+
   def subscribed
-    if params[:stream] == "list"
-      stream_from list_stream
-      return
-    end
+    return subscribe_to_list if params[:stream] == "list"
 
-    auction_id = params[:auction_id]
-
-    # 1. First, check if the client even sent an ID
-    unless auction_id
-      Rails.logger.error "❌ SUBSCRIPTION REJECTED: No auction_id was provided by the client."
-      reject
-      return
-    end
-
-    # 2. Next, try to find the auction using the ID
-    @auction = Auction.find_by(id: auction_id)
-
-    # 3. Finally, subscribe if the auction was found, otherwise reject
-    if @auction
-      stream_for @auction
-      Rails.logger.info "✅ Client successfully subscribed to stream for Auction ##{@auction.id}"
-    else
-      Rails.logger.error "❌ SUBSCRIPTION REJECTED: Could not find an Auction with ID #{auction_id}."
-      reject
-    end
+    subscribe_to_auction
   end
 
   # Called when a consumer unsubscribes from the channel.
   def unsubscribed
     # Any cleanup needed when channel is unsubscribed
   end
+
   # This action is called by the client just before making a bid via HTTP.
   # It temporarily stops this connection from receiving broadcasts for this auction,
   # preventing the user from receiving an echo of their own bid.
@@ -46,7 +32,52 @@ class AuctionChannel < ApplicationCable::Channel
 
   private
 
+  def subscribe_to_list
+    stream_from list_stream
+  end
+
+  def subscribe_to_auction
+    auction_id = params[:auction_id]
+
+    return reject_with_reason("missing_auction_id") if auction_id.blank?
+
+    @auction = Auction.find_by(id: auction_id)
+    return reject_with_reason("auction_not_found", auction_id: auction_id) unless @auction
+
+    unless allowed_to_stream_auction?(@auction)
+      return reject_with_reason(
+        "auction_out_of_scope",
+        auction_id: auction_id
+      )
+    end
+
+    stream_for @auction
+  end
+
+  def allowed_to_stream_auction?(auction)
+    Storefront::ChannelAuthorizer.can_subscribe_to_auction?(
+      auction: auction,
+      storefront_key: storefront_key,
+      session_token: connection.current_session_token
+    )
+  end
+
   def list_stream
-    "AuctionChannel:list"
+    self.class.list_stream_for(storefront_key)
+  end
+
+  def storefront_key
+    connection.current_storefront_key.to_s.presence || StorefrontKeyable::DEFAULT_KEY
+  end
+
+  def reject_with_reason(reason, **context)
+    AppLogger.log(
+      event: "auction_channel.subscription_rejected",
+      level: :warn,
+      reason: reason,
+      storefront_key: storefront_key,
+      **context
+    )
+    reject
   end
 end

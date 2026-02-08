@@ -1,8 +1,6 @@
 module Auctions
   module Events
     class ListBroadcast
-      STREAM = "AuctionChannel:list".freeze
-
       def self.call(auction:)
         new(auction: auction).call
       end
@@ -14,7 +12,7 @@ module Auctions
       def call
         return unless auction
 
-        ActionCable.server.broadcast(STREAM, payload)
+        ActionCable.server.broadcast(stream_name, payload)
         log_event
       rescue StandardError => e
         Rails.logger.error("Auctions::Events::ListBroadcast failed: #{e.message}")
@@ -23,6 +21,10 @@ module Auctions
       private
 
       attr_reader :auction
+
+      def stream_name
+        AuctionChannel.list_stream_for(auction.storefront_key)
+      end
 
       def payload
         {
