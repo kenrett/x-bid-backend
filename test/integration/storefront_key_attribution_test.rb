@@ -75,6 +75,7 @@ class StorefrontKeyAttributionTest < ActionDispatch::IntegrationTest
       end_time: 1.hour.from_now,
       current_price: BigDecimal("1.00"),
       status: :active,
+      is_marketplace: true,
       storefront_key: "marketplace"
     )
 

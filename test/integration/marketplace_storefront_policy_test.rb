@@ -71,6 +71,44 @@ class MarketplaceStorefrontPolicyTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  test "main storefront cannot place a bid on marketplace inventory" do
+    user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
+    Credits::Apply.apply!(
+      user: user,
+      reason: "seed_grant",
+      amount: 1,
+      idempotency_key: "test:marketplace_storefront_policy:main_bid_blocked:#{user.id}"
+    )
+
+    host!("biddersweet.app")
+    assert_no_difference -> { Bid.where(auction: @marketplace_auction).count } do
+      post "/api/v1/auctions/#{@marketplace_auction.id}/bids", headers: auth_headers_for(user)
+    end
+
+    assert_response :not_found
+    assert_equal 1, user.reload.bid_credits
+    assert_equal 0, CreditTransaction.where(user: user, auction: @marketplace_auction, reason: "bid_placed").count
+  end
+
+  test "marketplace storefront can place a bid on marketplace inventory" do
+    user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
+    Credits::Apply.apply!(
+      user: user,
+      reason: "seed_grant",
+      amount: 1,
+      idempotency_key: "test:marketplace_storefront_policy:marketplace_bid_allowed:#{user.id}"
+    )
+
+    host!("marketplace.biddersweet.app")
+    post "/api/v1/auctions/#{@marketplace_auction.id}/bids", headers: auth_headers_for(user)
+
+    assert_response :success
+    assert_equal 0, user.reload.bid_credits
+    assert_equal 1, Bid.where(auction: @marketplace_auction, user: user).count
+  end
+
   private
 
   def includes_auction_id?(json, auction_id)

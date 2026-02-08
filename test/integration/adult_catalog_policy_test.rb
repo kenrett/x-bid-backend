@@ -97,6 +97,66 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "main storefront cannot place bids on adult inventory" do
+    user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
+    Credits::Apply.apply!(
+      user: user,
+      reason: "seed_grant",
+      amount: 1,
+      idempotency_key: "test:adult_catalog_policy:main_bid_blocked:#{user.id}"
+    )
+
+    host!("biddersweet.app")
+    assert_no_difference -> { Bid.where(auction: @adult_auction).count } do
+      post "/api/v1/auctions/#{@adult_auction.id}/bids", headers: auth_headers_for(user)
+    end
+
+    assert_response :not_found
+    assert_equal 1, user.reload.bid_credits
+  end
+
+  test "afterdark bid placement on adult inventory requires age gate acceptance" do
+    user = create_actor(role: :user)
+    user.update!(email_verified_at: Time.current)
+    session_token, jwt = session_jwt_for(user)
+    Credits::Apply.apply!(
+      user: user,
+      reason: "seed_grant",
+      amount: 1,
+      idempotency_key: "test:adult_catalog_policy:afterdark_bid:#{user.id}",
+      storefront_key: "afterdark"
+    )
+
+    host!("afterdark.biddersweet.app")
+    assert_no_difference -> { Bid.where(auction: @adult_auction).count } do
+      post "/api/v1/auctions/#{@adult_auction.id}/bids",
+           headers: {
+             "Authorization" => "Bearer #{jwt}"
+           }
+    end
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_equal "AGE_GATE_REQUIRED", body.dig("error", "code").to_s
+    assert_equal 1, user.reload.bid_credits
+    assert_nil session_token.reload.age_verified_at
+
+    post "/api/v1/age_gate/accept",
+         headers: {
+           "Authorization" => "Bearer #{jwt}"
+         }
+    assert_response :no_content
+    assert session_token.reload.age_verified_at.present?
+
+    post "/api/v1/auctions/#{@adult_auction.id}/bids",
+         headers: {
+           "Authorization" => "Bearer #{jwt}"
+         }
+    assert_response :success
+    assert_equal 0, user.reload.bid_credits
+    assert_equal 1, Bid.where(auction: @adult_auction, user: user).count
+  end
+
   private
 
   def includes_auction_id?(json, auction_id)

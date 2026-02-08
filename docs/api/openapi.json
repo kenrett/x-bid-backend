@@ -5145,7 +5145,7 @@
             "$ref": "#/components/responses/resp_070"
           },
           "403": {
-            "$ref": "#/components/responses/resp_049"
+            "$ref": "#/components/responses/resp_056"
           },
           "404": {
             "$ref": "#/components/responses/resp_003"
