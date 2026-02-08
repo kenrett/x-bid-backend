@@ -5,4 +5,4 @@ args = [
   "/Users/kenrettberg/projects/x-bid-backend",
   "/Users/kenrettberg/projects/x-bid-frontend"
 ]
-env = { MCP_CAPABILITY = "READ_ONLY", BIDDERSWEET_ALLOW_PROTECTED_PATHS = "0" }
+env = { MCP_CAPABILITY = "READ_WRITE", BIDDERSWEET_ALLOW_PROTECTED_PATHS = "0" }
