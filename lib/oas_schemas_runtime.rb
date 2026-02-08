@@ -666,8 +666,18 @@ module OasSchemasRuntime
       type: "object",
       properties: {
         amount_cents: { type: "integer", minimum: 0 },
+        full_refund: { type: "boolean", description: "Set true to refund the full remaining amount. Do not send amount_cents when true." },
         reason: { type: "string", nullable: true }
       },
+      oneOf: [
+        { required: %w[amount_cents] },
+        {
+          required: %w[full_refund],
+          properties: {
+            full_refund: { type: "boolean", enum: [ true ] }
+          }
+        }
+      ],
       required: []
     },
     "AdminUserUpdate" => {

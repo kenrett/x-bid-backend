@@ -116,6 +116,8 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
         assert_equal "re_fake", body["refund_id"]
         assert_equal actor, captured_kwargs[:actor]
         assert_equal purchase, captured_kwargs[:payment]
+        assert_equal 500, captured_kwargs[:amount_cents]
+        assert_equal false, captured_kwargs[:full_refund]
         assert_equal "mistake", captured_kwargs[:reason]
         assert_equal "refunded", purchase.reload.status
       else
@@ -123,6 +125,53 @@ class AdminPaymentsApiTest < ActionDispatch::IntegrationTest
         assert_equal "applied", purchase.reload.status
       end
     end
+  end
+
+  test "POST /api/v1/admin/payments/:id/refund rejects requests without amount_cents or full_refund=true" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+    admin = create_actor(role: :admin)
+
+    issue_refund = Class.new do
+      def call
+        raise "should not be called"
+      end
+    end
+
+    Admin::Payments::IssueRefund.stub(:new, ->(**_) { issue_refund.new }) do
+      post "/api/v1/admin/payments/#{purchase.id}/refund",
+           params: { reason: "missing amount" },
+           headers: auth_headers_for(admin)
+    end
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "invalid_amount", body.dig("error", "code")
+  end
+
+  test "POST /api/v1/admin/payments/:id/refund accepts explicit full_refund=true without amount_cents" do
+    user = create_user(email: "buyer@example.com")
+    purchase = create_purchase(user:)
+    admin = create_actor(role: :admin)
+
+    captured_kwargs = nil
+    fake_service = Class.new do
+      def call
+        ServiceResult.ok(code: :refunded, data: { refund_id: "re_full" })
+      end
+    end
+
+    Admin::Payments::IssueRefund.stub(:new, ->(**kwargs) { captured_kwargs = kwargs; fake_service.new }) do
+      post "/api/v1/admin/payments/#{purchase.id}/refund",
+           params: { full_refund: true, reason: "admin_full_refund" },
+           headers: auth_headers_for(admin)
+    end
+
+    assert_response :success
+    assert_equal purchase, captured_kwargs[:payment]
+    assert_nil captured_kwargs[:amount_cents]
+    assert_equal true, captured_kwargs[:full_refund]
+    assert_equal "admin_full_refund", captured_kwargs[:reason]
   end
 
   test "POST /api/v1/admin/payments/:id/repair_credits enforces role matrix and repairs ledger" do

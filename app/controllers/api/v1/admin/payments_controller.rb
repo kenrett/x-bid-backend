@@ -79,10 +79,14 @@ module Api
         # @response Validation error (422) [Error]
         def refund
           payment = Purchase.find(params[:id])
+          amount_cents, full_refund = refund_request_amount
+          return if performed?
+
           result = ::Admin::Payments::IssueRefund.new(
             actor: @current_user,
             payment: payment,
-            amount_cents: params[:amount_cents],
+            amount_cents: amount_cents,
+            full_refund: full_refund,
             reason: params[:reason],
             request: request
           ).call
@@ -140,6 +144,30 @@ module Api
             idempotency_key: tx.idempotency_key,
             created_at: tx.created_at
           }
+        end
+
+        def refund_request_amount
+          amount_cents = params[:amount_cents]
+          full_refund = ActiveModel::Type::Boolean.new.cast(params[:full_refund])
+
+          if amount_cents.present? && full_refund
+            render_error(
+              code: :invalid_amount,
+              message: "Provide either amount_cents or full_refund=true, not both",
+              status: :unprocessable_entity
+            )
+            return [ nil, false ]
+          end
+
+          return [ amount_cents.to_i, false ] if amount_cents.present?
+          return [ nil, true ] if full_refund
+
+          render_error(
+            code: :invalid_amount,
+            message: "Provide amount_cents for a partial refund or full_refund=true for a full refund",
+            status: :unprocessable_entity
+          )
+          [ nil, false ]
         end
       end
     end
