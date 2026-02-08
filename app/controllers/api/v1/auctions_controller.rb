@@ -44,8 +44,8 @@ module Api
         scoped = Storefront::Policy.scope_auctions(relation: Auction.all, storefront_key: storefront_key)
         vary_on_storefront_key!
 
-        auction = scoped.select(:id, :status, :updated_at, :is_adult, :is_artisan).find(params[:id])
-        unless Storefront::Policy.can_view_artisan_detail?(storefront_key: storefront_key, auction: auction)
+        auction = scoped.select(:id, :status, :updated_at, :is_adult, :is_marketplace).find(params[:id])
+        unless Storefront::Policy.can_view_marketplace_detail?(storefront_key: storefront_key, auction: auction)
           raise ActiveRecord::RecordNotFound
         end
 
@@ -170,7 +170,7 @@ module Api
           :end_time,
           :current_price,
           :is_adult,
-          :is_artisan
+          :is_marketplace
         )
       end
 

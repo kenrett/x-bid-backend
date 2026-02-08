@@ -139,10 +139,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_06_103000) do
     t.datetime "updated_at", null: false
     t.bigint "winning_user_id"
     t.boolean "is_adult", default: false, null: false
-    t.boolean "is_artisan", default: false, null: false
+    t.boolean "is_marketplace", default: false, null: false
     t.string "storefront_key"
     t.index ["is_adult"], name: "index_auctions_on_is_adult"
-    t.index ["is_artisan"], name: "index_auctions_on_is_artisan"
+    t.index ["is_marketplace"], name: "index_auctions_on_is_marketplace"
     t.index ["storefront_key"], name: "index_auctions_on_storefront_key"
     t.index ["winning_user_id"], name: "index_auctions_on_winning_user_id"
     t.check_constraint "current_price >= 0::numeric", name: "auctions_current_price_non_negative"

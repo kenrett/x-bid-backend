@@ -665,7 +665,7 @@ module OasSchemasRuntime
             description: { type: "string" },
             image_url: { type: "string", nullable: true },
             is_adult: { type: "boolean", nullable: true, description: "Marks the auction as adult inventory (restricted to afterdark storefront + age gate)." },
-            is_artisan: { type: "boolean", nullable: true, description: "Marks the auction as artisan-curated inventory (restricted to artisan storefront)." },
+            is_marketplace: { type: "boolean", nullable: true, description: "Marks the auction as marketplace-curated inventory (restricted to marketplace storefront)." },
             status: { type: "string", enum: STATUSES, nullable: true },
             start_date: { type: "string", format: "date-time", nullable: true },
             end_time: { type: "string", format: "date-time", nullable: true },

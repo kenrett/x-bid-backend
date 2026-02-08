@@ -33,7 +33,7 @@ module Auctions
           :status,
           :winning_user_id,
           :is_adult,
-          :is_artisan
+          :is_marketplace
         )
       end
     end

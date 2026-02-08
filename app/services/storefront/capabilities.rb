@@ -4,24 +4,24 @@ module Storefront
 
     # Centralized storefront capability matrix ensures every check in the app
     # relies on the same source of truth so we can easily reason about which
-    # storefronts can see adult/artisan inventory or require age gates.
+    # storefronts can see adult/marketplace inventory or require age gates.
     MATRIX = {
       "main" => {
         adult_catalog: false,
         requires_age_gate: false,
-        artisan_catalog: false,
+        marketplace_catalog: false,
         ugc_marketplace: false
       },
       "afterdark" => {
         adult_catalog: true,
         requires_age_gate: true,
-        artisan_catalog: false,
+        marketplace_catalog: false,
         ugc_marketplace: false
       },
       "marketplace" => {
         adult_catalog: false,
         requires_age_gate: false,
-        artisan_catalog: true,
+        marketplace_catalog: true,
         ugc_marketplace: false
       }
     }.freeze
@@ -41,8 +41,8 @@ module Storefront
       capabilities_for(storefront_key)[:requires_age_gate]
     end
 
-    def artisan_catalog_enabled?(storefront_key)
-      capabilities_for(storefront_key)[:artisan_catalog]
+    def marketplace_catalog_enabled?(storefront_key)
+      capabilities_for(storefront_key)[:marketplace_catalog]
     end
 
     def ugc_marketplace_enabled?(storefront_key)

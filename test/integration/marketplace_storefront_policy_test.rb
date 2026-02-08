@@ -1,6 +1,6 @@
 require "test_helper"
 
-class ArtisanStorefrontPolicyTest < ActionDispatch::IntegrationTest
+class MarketplaceStorefrontPolicyTest < ActionDispatch::IntegrationTest
   def setup
     Rails.cache.write("maintenance_mode.enabled", false)
     MaintenanceSetting.global.update!(enabled: false)
@@ -12,51 +12,51 @@ class ArtisanStorefrontPolicyTest < ActionDispatch::IntegrationTest
       end_time: 1.day.from_now,
       current_price: 10.00,
       status: :active,
-      is_artisan: false,
+      is_marketplace: false,
       is_adult: false
     )
 
-    @artisan_auction = Auction.create!(
+    @marketplace_auction = Auction.create!(
       title: "Marketplace",
       description: "marketplace",
       start_date: 1.day.ago,
       end_time: 1.day.from_now,
       current_price: 10.00,
       status: :active,
-      is_artisan: true,
+      is_marketplace: true,
       is_adult: false
     )
   end
 
-  test "marketplace listing returns only artisan auctions (host mapping + header override)" do
+  test "marketplace listing returns only marketplace auctions (host mapping + header override)" do
     host!("marketplace.biddersweet.app")
     get "/api/v1/auctions"
     assert_response :success
-    assert includes_auction_id?(response.body, @artisan_auction.id)
+    assert includes_auction_id?(response.body, @marketplace_auction.id)
     refute includes_auction_id?(response.body, @main_auction.id)
 
     host!("biddersweet.app")
     get "/api/v1/auctions", headers: { "X-Storefront-Key" => "marketplace" }
     assert_response :success
-    assert includes_auction_id?(response.body, @artisan_auction.id)
+    assert includes_auction_id?(response.body, @marketplace_auction.id)
     refute includes_auction_id?(response.body, @main_auction.id)
   end
 
-  test "main listing excludes artisan-only auctions" do
+  test "main listing excludes marketplace-only auctions" do
     host!("biddersweet.app")
     get "/api/v1/auctions"
     assert_response :success
     assert includes_auction_id?(response.body, @main_auction.id)
-    refute includes_auction_id?(response.body, @artisan_auction.id)
+    refute includes_auction_id?(response.body, @marketplace_auction.id)
   end
 
-  test "main cannot fetch artisan auction detail but marketplace can" do
+  test "main cannot fetch marketplace auction detail but marketplace can" do
     host!("biddersweet.app")
-    get "/api/v1/auctions/#{@artisan_auction.id}"
+    get "/api/v1/auctions/#{@marketplace_auction.id}"
     assert_response :not_found
 
     host!("marketplace.biddersweet.app")
-    get "/api/v1/auctions/#{@artisan_auction.id}"
+    get "/api/v1/auctions/#{@marketplace_auction.id}"
     assert_response :success
   end
 
