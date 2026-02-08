@@ -1515,8 +1515,10 @@
         "type": "object"
       },
       "AccountProfile": {
+        "additionalProperties": false,
         "properties": {
           "user": {
+            "additionalProperties": false,
             "properties": {
               "created_at": {
                 "format": "date-time",
@@ -2580,6 +2582,7 @@
         "type": "object"
       },
       "NotificationPreferences": {
+        "additionalProperties": false,
         "description": "User notification preferences (all boolean flags).",
         "properties": {
           "bidding_alerts": {

@@ -268,6 +268,7 @@ module OasSchemasRuntime
     "NotificationPreferences" => {
       type: "object",
       description: "User notification preferences (all boolean flags).",
+      additionalProperties: false,
       properties: {
         bidding_alerts: { type: "boolean" },
         outbid_alerts: { type: "boolean" },
@@ -280,9 +281,11 @@ module OasSchemasRuntime
     },
     "AccountProfile" => {
       type: "object",
+      additionalProperties: false,
       properties: {
         user: {
           type: "object",
+          additionalProperties: false,
           properties: {
             id: { type: "integer" },
             name: { type: "string", nullable: true },
