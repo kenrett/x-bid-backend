@@ -41,6 +41,7 @@ module Api
 
       # POST /api/v1/account/2fa/verify
       # @summary Verify 2FA code and enable
+      # @request_body Verify payload (application/json) [!AccountTwoFactorVerifyRequest]
       # @response Success (200) [AccountTwoFactorVerifyResponse]
       # @response Unauthorized (401) [Error]
       def verify
@@ -61,6 +62,7 @@ module Api
 
       # POST /api/v1/account/2fa/disable
       # @summary Disable 2FA (requires password + code)
+      # @request_body Disable payload (application/json) [!AccountTwoFactorDisableRequest]
       # @response Success (200) [AccountTwoFactorDisableResponse]
       # @response Unauthorized (401) [Error]
       def disable

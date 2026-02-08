@@ -77,6 +77,53 @@ class AccountTwoFactorApiTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_two_factor_code", JSON.parse(response.body).dig("error", "code").to_s
   end
 
+  test "disable 2FA with current password and OTP" do
+    user = User.create!(name: "User", email_address: "two_factor_disable_otp@example.com", password: "password", bid_credits: 0)
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("two_factor_disable_otp"), expires_at: 1.hour.from_now)
+
+    post "/api/v1/account/2fa/setup", headers: auth_headers(user, session_token)
+    assert_response :success
+    secret = JSON.parse(response.body).fetch("secret")
+
+    totp = ROTP::TOTP.new(secret, issuer: "X-Bid")
+    post "/api/v1/account/2fa/verify", params: { code: totp.now }, headers: auth_headers(user, session_token)
+    assert_response :success
+
+    post "/api/v1/account/2fa/disable",
+         params: { current_password: "password", code: totp.now },
+         headers: auth_headers(user, session_token)
+    assert_response :success
+    assert_equal "disabled", JSON.parse(response.body).fetch("status")
+
+    user.reload
+    assert_not user.two_factor_enabled?
+    assert_nil user.two_factor_secret
+    assert_equal [], user.two_factor_recovery_codes
+  end
+
+  test "disable 2FA accepts one-time recovery code" do
+    user = User.create!(name: "User", email_address: "two_factor_disable_recovery@example.com", password: "password", bid_credits: 0)
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("two_factor_disable_recovery"), expires_at: 1.hour.from_now)
+
+    post "/api/v1/account/2fa/setup", headers: auth_headers(user, session_token)
+    assert_response :success
+    secret = JSON.parse(response.body).fetch("secret")
+
+    totp = ROTP::TOTP.new(secret, issuer: "X-Bid")
+    post "/api/v1/account/2fa/verify", params: { code: totp.now }, headers: auth_headers(user, session_token)
+    assert_response :success
+    recovery_code = JSON.parse(response.body).fetch("recovery_codes").first
+
+    post "/api/v1/account/2fa/disable",
+         params: { current_password: "password", code: recovery_code },
+         headers: auth_headers(user, session_token)
+    assert_response :success
+    assert_equal "disabled", JSON.parse(response.body).fetch("status")
+
+    user.reload
+    assert_not user.two_factor_enabled?
+  end
+
   private
 
   def auth_headers(user, session_token)

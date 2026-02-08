@@ -499,6 +499,56 @@ module OasSchemasRuntime
         }
       ]
     },
+    "AccountTwoFactorVerifyRequest" => {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            account: {
+              type: "object",
+              properties: {
+                code: { type: "string" }
+              },
+              required: %w[code]
+            }
+          },
+          required: %w[account]
+        },
+        {
+          type: "object",
+          properties: {
+            code: { type: "string" }
+          },
+          required: %w[code]
+        }
+      ]
+    },
+    "AccountTwoFactorDisableRequest" => {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            account: {
+              type: "object",
+              properties: {
+                current_password: { type: "string" },
+                code: { type: "string" }
+              },
+              required: %w[current_password code]
+            }
+          },
+          required: %w[account]
+        },
+        {
+          type: "object",
+          properties: {
+            current_password: { type: "string" },
+            code: { type: "string" }
+          },
+          required: %w[current_password code]
+        }
+      ]
+    },
     "SignupRequest" => {
       description: "User registration payload accepted by /api/v1/signup (and legacy /api/v1/users).",
       oneOf: [

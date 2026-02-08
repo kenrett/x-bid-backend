@@ -413,6 +413,17 @@
         "content": {
           "application/json": {
             "schema": {
+              "$ref": "#/components/schemas/5873aa90c67f4c11a7daaa4d2302bb84"
+            }
+          }
+        },
+        "description": "Verify payload",
+        "required": true
+      },
+      "req_014": {
+        "content": {
+          "application/json": {
+            "schema": {
               "$ref": "#/components/schemas/30d3c70eaf62d1e420cb43b97fdec55f"
             }
           }
@@ -420,7 +431,7 @@
         "description": "Maintenance toggle",
         "required": false
       },
-      "req_014": {
+      "req_015": {
         "content": {
           "application/json": {
             "schema": {
@@ -429,6 +440,17 @@
           }
         },
         "description": "Signup payload",
+        "required": true
+      },
+      "req_016": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/7d23008fce7117726abc26fc1bdba80c"
+            }
+          }
+        },
+        "description": "Disable payload",
         "required": true
       }
     },
@@ -1308,6 +1330,9 @@
         },
         "type": "object"
       },
+      "5873aa90c67f4c11a7daaa4d2302bb84": {
+        "$ref": "#/components/schemas/AccountTwoFactorVerifyRequest"
+      },
       "5bb19a086e9077f5192683c8c05feaa9": {
         "$ref": "#/components/schemas/CheckoutStatus"
       },
@@ -1360,6 +1385,9 @@
           }
         },
         "type": "object"
+      },
+      "7d23008fce7117726abc26fc1bdba80c": {
+        "$ref": "#/components/schemas/AccountTwoFactorDisableRequest"
       },
       "8f2da65cfba791e94dd2ba283fcaf20b": {
         "$ref": "#/components/schemas/AuctionUpsert"
@@ -1618,6 +1646,48 @@
         ],
         "type": "object"
       },
+      "AccountTwoFactorDisableRequest": {
+        "oneOf": [
+          {
+            "properties": {
+              "account": {
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "current_password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "current_password",
+                  "code"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "account"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "current_password": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "current_password",
+              "code"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "AccountTwoFactorDisableResponse": {
         "properties": {
           "status": {
@@ -1660,6 +1730,40 @@
           "enabled_at"
         ],
         "type": "object"
+      },
+      "AccountTwoFactorVerifyRequest": {
+        "oneOf": [
+          {
+            "properties": {
+              "account": {
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "account"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "code": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "AccountTwoFactorVerifyResponse": {
         "properties": {
@@ -3206,6 +3310,9 @@
       "post": {
         "description": "POST /api/v1/account/2fa/disable",
         "operationId": "POST__api_v1_account_2fa_disable",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_016"
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/resp_051"
@@ -3267,6 +3374,9 @@
       "post": {
         "description": "POST /api/v1/account/2fa/verify",
         "operationId": "POST__api_v1_account_2fa_verify",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/req_013"
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/resp_037"
@@ -4419,7 +4529,7 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_013"
+          "$ref": "#/components/requestBodies/req_014"
         },
         "responses": {
           "200": {
@@ -6075,7 +6185,7 @@
         "description": "POST /api/v1/signup",
         "operationId": "POST__api_v1_signup",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_014"
+          "$ref": "#/components/requestBodies/req_015"
         },
         "responses": {
           "201": {
@@ -6188,7 +6298,7 @@
         "description": "POST /api/v1/users",
         "operationId": "POST__api_v1_users",
         "requestBody": {
-          "$ref": "#/components/requestBodies/req_014"
+          "$ref": "#/components/requestBodies/req_015"
         },
         "responses": {
           "201": {
