@@ -21,7 +21,7 @@ class AuctionsListBroadcastTest < ActiveSupport::TestCase
       Auctions::Events::ListBroadcast.call(auction: @auction)
     end
 
-    assert_equal "AuctionChannel:list", broadcast_args.first
+    assert_equal AuctionChannel.list_stream_for(@auction.storefront_key), broadcast_args.first
     payload = broadcast_args.last
     assert_equal @auction.id, payload[:id]
     assert_equal @auction.title, payload[:title]
