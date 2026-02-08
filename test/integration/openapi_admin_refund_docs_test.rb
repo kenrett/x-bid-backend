@@ -17,6 +17,13 @@ class OpenapiAdminRefundDocsTest < ActionDispatch::IntegrationTest
     required = Array(request_schema["required"])
     refute_includes required, "amount_cents"
 
+    properties = request_schema.fetch("properties", {})
+    assert_includes properties.keys, "amount_cents"
+    assert_includes properties.keys, "full_refund"
+    assert_includes properties.keys, "reason"
+    refute_includes properties.keys, "amountCents"
+    refute_includes properties.keys, "fullRefund"
+
     response_200 = resolve(spec, refund.dig("responses", "200"))
     response_schema = resolve(spec, response_200.dig("content", "application/json", "schema"))
     properties = response_schema.fetch("properties", {})
