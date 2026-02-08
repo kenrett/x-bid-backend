@@ -1973,8 +1973,8 @@
                 "nullable": true,
                 "type": "boolean"
               },
-              "is_artisan": {
-                "description": "Marks the auction as artisan-curated inventory (restricted to artisan storefront).",
+              "is_marketplace": {
+                "description": "Marks the auction as marketplace-curated inventory (restricted to marketplace storefront).",
                 "nullable": true,
                 "type": "boolean"
               },

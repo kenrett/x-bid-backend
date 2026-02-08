@@ -1,7 +1,7 @@
 # -------------------------------
 # Helpers
 # -------------------------------
-StorefrontConfig = Struct.new(:key, :name, :is_adult, :is_artisan)
+StorefrontConfig = Struct.new(:key, :name, :is_adult, :is_marketplace)
 
 def seed_storefronts!
   puts "Seeding storefronts..."
@@ -107,7 +107,7 @@ if Rails.env.production?
     Auction.create!(
       storefront_key: storefronts[:after_dark].key,
       is_adult: storefronts[:after_dark].is_adult,
-      is_artisan: storefronts[:after_dark].is_artisan,
+      is_marketplace: storefronts[:after_dark].is_marketplace,
       title: "Midnight Mystery Gadget",
       description: "A high-end mystery item for night owls who love the thrill.",
       current_price: 0,
@@ -120,7 +120,7 @@ if Rails.env.production?
     Auction.create!(
       storefront_key: storefronts[:after_dark].key,
       is_adult: storefronts[:after_dark].is_adult,
-      is_artisan: storefronts[:after_dark].is_artisan,
+      is_marketplace: storefronts[:after_dark].is_marketplace,
       title: "Weekend Indulgence Bundle",
       description: "Everything you need for an unforgettable weekend.",
       current_price: 0,
@@ -215,7 +215,7 @@ storefront_pool = (
   Auction.create!(
     storefront_key: sf.key,
     is_adult: sf.is_adult,
-    is_artisan: sf.is_artisan,
+    is_marketplace: sf.is_marketplace,
     title: Faker::Commerce.product_name,
     description: Faker::Movie.quote,
     current_price: 0,

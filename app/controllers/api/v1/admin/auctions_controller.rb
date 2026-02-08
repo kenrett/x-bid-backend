@@ -147,7 +147,7 @@ module Api
             :end_time,
             :current_price,
             :is_adult,
-            :is_artisan
+            :is_marketplace
           )
         end
 

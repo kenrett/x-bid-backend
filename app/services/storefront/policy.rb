@@ -13,10 +13,10 @@ module Storefront
       # and enforce them here instead of using simple boolean flags.
       scoped = relation
 
-      if Storefront::Capabilities.artisan_catalog_enabled?(key)
-        scoped = scoped.where(is_artisan: true)
+      if Storefront::Capabilities.marketplace_catalog_enabled?(key)
+        scoped = scoped.where(is_marketplace: true)
       else
-        scoped = scoped.where(is_artisan: false)
+        scoped = scoped.where(is_marketplace: false)
       end
 
       if can_access_adult_catalog?(key)
@@ -30,8 +30,8 @@ module Storefront
       auction.respond_to?(:is_adult) && auction.is_adult?
     end
 
-    def artisan_detail?(auction)
-      auction.respond_to?(:is_artisan) && auction.is_artisan?
+    def marketplace_detail?(auction)
+      auction.respond_to?(:is_marketplace) && auction.is_marketplace?
     end
 
     def can_view_adult_detail?(storefront_key:, session_token:, auction:)
@@ -43,8 +43,8 @@ module Storefront
 
     MARKETPLACE_STOREFRONT_KEY = "marketplace"
 
-    def can_view_artisan_detail?(storefront_key:, auction:)
-      return true unless artisan_detail?(auction)
+    def can_view_marketplace_detail?(storefront_key:, auction:)
+      return true unless marketplace_detail?(auction)
 
       storefront_key.to_s == MARKETPLACE_STOREFRONT_KEY
     end
