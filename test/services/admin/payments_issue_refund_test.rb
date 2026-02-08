@@ -66,6 +66,32 @@ class AdminPaymentsIssueRefundTest < ActiveSupport::TestCase
     assert_equal 1, MoneyEvent.where(event_type: :refund, source_type: "StripePaymentIntent", source_id: "pi_123").count
   end
 
+  test "full_refund=true refunds remaining refundable cents when amount is omitted" do
+    response = ::Payments::Gateway::GatewayResponse.new(success?: true, refund_id: "re_full", raw_response: { id: "re_full" })
+
+    result = ::Payments::Gateway.stub(:issue_refund, ->(**_) { response }) do
+      Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, full_refund: true, reason: "full").call
+    end
+
+    assert result.ok?
+    assert_equal "refunded", @payment.reload.status
+    assert_equal @payment.amount_cents, @payment.refunded_cents
+  end
+
+  test "fails when amount is omitted and full_refund is false" do
+    gateway = Class.new do
+      def self.issue_refund(**)
+        raise "should not be called"
+      end
+    end
+
+    result = Admin::Payments::IssueRefund.new(actor: @admin, payment: @payment, gateway: gateway).call
+
+    refute result.ok?
+    assert_equal :invalid_amount, result.code
+    assert_equal "applied", @payment.reload.status
+  end
+
   test "fails when gateway declines" do
     response = ::Payments::Gateway::GatewayResponse.new(success?: false, error_code: "card_error", error_message: "declined")
 

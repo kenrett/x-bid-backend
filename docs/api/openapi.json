@@ -2538,10 +2538,34 @@
         "type": "object"
       },
       "PaymentRefundRequest": {
+        "oneOf": [
+          {
+            "required": [
+              "amount_cents"
+            ]
+          },
+          {
+            "properties": {
+              "full_refund": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "full_refund"
+            ]
+          }
+        ],
         "properties": {
           "amount_cents": {
             "minimum": 0,
             "type": "integer"
+          },
+          "full_refund": {
+            "description": "Set true to refund the full remaining amount. Do not send amount_cents when true.",
+            "type": "boolean"
           },
           "reason": {
             "nullable": true,

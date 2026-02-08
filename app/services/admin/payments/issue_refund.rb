@@ -1,8 +1,17 @@
 module Admin
   module Payments
     class IssueRefund < Admin::BaseCommand
-      def initialize(actor:, payment:, amount_cents: nil, reason: nil, request: nil, gateway: ::Payments::Gateway)
-        super(actor: actor, payment: payment, amount_cents: amount_cents&.to_i, reason: reason, request: request, gateway: gateway, override_spent_credits: false)
+      def initialize(actor:, payment:, amount_cents: nil, full_refund: false, reason: nil, request: nil, gateway: ::Payments::Gateway)
+        super(
+          actor: actor,
+          payment: payment,
+          amount_cents: amount_cents&.to_i,
+          full_refund: !!full_refund,
+          reason: reason,
+          request: request,
+          gateway: gateway,
+          override_spent_credits: false
+        )
       end
 
       private
@@ -19,6 +28,7 @@ module Admin
           return invalid_state("Payment is not refundable in its current state") unless refundable_state?
 
           amount = resolve_amount
+          return invalid_amount("Refund amount is required unless full_refund=true") if amount.nil?
           return invalid_amount("Refund amount must be positive") if amount <= 0
           return invalid_amount("Refund exceeds remaining balance", code: :amount_exceeds_charge) if amount > @payment.refundable_cents
 
@@ -77,9 +87,10 @@ module Admin
       end
 
       def resolve_amount
-        return @amount_cents if @amount_cents.present?
+        return @payment.refundable_cents if @full_refund
+        return @amount_cents unless @amount_cents.nil?
 
-        @payment.refundable_cents
+        nil
       end
 
       # Policy (hybrid-safe):
