@@ -3,18 +3,20 @@ module Api
     module Admin
       class UsersController < BaseController
         before_action :set_user, except: [ :index ]
+        before_action :ensure_superadmin_role_management!, only: [ :grant_admin, :revoke_admin, :grant_superadmin, :revoke_superadmin ]
+        before_action :ensure_manageable_target!, only: [ :update, :ban ]
         before_action :ensure_not_last_superadmin_on_role_change, only: [ :update ]
         before_action :ensure_not_last_superadmin!, only: [ :revoke_superadmin, :ban ]
 
         # GET /api/v1/admin/users
-        # @summary List admin and superadmin users
-        # Returns the list of administrative users.
-        # @response Admin users (200) [Array<Hash{ id: Integer, name: String, email_address: String, role: String }>]
+        # @summary List manageable users
+        # Returns users the current admin can manage.
+        # @response Users (200) [Array<Hash{ id: Integer, name: String, email_address: String, role: String, status: String, email_verified: Boolean, email_verified_at: String }>]
         # @response Unauthorized (401) [Error]
         # @response Forbidden (403) [Error]
         def index
-          admins = User.where(role: [ :admin, :superadmin ]).order(created_at: :desc)
-          page_records = admins.offset((page_number - 1) * per_page).limit(per_page + 1).to_a
+          users = manageable_users_scope.order(created_at: :desc)
+          page_records = users.offset((page_number - 1) * per_page).limit(per_page + 1).to_a
           has_more = page_records.length > per_page
           records = page_records.first(per_page)
           serialized = ActiveModelSerializers::SerializableResource.new(
@@ -104,17 +106,20 @@ module Api
         end
 
         # PATCH/PUT /api/v1/admin/users/:id
-        # @summary Update an admin/superadmin user record
+        # @summary Update a manageable user record
         # @parameter id(path) [Integer] ID of the user
         # @request_body Admin user payload (application/json) [AdminUserUpdate]
-        # @response User updated (200) [Hash{ id: Integer, name: String, email_address: String, role: String }]
+        # @response User updated (200) [Hash{ id: Integer, name: String, email_address: String, role: String, status: String, email_verified: Boolean, email_verified_at: String }]
         # @response Unauthorized (401) [Error]
         # @response Forbidden (403) [Error]
         # @response Not found (404) [Error]
         # @response Validation error (422) [Error]
         def update
-          if @user.update(user_params)
-            AuditLogger.log(action: "user.update", actor: @current_user, target: @user, payload: user_params.to_h, request: request)
+          attrs = user_params
+          return unless attrs
+
+          if @user.update(attrs)
+            AuditLogger.log(action: "user.update", actor: @current_user, target: @user, payload: attrs.to_h, request: request)
             render_admin_user(@user)
           else
             render_validation_error(@user)
@@ -146,15 +151,93 @@ module Api
         end
 
         def user_params
-          permitted = params.require(:user).permit(:name, :email_address)
+          raw = params.require(:user)
+          permitted = raw.permit(:name, :email_address, :status, :email_verified, :email_verified_at)
+
+          return nil unless normalize_status_param!(permitted)
+          return nil unless normalize_email_verification_params!(raw, permitted)
 
           # Handle role explicitly to avoid broad mass assignment.
-          if params[:user].present? && params[:user].key?(:role)
-            role_value = params[:user][:role].to_s
+          if raw.key?(:role)
+            unless @current_user.superadmin?
+              render_error(code: :forbidden, message: "Superadmin privileges required", status: :forbidden)
+              return nil
+            end
+
+            role_value = raw[:role].to_s
+            unless User.roles.key?(role_value)
+              render_error(code: :invalid_user, message: "Invalid role", status: :unprocessable_entity)
+              return nil
+            end
+
             permitted[:role] = role_value if User.roles.key?(role_value)
           end
 
+          permitted.delete(:email_verified)
           permitted
+        end
+
+        def normalize_status_param!(permitted)
+          return true unless permitted.key?(:status)
+
+          normalized = normalize_user_status(permitted[:status].to_s)
+          if User.statuses.key?(normalized)
+            permitted[:status] = normalized
+            return true
+          end
+
+          render_error(code: :invalid_user, message: "Invalid status. Allowed: active, disabled", status: :unprocessable_entity)
+          false
+        end
+
+        def normalize_user_status(value)
+          normalized = value.strip.downcase
+          normalized = "disabled" if normalized.in?(%w[banned suspended])
+          normalized
+        end
+
+        def normalize_email_verification_params!(raw, permitted)
+          has_verified_flag = raw.key?(:email_verified)
+          has_verified_at = raw.key?(:email_verified_at)
+
+          if has_verified_flag
+            verified = ActiveModel::Type::Boolean.new.cast(raw[:email_verified])
+            permitted[:email_verified_at] = verified ? Time.current : nil unless has_verified_at
+          end
+
+          return true unless has_verified_at
+
+          raw_verified_at = raw[:email_verified_at]
+          permitted[:email_verified_at] =
+            if raw_verified_at.blank?
+              nil
+            else
+              parsed = Time.zone.parse(raw_verified_at.to_s)
+              unless parsed
+                render_error(code: :invalid_user, message: "Invalid email_verified_at datetime", status: :unprocessable_entity)
+                return false
+              end
+
+              parsed
+            end
+          true
+        end
+
+        def ensure_manageable_target!
+          return if @current_user.superadmin?
+          return if @user&.user?
+
+          render_error(code: :forbidden, message: "Admins can only moderate role=user accounts", status: :forbidden)
+        end
+
+        def ensure_superadmin_role_management!
+          authorize!(:superadmin)
+        end
+
+        def manageable_users_scope
+          return User.all if @current_user.superadmin?
+
+          User.user
         end
 
         def render_admin_user(user)
@@ -163,10 +246,6 @@ module Api
 
         def render_validation_error(user)
           render_error(code: :invalid_user, message: user.errors.full_messages.to_sentence, status: :unprocessable_entity)
-        end
-
-        def required_role
-          :superadmin
         end
       end
     end

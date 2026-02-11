@@ -202,57 +202,73 @@ module OasSchemasRuntime
     },
     "Error" => {
       type: "object",
-      description: "Standard error envelope returned by all error responses. error_code maps to ServiceResult#code or controller error codes.",
+      description: "Standard error envelope returned by all error responses.",
       properties: {
-        error_code: {
-          type: "string",
-          description: "Symbol/string code derived from ServiceResult#code so clients can branch on error type.",
-          enum: [
-            "forbidden",
-            "not_found",
-            "bad_request",
-            "invalid_status",
-            "invalid_state",
-            "invalid_auction",
-            "invalid_bid_pack",
-            "invalid_payment",
-            "invalid_amount",
-            "amount_exceeds_charge",
-            "gateway_error",
-            "database_error",
-            "unexpected_error",
-            "validation_error",
-            "auction_not_active",
-            "insufficient_credits",
-            "bid_race_lost",
-            "bid_invalid",
-            "bid_pack_purchase_failed",
-            "invalid_credentials",
-            "invalid_session",
-            "account_disabled",
-            "invalid_token",
-            "invalid_password",
-            "invalid_email",
-            "invalid_user",
-            "invalid_delta",
-            "already_disabled",
-            "already_verified",
-            "already_refunded",
-            "rate_limited",
-            "retired",
-            "missing_payment_intent"
-          ]
-        },
-        message: { type: "string" },
-        details: {
-          oneOf: [
-            { type: "object", additionalProperties: true },
-            { type: "array", items: {} }
-          ],
-          nullable: true
+        error: {
+          type: "object",
+          properties: {
+            code: {
+              type: "string",
+              description: "Symbol/string code derived from ServiceResult#code so clients can branch on error type.",
+              enum: [
+                "forbidden",
+                "not_found",
+                "bad_request",
+                "invalid_status",
+                "invalid_state",
+                "invalid_auction",
+                "invalid_bid_pack",
+                "invalid_payment",
+                "invalid_amount",
+                "amount_exceeds_charge",
+                "gateway_error",
+                "database_error",
+                "unexpected_error",
+                "validation_error",
+                "auction_not_active",
+                "insufficient_credits",
+                "bid_race_lost",
+                "bid_invalid",
+                "bid_pack_purchase_failed",
+                "invalid_credentials",
+                "invalid_session",
+                "account_disabled",
+                "invalid_token",
+                "invalid_password",
+                "invalid_email",
+                "invalid_user",
+                "invalid_delta",
+                "already_disabled",
+                "already_verified",
+                "already_refunded",
+                "rate_limited",
+                "retired",
+                "missing_payment_intent"
+              ]
+            },
+            message: { type: "string" },
+            details: {
+              oneOf: [
+                { type: "object", additionalProperties: true },
+                { type: "array", items: {} }
+              ],
+              nullable: true
+            },
+            field_errors: {
+              type: "object",
+              additionalProperties: {
+                oneOf: [
+                  { type: "array", items: { type: "string" } },
+                  { type: "string" }
+                ]
+              },
+              nullable: true
+            }
+          },
+          required: %w[code message]
         }
       },
-      required: %w[error_code message]
+      required: %w[error]
     },
     "ValidationErrors" => {
       type: "object",
@@ -741,7 +757,10 @@ module OasSchemasRuntime
           properties: {
             name: { type: "string", nullable: true },
             email_address: { type: "string", format: "email", nullable: true },
-            role: { type: "string", nullable: true }
+            role: { type: "string", enum: %w[user admin superadmin], nullable: true },
+            status: { type: "string", enum: %w[active disabled banned suspended], nullable: true },
+            email_verified: { type: "boolean", nullable: true },
+            email_verified_at: { type: "string", format: "date-time", nullable: true }
           }
         }
       },

@@ -8,8 +8,8 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
     @user = create_actor(role: :user)
   end
 
-  test "GET /api/v1/admin/users enforces role matrix" do
-    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+  test "GET /api/v1/admin/users lists manageable users by actor role" do
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
       get "/api/v1/admin/users", headers: headers
       assert_response expected_status, "role=#{role}"
 
@@ -19,9 +19,22 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
       users = body["users"] || body["admin_users"] || body["adminUsers"] || body
       assert_kind_of Array, users
       ids = users.map { |u| u["id"] }
-      assert_includes ids, @superadmin.id
-      assert_includes ids, @admin.id
-      assert_not_includes ids, @user.id
+      assert_includes ids, @user.id
+
+      if role == :admin
+        assert_not_includes ids, @admin.id
+        assert_not_includes ids, @superadmin.id
+        assert_not_includes ids, @other_superadmin.id
+      else
+        assert_includes ids, @admin.id
+        assert_includes ids, @superadmin.id
+        assert_includes ids, @other_superadmin.id
+      end
+
+      sample = users.find { |u| u["id"] == @user.id } || users.first
+      assert sample.key?("status")
+      assert sample.key?("email_verified")
+      assert sample.key?("email_verified_at")
     end
   end
 
@@ -89,10 +102,10 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "POST /api/v1/admin/users/:id/ban enforces role matrix and is idempotent" do
+  test "POST /api/v1/admin/users/:id/ban allows admin moderation of role=user and is idempotent" do
     target = create_actor(role: :user)
 
-    each_role_case(required_role: :superadmin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
       post "/api/v1/admin/users/#{target.id}/ban", headers: headers
       assert_response expected_status, "role=#{role}"
 
@@ -110,11 +123,11 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "PATCH /api/v1/admin/users/:id enforces role matrix and audits updates" do
-    target = create_actor(role: :admin)
-    params = { user: { name: "Renamed Admin" } }
+  test "PATCH /api/v1/admin/users/:id allows moderation fields and audits updates" do
+    target = create_actor(role: :user)
+    params = { user: { status: "disabled", email_verified: true } }
 
-    each_role_case(required_role: :superadmin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
+    each_role_case(required_role: :admin, success_status: 200) do |role:, actor:, headers:, expected_status:, success:|
       assert_difference("AuditLog.count", success ? 2 : 0, "role=#{role}") do
         patch "/api/v1/admin/users/#{target.id}", params: params, headers: headers
       end
@@ -122,17 +135,65 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
       assert_response expected_status
 
       if success
-        assert_equal "Renamed Admin", parsed_user(JSON.parse(response.body))["name"]
-        assert_equal "Renamed Admin", target.reload.name
+        payload = parsed_user(JSON.parse(response.body))
+        assert_equal "disabled", payload["status"]
+        assert_equal true, payload["email_verified"]
+        assert payload["email_verified_at"].present?
+        assert_equal "disabled", target.reload.status
+        assert target.email_verified?
 
         log = AuditLog.where(action: "user.update").order(created_at: :desc).first
         assert_equal "user.update", log.action
         assert_equal actor.id, log.actor_id
         assert_equal target.id, log.target_id
       else
-        assert_not_equal "Renamed Admin", target.reload.name
+        assert_equal "active", target.reload.status
+        assert_not target.email_verified?
       end
     end
+  end
+
+  test "admin cannot moderate non-user accounts" do
+    admin = create_actor(role: :admin)
+    target = create_actor(role: :admin)
+
+    patch "/api/v1/admin/users/#{target.id}",
+          params: { user: { status: "disabled" } },
+          headers: auth_headers_for(admin)
+
+    assert_response :forbidden
+    assert_equal "forbidden", JSON.parse(response.body).dig("error", "code")
+    assert_equal "active", target.reload.status
+  end
+
+  test "admin cannot update roles via PATCH" do
+    admin = create_actor(role: :admin)
+    target = create_actor(role: :user)
+
+    patch "/api/v1/admin/users/#{target.id}",
+          params: { user: { role: "admin" } },
+          headers: auth_headers_for(admin)
+
+    assert_response :forbidden
+    assert_equal "forbidden", JSON.parse(response.body).dig("error", "code")
+    assert_equal "user", target.reload.role
+  end
+
+  test "PATCH maps banned and suspended moderation states to disabled" do
+    superadmin_headers = auth_headers_for(create_actor(role: :superadmin))
+    target = create_actor(role: :user)
+
+    patch "/api/v1/admin/users/#{target.id}",
+          params: { user: { status: "banned" } },
+          headers: superadmin_headers
+    assert_response :success
+    assert_equal "disabled", target.reload.status
+
+    patch "/api/v1/admin/users/#{target.id}",
+          params: { user: { status: "suspended" } },
+          headers: superadmin_headers
+    assert_response :success
+    assert_equal "disabled", target.reload.status
   end
 
   private
