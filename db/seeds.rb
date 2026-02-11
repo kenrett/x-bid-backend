@@ -76,11 +76,22 @@ if Rails.env.production?
     u.bid_credits           = 100
   end
 
+  user_three = User.find_or_create_by!(email_address: "verified_mutating_smoke@example.com") do |u|
+    u.name                  = "User Three"
+    u.password              = "password"
+    u.password_confirmation = "password"
+    u.role                  = :user
+    u.bid_credits           = 100
+    u.email_verified_at     = Time.now
+  end
+
+
   puts "  - Users seeded:"
   puts "    * #{admin.email_address}"
   puts "    * #{superadmin.email_address}"
   puts "    * #{user_one.email_address}"
   puts "    * #{user_two.email_address}"
+  puts "    * #{user_three.email_address}"
 
   # Bid packs (idempotent)
   bid_packs_data = [
