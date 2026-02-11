@@ -145,6 +145,24 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_content
   end
 
+  test "uses CF-Connecting-IP for rate limiting when behind shared proxy IP" do
+    throttle = Rack::Attack.throttles.fetch("signup/ip")
+    proxy_ip = "104.23.160.204"
+    client_one = "203.0.113.10"
+    client_two = "203.0.113.11"
+
+    throttle.limit.times do |idx|
+      post_signup("cf-client-#{idx}@example.com", ip: proxy_ip, headers: cf_headers(client_one))
+      assert_response :unprocessable_content
+    end
+
+    post_signup("cf-client-over-limit@example.com", ip: proxy_ip, headers: cf_headers(client_one))
+    assert_response :too_many_requests
+
+    post_signup("cf-client-second-user@example.com", ip: proxy_ip, headers: cf_headers(client_two))
+    assert_response :unprocessable_content
+  end
+
   test "throttles password reset by normalized email" do
     throttle = Rack::Attack.throttles.fetch("password_reset/email")
 
@@ -229,26 +247,30 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     Api::V1::PasswordResetsController.define_method(:create, original_create)
   end
 
-  def post_login(email, ip: "1.1.1.1")
+  def post_login(email, ip: "1.1.1.1", headers: {})
     post "/api/v1/login",
          params: { session: { email_address: email, password: "bad" } },
-         headers: ip_headers(ip)
+         headers: ip_headers(ip).merge(headers)
   end
 
-  def post_signup(email, ip: "1.1.1.1")
+  def post_signup(email, ip: "1.1.1.1", headers: {})
     post "/api/v1/signup",
          params: { user: { name: "Test", email_address: email, password: "short", password_confirmation: "mismatch" } },
-         headers: ip_headers(ip)
+         headers: ip_headers(ip).merge(headers)
   end
 
-  def post_password_forgot(email, ip: "1.1.1.1")
+  def post_password_forgot(email, ip: "1.1.1.1", headers: {})
     post "/api/v1/password/forgot",
          params: { password: { email_address: email } },
-         headers: ip_headers(ip)
+         headers: ip_headers(ip).merge(headers)
   end
 
   def ip_headers(ip)
     { "REMOTE_ADDR" => ip, "X-Forwarded-For" => ip }
+  end
+
+  def cf_headers(ip)
+    { "CF-Connecting-IP" => ip }
   end
 
   def jwt_for(user_id:, session_token_id:)

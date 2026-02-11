@@ -1,4 +1,5 @@
 require "rack/attack"
+require "ipaddr"
 # Use Rails.cache when available; fall back to an in-memory store in test so throttles
 # actually count during specs.
 Rack::Attack.cache.store =
@@ -158,11 +159,27 @@ module RackAttackRules
   end
 
   def self.client_ip(req)
+    # Prefer proxy headers that contain the original client address when the app
+    # sits behind CDNs/load balancers (for example Cloudflare on Render).
+    [ "HTTP_CF_CONNECTING_IP", "HTTP_TRUE_CLIENT_IP" ].each do |header|
+      ip = normalized_ip(req.get_header(header))
+      return ip if ip
+    end
+
     forwarded_for = req.get_header("HTTP_X_FORWARDED_FOR").to_s
-    forwarded = forwarded_for.split(",").map(&:strip).reject(&:blank?)
+    forwarded = forwarded_for.split(",").map { |candidate| normalized_ip(candidate) }.compact
     return forwarded.first if forwarded.any?
 
-    req.get_header("REMOTE_ADDR") || req.ip
+    normalized_ip(req.ip) || normalized_ip(req.get_header("REMOTE_ADDR")) || "0.0.0.0"
+  end
+
+  def self.normalized_ip(raw)
+    candidate = raw.to_s.strip
+    return nil if candidate.blank?
+
+    IPAddr.new(candidate).to_s
+  rescue IPAddr::InvalidAddressError
+    nil
   end
 end
 
