@@ -192,6 +192,33 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "update is allowed when status is unchanged" do
+    auction = Auction.create!(
+      title: "Active Auction",
+      description: "Desc",
+      start_date: 1.hour.ago,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :active
+    )
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/auctions/#{auction.id}",
+          params: { auction: { title: "Active Auction Updated", status: "active" } },
+          headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "Active Auction Updated", body.fetch("title")
+        assert_equal "active", auction.reload.status
+        assert_equal "Active Auction Updated", auction.reload.title
+      else
+        assert_equal "Active Auction", auction.reload.title
+      end
+    end
+  end
+
   test "blocks hard delete through the model" do
     auction = Auction.create!(
       title: "Do Not Delete",

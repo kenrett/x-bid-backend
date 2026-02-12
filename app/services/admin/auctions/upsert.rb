@@ -64,6 +64,7 @@ module Admin
       def apply_status_transition!
         desired_status = @attrs[:status] || @attrs["status"]
         return unless desired_status
+        return if desired_status.to_s == @auction.status.to_s
 
         case desired_status.to_s
         when "pending"
