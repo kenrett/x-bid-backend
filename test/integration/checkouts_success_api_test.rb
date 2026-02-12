@@ -56,6 +56,18 @@ class CheckoutsSuccessApiTest < ActionDispatch::IntegrationTest
     assert_equal purchase.id, body["purchase_id"]
   end
 
+  test "returns applied status for legacy completed purchases" do
+    purchase = create_purchase(status: "completed", stripe_checkout_session_id: "cs_completed")
+
+    get "/api/v1/checkout/success", params: { session_id: "cs_completed" }, headers: auth_headers(@user, @session_token)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "applied", body["status"]
+    assert_equal purchase.id, body["purchase_id"]
+    assert_equal "completed", purchase.reload.status
+  end
+
   test "returns failed status for failed purchases" do
     purchase = create_purchase(status: "failed", stripe_checkout_session_id: "cs_failed")
 

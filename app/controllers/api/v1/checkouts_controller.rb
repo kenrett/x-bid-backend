@@ -145,12 +145,9 @@ class Api::V1::CheckoutsController < ApplicationController
     end
 
     status = case purchase.status.to_s
-    when "applied", "refunded", "partially_refunded", "completed"
-               "applied"
-    when "failed", "voided"
-               "failed"
-    else
-               "pending"
+    when "applied", "refunded", "partially_refunded", "completed" then "applied"
+    when "failed", "voided" then "failed"
+    else "pending"
     end
 
     AppLogger.log(
