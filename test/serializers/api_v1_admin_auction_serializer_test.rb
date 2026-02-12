@@ -22,5 +22,6 @@ class ApiV1AdminAuctionSerializerTest < ActiveSupport::TestCase
     assert_equal @user.id, json[:winning_user_id]
     assert_equal @user.name, json[:winning_user_name]
     assert json.key?(:current_price)
+    assert_equal [ "inactive" ], json[:allowed_admin_transitions]
   end
 end

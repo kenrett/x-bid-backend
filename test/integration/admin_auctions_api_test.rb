@@ -177,14 +177,62 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
       status: :inactive
     )
 
-    each_role_case(required_role: :admin, success_status: 422) do |role:, headers:, expected_status:, success:, **|
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
       put "/api/v1/auctions/#{auction.id}", params: { auction: { status: "pending" } }, headers: headers
       assert_response expected_status, "role=#{role}"
 
       if success
         body = JSON.parse(response.body)
+        assert_equal "scheduled", body.fetch("status")
+        assert_equal "pending", auction.reload.status
+      else
+        assert_equal "inactive", auction.reload.status
+      end
+    end
+  end
+
+  test "scheduled status restores inactive auction" do
+    auction = Auction.create!(
+      title: "Restore via API",
+      description: "Desc",
+      start_date: 2.hours.from_now,
+      end_time: 3.hours.from_now,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/auctions/#{auction.id}", params: { auction: { status: "scheduled" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "scheduled", body.fetch("status")
+        assert_equal "pending", auction.reload.status
+      else
+        assert_equal "inactive", auction.reload.status
+      end
+    end
+  end
+
+  test "active status from inactive auction returns invalid_state" do
+    auction = Auction.create!(
+      title: "Cannot Publish",
+      description: "Desc",
+      start_date: 2.hours.from_now,
+      end_time: 3.hours.from_now,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    each_role_case(required_role: :admin, success_status: 422) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/auctions/#{auction.id}", params: { auction: { status: "active" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
         assert_equal "invalid_state", body.dig("error", "code").to_s
-        refute_includes body.dig("error", "message"), "Invalid status"
+        assert_match "inactive to active", body.dig("error", "message")
         assert_equal "inactive", auction.reload.status
       else
         assert_equal "inactive", auction.reload.status

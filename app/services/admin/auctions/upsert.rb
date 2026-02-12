@@ -66,20 +66,35 @@ module Admin
         return unless desired_status
         return if desired_status.to_s == @auction.status.to_s
 
-        case desired_status.to_s
+        desired = desired_status.to_s
+        current = @auction.status.to_s
+
+        case desired
         when "pending"
+          unless @auction.new_record? || @auction.pending? || @auction.inactive?
+            raise_invalid_transition!(from: current, to: desired)
+          end
           @auction.schedule!(starts_at: @auction.start_date, ends_at: @auction.end_time)
         when "active"
+          raise_invalid_transition!(from: current, to: desired) unless @auction.pending?
           @auction.start!
         when "ended"
+          raise_invalid_transition!(from: current, to: desired) unless @auction.active?
           @auction.close!
         when "cancelled"
+          unless @auction.pending? || @auction.active?
+            raise_invalid_transition!(from: current, to: desired)
+          end
           @auction.cancel!
         when "inactive"
           @auction.retire!
         else
           raise ::Auction::InvalidState, "Unsupported status: #{desired_status}"
         end
+      end
+
+      def raise_invalid_transition!(from:, to:)
+        raise ::Auction::InvalidState, "Cannot transition auction from #{::Auctions::Status.to_api(from)} to #{::Auctions::Status.to_api(to)}"
       end
     end
   end

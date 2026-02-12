@@ -94,6 +94,55 @@ class AdminNamespaceAuctionsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "PUT /api/v1/admin/auctions/:id restores inactive auction when status is scheduled" do
+    auction = Auction.create!(
+      title: "Restore Me",
+      description: "Desc",
+      start_date: 2.hours.from_now,
+      end_time: 3.hours.from_now,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/admin/auctions/#{auction.id}", params: { auction: { status: "scheduled" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "scheduled", body.fetch("status")
+        assert_equal "pending", auction.reload.status
+      else
+        assert_equal "inactive", auction.reload.status
+      end
+    end
+  end
+
+  test "PUT /api/v1/admin/auctions/:id rejects inactive to active transition" do
+    auction = Auction.create!(
+      title: "Cannot Publish",
+      description: "Desc",
+      start_date: 2.hours.from_now,
+      end_time: 3.hours.from_now,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    each_role_case(required_role: :admin, success_status: 422) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/admin/auctions/#{auction.id}", params: { auction: { status: "active" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "invalid_state", body.dig("error", "code").to_s
+        assert_match "inactive to active", body.dig("error", "message")
+        assert_equal "inactive", auction.reload.status
+      else
+        assert_equal "inactive", auction.reload.status
+      end
+    end
+  end
+
   test "DELETE /api/v1/admin/auctions/:id enforces role matrix and retires auctions" do
     each_role_case(required_role: :admin, success_status: 204) do |role:, headers:, expected_status:, success:, **|
       auction = Auction.create!(

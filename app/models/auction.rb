@@ -79,7 +79,7 @@ class Auction < ApplicationRecord
   end
 
   def schedule!(starts_at:, ends_at:)
-    assert_state!(pending? || new_record?, "Auction must be pending to schedule")
+    assert_state!(pending? || new_record? || inactive?, "Auction must be pending or inactive to schedule")
     assert_times!(starts_at, ends_at)
 
     update!(start_date: starts_at, end_time: ends_at, status: :pending)
@@ -118,6 +118,16 @@ class Auction < ApplicationRecord
     assert_state!(!bids.exists?, "Cannot retire an auction that has bids.")
 
     update!(status: :inactive)
+  end
+
+  def allowed_admin_transitions
+    transitions = []
+    transitions << "scheduled" if pending? || inactive? || new_record?
+    transitions << "active" if pending?
+    transitions << "complete" if active?
+    transitions << "cancelled" if pending? || active?
+    transitions << "inactive" if !inactive? && !bids.exists?
+    transitions
   end
 
   private

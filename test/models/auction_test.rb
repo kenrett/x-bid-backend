@@ -115,12 +115,32 @@ class AuctionTest < ActiveSupport::TestCase
     assert_equal "pending", auction.reload.status
   end
 
+  test "schedule! allows restoring inactive auction to scheduled" do
+    auction = Auction.create!(title: "Restore Me", description: "Desc", start_date: 2.hours.from_now, end_time: 1.day.from_now, current_price: 1.0, status: :inactive)
+
+    new_start = 3.hours.from_now
+    new_end = 2.days.from_now
+    auction.schedule!(starts_at: new_start, ends_at: new_end)
+
+    auction.reload
+    assert_equal "pending", auction.status
+    assert_in_delta new_start.to_f, auction.start_date.to_f, 1
+    assert_in_delta new_end.to_f, auction.end_time.to_f, 1
+  end
+
   test "start! only allowed from pending" do
     auction = Auction.create!(title: "Startable", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
     auction.start!
     assert_equal "active", auction.reload.status
 
     assert_raises(Auction::InvalidState) { auction.start! }
+  end
+
+  test "start! rejects inactive auctions" do
+    auction = Auction.create!(title: "Inactive Start", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :inactive)
+
+    error = assert_raises(Auction::InvalidState) { auction.start! }
+    assert_equal "Auction must be pending to start", error.message
   end
 
   test "extend_end_time! requires active and window" do
@@ -141,6 +161,13 @@ class AuctionTest < ActiveSupport::TestCase
     assert_equal "no_winner", auction.settlement.status
 
     assert_raises(Auction::InvalidState) { auction.close! }
+  end
+
+  test "close! rejects scheduled auctions" do
+    auction = Auction.create!(title: "Too Early", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
+
+    error = assert_raises(Auction::InvalidState) { auction.close! }
+    assert_equal "Auction must be active to close", error.message
   end
 
   test "close! captures winning bid and settlement snapshot" do

@@ -33,6 +33,28 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     assert_equal "active", auction.reload.status
   end
 
+  test "admin upsert restores inactive auction to scheduled" do
+    auction = Auction.create!(title: "Inactive", description: "Desc", start_date: 2.hours.from_now, end_time: 1.day.from_now, current_price: 1.0, status: :inactive)
+    attrs = { status: :pending }
+
+    result = Admin::Auctions::Upsert.new(actor: @admin, auction: auction, attrs: attrs).call
+
+    assert result.ok?
+    assert_equal "pending", auction.reload.status
+  end
+
+  test "admin upsert rejects inactive to active transition" do
+    auction = Auction.create!(title: "Inactive", description: "Desc", start_date: 2.hours.from_now, end_time: 1.day.from_now, current_price: 1.0, status: :inactive)
+    attrs = { status: :active }
+
+    result = Admin::Auctions::Upsert.new(actor: @admin, auction: auction, attrs: attrs).call
+
+    refute result.ok?
+    assert_equal :invalid_state, result.code
+    assert_match "inactive to active", result.error
+    assert_equal "inactive", auction.reload.status
+  end
+
   test "retire fails when bids exist" do
     auction = Auction.create!(title: "Bidded", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :active)
     bidder = User.create!(name: "Bidder", email_address: "bidder@example.com", password: "password", bid_credits: 0)

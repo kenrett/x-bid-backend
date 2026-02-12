@@ -1,5 +1,5 @@
 class Api::V1::Admin::AuctionSerializer < ActiveModel::Serializer
-  attributes :id, :title, :description, :start_date, :end_time, :current_price, :image_url, :status, :winning_user_id, :winning_user_name
+  attributes :id, :title, :description, :start_date, :end_time, :current_price, :image_url, :status, :winning_user_id, :winning_user_name, :allowed_admin_transitions
 
   def status
     object.external_status || object.status
@@ -7,5 +7,9 @@ class Api::V1::Admin::AuctionSerializer < ActiveModel::Serializer
 
   def winning_user_name
     object.winning_user&.name
+  end
+
+  def allowed_admin_transitions
+    object.allowed_admin_transitions
   end
 end
