@@ -1918,6 +1918,7 @@
             "type": "integer"
           },
           "image_url": {
+            "description": "Stable upload path (`/api/v1/uploads/:signed_id`) for authorized uploads; legacy external URLs may appear for older records.",
             "nullable": true,
             "type": "string"
           },
@@ -1973,6 +1974,7 @@
             "type": "integer"
           },
           "image_url": {
+            "description": "Stable upload path (`/api/v1/uploads/:signed_id`) for authorized uploads; legacy external URLs may appear for older records.",
             "nullable": true,
             "type": "string"
           },
@@ -2026,6 +2028,7 @@
                 "type": "string"
               },
               "image_url": {
+                "description": "Auction image reference. Upload proxy paths and legacy upload URLs are accepted; stored values are normalized when possible.",
                 "nullable": true,
                 "type": "string"
               },

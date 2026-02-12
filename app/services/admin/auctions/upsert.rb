@@ -54,7 +54,19 @@ module Admin
         detail_attrs = @attrs.except(:status, "status").compact
         return if detail_attrs.empty?
 
+        normalize_image_url!(detail_attrs)
         @auction.update_details!(detail_attrs)
+      end
+
+      def normalize_image_url!(detail_attrs)
+        key = if detail_attrs.key?(:image_url)
+          :image_url
+        elsif detail_attrs.key?("image_url")
+          "image_url"
+        end
+        return unless key
+
+        detail_attrs[key] = Uploads::ImageUrl.stable(detail_attrs[key])
       end
 
       def action_result_code

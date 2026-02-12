@@ -23,7 +23,11 @@ module OasSchemasRuntime
         start_date: { type: "string", format: "date-time" },
         end_time: { type: "string", format: "date-time" },
         current_price: { type: "number", format: "float" },
-        image_url: { type: "string", nullable: true },
+        image_url: {
+          type: "string",
+          nullable: true,
+          description: "Stable upload path (`/api/v1/uploads/:signed_id`) for authorized uploads; legacy external URLs may appear for older records."
+        },
         highest_bidder_id: { type: "integer", nullable: true },
         winning_user_id: { type: "integer", nullable: true },
         winning_user_name: { type: "string", nullable: true },
@@ -44,7 +48,11 @@ module OasSchemasRuntime
         status: { type: "string", enum: STATUSES },
         end_time: { type: "string", format: "date-time" },
         current_price: { type: "number", format: "float" },
-        image_url: { type: "string", nullable: true },
+        image_url: {
+          type: "string",
+          nullable: true,
+          description: "Stable upload path (`/api/v1/uploads/:signed_id`) for authorized uploads; legacy external URLs may appear for older records."
+        },
         winning_user_id: { type: "integer", nullable: true },
         winning_user_name: { type: "string", nullable: true }
       },
@@ -682,7 +690,11 @@ module OasSchemasRuntime
           properties: {
             title: { type: "string" },
             description: { type: "string" },
-            image_url: { type: "string", nullable: true },
+            image_url: {
+              type: "string",
+              nullable: true,
+              description: "Auction image reference. Upload proxy paths and legacy upload URLs are accepted; stored values are normalized when possible."
+            },
             is_adult: { type: "boolean", nullable: true, description: "Marks the auction as adult inventory (restricted to afterdark storefront + age gate)." },
             is_marketplace: { type: "boolean", nullable: true, description: "Marks the auction as marketplace-curated inventory (restricted to marketplace storefront)." },
             status: { type: "string", enum: STATUSES, nullable: true },
