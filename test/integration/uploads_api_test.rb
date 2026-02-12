@@ -5,11 +5,9 @@ require "uri"
 class UploadsApiTest < ActionDispatch::IntegrationTest
   setup do
     @user = create_actor(role: :user)
-    @other_user = create_actor(role: :user)
-    @admin = create_actor(role: :admin)
   end
 
-  test "uploader can fetch own upload" do
+  test "anonymous request can fetch upload content by valid signed_id" do
     host! "api.lvh.me"
     headers = auth_headers_for(@user)
     file = build_upload("hello.png", "image/png", "pngdata")
@@ -28,73 +26,33 @@ class UploadsApiTest < ActionDispatch::IntegrationTest
     assert_equal "api.lvh.me", public_uri.host
     assert_equal "/api/v1/uploads/#{signed_id}", public_uri.path
 
-    get public_url, headers: headers
+    get public_url
 
-    assert_includes [ 302, 303 ], response.status
-    assert_match(/\Ahttp/i, response.headers.fetch("Location"))
+    assert_response :success
+    assert_equal "image/png", response.media_type
+    assert_equal "pngdata", response.body
+    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
   ensure
     file&.tempfile&.close!
   end
 
-  test "different authenticated user cannot fetch upload" do
+  test "anonymous request with invalid signed_id returns not found without invalid_token" do
     host! "api.lvh.me"
-    upload_headers = auth_headers_for(@user)
-    fetch_headers = auth_headers_for(@other_user)
-    file = build_upload("hello.png", "image/png", "pngdata")
+    get "/api/v1/uploads/invalid-signed-id"
 
-    post "/api/v1/uploads", params: { file: file }, headers: upload_headers
-
-    assert_response :success
-    body = JSON.parse(response.body)
-    signed_id = body.fetch("signed_id")
-
-    get "/api/v1/uploads/#{signed_id}", headers: fetch_headers
-
-    assert_response :forbidden
+    assert_response :not_found
     error = JSON.parse(response.body).fetch("error")
-    assert_equal "forbidden", error.fetch("code")
-  ensure
-    file&.tempfile&.close!
+    refute_equal "invalid_token", error.fetch("code")
+    assert_equal "not_found", error.fetch("code")
   end
 
-  test "unauthenticated access is denied" do
+  test "authenticated endpoints remain protected" do
     host! "api.lvh.me"
-    headers = auth_headers_for(@user)
-    file = build_upload("hello.png", "image/png", "pngdata")
-
-    post "/api/v1/uploads", params: { file: file }, headers: headers
-
-    assert_response :success
-    body = JSON.parse(response.body)
-    signed_id = body.fetch("signed_id")
-
-    get "/api/v1/uploads/#{signed_id}"
+    get "/api/v1/me"
 
     assert_response :unauthorized
     error = JSON.parse(response.body).fetch("error")
     assert_equal "invalid_token", error.fetch("code")
-  ensure
-    file&.tempfile&.close!
-  end
-
-  test "admin can fetch another user's upload" do
-    host! "api.lvh.me"
-    upload_headers = auth_headers_for(@user)
-    admin_headers = auth_headers_for(@admin)
-    file = build_upload("hello.png", "image/png", "pngdata")
-
-    post "/api/v1/uploads", params: { file: file }, headers: upload_headers
-
-    assert_response :success
-    body = JSON.parse(response.body)
-    signed_id = body.fetch("signed_id")
-
-    get "/api/v1/uploads/#{signed_id}", headers: admin_headers
-
-    assert_includes [ 302, 303 ], response.status
-    assert_match(/\Ahttp/i, response.headers.fetch("Location"))
-  ensure
-    file&.tempfile&.close!
   end
 
   private

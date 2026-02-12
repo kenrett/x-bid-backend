@@ -31,7 +31,11 @@ class SecurityHeaders
 
   def apply_static_headers(headers, script_nonce)
     static_headers(script_nonce).each do |key, value|
-      headers[key] = value
+      if key == "Cross-Origin-Resource-Policy"
+        headers[key] ||= value
+      else
+        headers[key] = value
+      end
     end
   end
 

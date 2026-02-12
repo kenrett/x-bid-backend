@@ -23,6 +23,46 @@ class UploadsTest < ActionDispatch::IntegrationTest
     file&.tempfile&.close!
   end
 
+  test "GET /api/v1/uploads/:signed_id allows anonymous access for valid signed id" do
+    host! "api.lvh.me"
+    headers = auth_headers_for(@user)
+    file = build_upload("hello.png", "image/png", "pngdata")
+
+    post "/api/v1/uploads", params: { file: file }, headers: headers
+    assert_response :success
+    signed_id = JSON.parse(response.body).fetch("signed_id")
+
+    get "/api/v1/uploads/#{signed_id}"
+
+    assert_response :success
+    assert_equal "image/png", response.media_type
+    assert_equal "pngdata", response.body
+    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
+  ensure
+    file&.tempfile&.close!
+  end
+
+  test "GET /api/v1/uploads/:signed_id returns not_found for invalid signed id without invalid_token" do
+    host! "api.lvh.me"
+
+    get "/api/v1/uploads/not-a-valid-signed-id"
+
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code")
+    refute_equal "invalid_token", body.dig("error", "code")
+  end
+
+  test "GET /api/v1/me remains protected without authentication" do
+    host! "api.lvh.me"
+
+    get "/api/v1/me"
+
+    assert_response :unauthorized
+    body = JSON.parse(response.body)
+    assert_equal "invalid_token", body.dig("error", "code")
+  end
+
   test "POST /api/v1/uploads without a file returns 422" do
     host! "api.lvh.me"
     headers = auth_headers_for(@user)

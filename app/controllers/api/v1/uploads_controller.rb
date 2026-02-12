@@ -1,7 +1,7 @@
 module Api
   module V1
     class UploadsController < ApplicationController
-      before_action :authenticate_request!
+      before_action :authenticate_request!, except: :show
 
       DEFAULT_CONTENT_TYPES = %w[image/jpeg image/png image/gif image/webp].freeze
 
@@ -60,15 +60,10 @@ module Api
           return render_error(code: :not_found, message: "Upload not found", status: :not_found)
         end
 
-        unless authorized_to_read_upload?(upload_authorization)
-          return render_error(code: :forbidden, message: "Not authorized", status: :forbidden)
-        end
-
-        ActiveStorage::Current.url_options = { host: request.base_url }
-        expires_in = ActiveStorage.service_urls_expire_in
-        expires_in expires_in, public: false
-
-        redirect_to build_service_url(blob, expires_in: expires_in), allow_other_host: true
+        response.set_header("Cross-Origin-Resource-Policy", "cross-origin")
+        send_data blob.download, filename: blob.filename.to_s, type: blob.content_type, disposition: "inline"
+      rescue ActiveStorage::FileNotFoundError
+        render_error(code: :not_found, message: "Upload not found", status: :not_found)
       end
 
       private
@@ -85,9 +80,6 @@ module Api
           byte_size: blob.byte_size
         }
       end
-
-      # TODO: Option B - add GET /api/v1/uploads/:signed_id to stream blobs through the API
-      # for authenticated access instead of exposing service URLs.
 
       def max_upload_bytes
         max_mb = Integer(ENV.fetch("UPLOAD_MAX_MB", "25"))
@@ -113,12 +105,6 @@ module Api
         return DEFAULT_CONTENT_TYPES if types.empty?
 
         types
-      end
-
-      def authorized_to_read_upload?(upload_authorization)
-        return true if upload_authorization.user_id == current_user.id
-
-        Authorization::Guard.allow?(actor: current_user, role: :admin)
       end
 
       def render_invalid_upload!(message, details: nil)
