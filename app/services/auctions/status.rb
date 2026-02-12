@@ -18,6 +18,7 @@ module Auctions
         return nil if value.blank?
 
         normalized = value.to_s.downcase
+        return "pending" if normalized == "pending"
         return "ended" if normalized == "ended"
 
         ALLOWED[normalized]
