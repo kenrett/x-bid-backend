@@ -29,6 +29,60 @@ class AdminNamespaceAuctionsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "GET /api/v1/admin/auctions still returns mixed statuses for admin routes" do
+    pending = Auction.create!(
+      title: "Pending Auction",
+      description: "Desc",
+      start_date: 2.days.from_now,
+      end_time: 3.days.from_now,
+      current_price: 1.0,
+      status: :pending
+    )
+    ended = Auction.create!(
+      title: "Ended Auction",
+      description: "Desc",
+      start_date: 3.days.ago,
+      end_time: 2.days.ago,
+      current_price: 1.0,
+      status: :ended
+    )
+    cancelled = Auction.create!(
+      title: "Cancelled Auction",
+      description: "Desc",
+      start_date: 4.days.ago,
+      end_time: 3.days.ago,
+      current_price: 1.0,
+      status: :cancelled
+    )
+    inactive = Auction.create!(
+      title: "Inactive Auction",
+      description: "Desc",
+      start_date: 5.days.ago,
+      end_time: 4.days.ago,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/auctions", headers: auth_headers_for(admin)
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    auctions = body["auctions"] || body["adminAuctions"] || body["admin_auctions"] || body
+    auctions = auctions["auctions"] if auctions.is_a?(Hash) && auctions.key?("auctions")
+    statuses = auctions.map { |auction| auction.fetch("status") }
+
+    assert_includes statuses, "active"
+    assert_includes statuses, "scheduled"
+    assert_includes statuses, "complete"
+    assert_includes statuses, "cancelled"
+    assert_includes statuses, "inactive"
+    assert_includes auctions.map { |auction| auction.fetch("id") }, pending.id
+    assert_includes auctions.map { |auction| auction.fetch("id") }, ended.id
+    assert_includes auctions.map { |auction| auction.fetch("id") }, cancelled.id
+    assert_includes auctions.map { |auction| auction.fetch("id") }, inactive.id
+  end
+
   test "GET /api/v1/admin/auctions/:id enforces role matrix" do
     each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
       get "/api/v1/admin/auctions/#{@auction.id}", headers: headers

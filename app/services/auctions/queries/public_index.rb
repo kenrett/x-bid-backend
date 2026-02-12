@@ -21,6 +21,7 @@ module Auctions
 
       def scoped_relation
         relation
+          .where(status: :active)
           .select(
             :id,
             :title,

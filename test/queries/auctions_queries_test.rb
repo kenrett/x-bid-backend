@@ -21,14 +21,33 @@ class AuctionsQueriesTest < ActiveSupport::TestCase
       current_price: 1.0,
       status: :pending
     )
+    @ended_auction = Auction.create!(
+      title: "Ended Auction",
+      description: "Desc",
+      start_date: 3.days.ago,
+      end_time: 2.days.ago,
+      current_price: 1.0,
+      status: :ended
+    )
+    @inactive_auction = Auction.create!(
+      title: "Inactive Auction",
+      description: "Desc",
+      start_date: 4.days.ago,
+      end_time: 3.days.ago,
+      current_price: 1.0,
+      status: :inactive
+    )
     @bid = Bid.create!(user: @user, auction: @auction, amount: 6.0)
   end
 
-  test "public index scopes projection and preloads winning users" do
+  test "public index returns only active auctions and preloads winning users" do
     result = Auctions::Queries::PublicIndex.call
 
     auctions = result.records.to_a
-    assert_equal [ @auction.id, @secondary_auction.id ].sort, auctions.map(&:id).sort
+    assert_equal [ @auction.id ], auctions.map(&:id)
+    refute_includes auctions.map(&:id), @secondary_auction.id
+    refute_includes auctions.map(&:id), @ended_auction.id
+    refute_includes auctions.map(&:id), @inactive_auction.id
     assert auctions.first.association(:winning_user).loaded?
   end
 

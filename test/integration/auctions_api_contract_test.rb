@@ -27,6 +27,57 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
     assert_equal @auction.current_price.to_s, auction_json["current_price"].to_s
   end
 
+  test "GET /api/v1/auctions returns only active auctions" do
+    pending = Auction.create!(
+      title: "Pending Auction",
+      description: "Desc",
+      start_date: 2.days.from_now,
+      end_time: 3.days.from_now,
+      current_price: 0.0,
+      status: :pending
+    )
+    ended = Auction.create!(
+      title: "Ended Auction",
+      description: "Desc",
+      start_date: 3.days.ago,
+      end_time: 2.days.ago,
+      current_price: 0.0,
+      status: :ended
+    )
+    inactive = Auction.create!(
+      title: "Inactive Auction",
+      description: "Desc",
+      start_date: 4.days.ago,
+      end_time: 3.days.ago,
+      current_price: 0.0,
+      status: :inactive
+    )
+    cancelled = Auction.create!(
+      title: "Cancelled Auction",
+      description: "Desc",
+      start_date: 5.days.ago,
+      end_time: 4.days.ago,
+      current_price: 0.0,
+      status: :cancelled
+    )
+
+    get "/api/v1/auctions"
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    auctions = body.fetch("auctions")
+    auctions = auctions.fetch("auctions") if auctions.is_a?(Hash) && auctions.key?("auctions")
+    ids = auctions.map { |auction| auction.fetch("id") }
+    statuses = auctions.map { |auction| auction.fetch("status") }.uniq
+
+    assert_includes ids, @auction.id
+    refute_includes ids, pending.id
+    refute_includes ids, ended.id
+    refute_includes ids, inactive.id
+    refute_includes ids, cancelled.id
+    assert_equal [ "active" ], statuses
+  end
+
   test "GET /api/v1/auctions/:auction_id/bid_history returns bids" do
     older_bid = Bid.create!(user: @bidder, auction: @auction, amount: 2.5, created_at: 10.minutes.ago)
     newer_bid = Bid.create!(user: @bidder, auction: @auction, amount: 3.0, created_at: 1.minute.ago)
