@@ -28,10 +28,15 @@ class UploadsApiTest < ActionDispatch::IntegrationTest
 
     get public_url
 
+    assert_response :redirect
+    assert_match(/\Ahttp/i, response.headers["Location"])
+    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
+    assert_match(/max-age=\d+/, response.headers["Cache-Control"].to_s)
+
+    follow_redirect!
     assert_response :success
     assert_equal "image/png", response.media_type
     assert_equal "pngdata", response.body
-    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
   ensure
     file&.tempfile&.close!
   end

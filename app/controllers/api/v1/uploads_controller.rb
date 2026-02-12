@@ -4,7 +4,7 @@ module Api
       before_action :authenticate_request!, except: :show
 
       DEFAULT_CONTENT_TYPES = %w[image/jpeg image/png image/gif image/webp].freeze
-      PUBLIC_IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable".freeze
+      DEFAULT_PUBLIC_UPLOAD_URL_EXPIRES_IN_SECONDS = 300
 
       # POST /api/v1/uploads
       def create
@@ -51,10 +51,8 @@ module Api
 
       # GET /api/v1/uploads/:signed_id
       # @summary Serve upload content by signed id
-      # Returns raw upload bytes for image rendering in public auction views.
-      # Successful responses include `Cache-Control: public, max-age=31536000, immutable`.
-      # Active Storage blobs are immutable in place, and replacing an image creates
-      # a new blob/signed_id so long-lived caching remains safe.
+      # Redirects to the Active Storage service URL for image rendering in public auction views.
+      # Redirect responses include cache hints aligned to the signed URL expiration.
       # @response Not found (404) [Error]
       # @no_auth
       def show
@@ -63,14 +61,16 @@ module Api
           return render_error(code: :not_found, message: "Upload not found", status: :not_found)
         end
 
-        upload_authorization = UploadAuthorization.find_by(blob_id: blob.id)
-        unless upload_authorization
+        unless UploadAuthorization.exists?(blob_id: blob.id)
           return render_error(code: :not_found, message: "Upload not found", status: :not_found)
         end
 
+        ActiveStorage::Current.url_options = { host: request.base_url }
+        service_url_expires_in = public_upload_url_expires_in
+
         response.set_header("Cross-Origin-Resource-Policy", "cross-origin")
-        response.set_header("Cache-Control", PUBLIC_IMMUTABLE_CACHE_CONTROL)
-        send_data blob.download, filename: blob.filename.to_s, type: blob.content_type, disposition: "inline"
+        response.set_header("Cache-Control", "public, max-age=#{service_url_expires_in}")
+        redirect_to build_service_url(blob, expires_in: service_url_expires_in), allow_other_host: true
       rescue ActiveStorage::FileNotFoundError
         render_error(code: :not_found, message: "Upload not found", status: :not_found)
       end
@@ -114,6 +114,25 @@ module Api
         return DEFAULT_CONTENT_TYPES if types.empty?
 
         types
+      end
+
+      def public_upload_url_expires_in
+        configured_seconds = ENV["PUBLIC_UPLOAD_URL_EXPIRES_IN_SECONDS"]
+        return default_public_upload_url_expires_in if configured_seconds.blank?
+
+        seconds = Integer(configured_seconds)
+        return default_public_upload_url_expires_in unless seconds.positive?
+
+        seconds
+      rescue ArgumentError
+        default_public_upload_url_expires_in
+      end
+
+      def default_public_upload_url_expires_in
+        seconds = ActiveStorage.service_urls_expire_in.to_i
+        return DEFAULT_PUBLIC_UPLOAD_URL_EXPIRES_IN_SECONDS unless seconds.positive?
+
+        seconds
       end
 
       def render_invalid_upload!(message, details: nil)

@@ -34,11 +34,15 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
     get "/api/v1/uploads/#{signed_id}"
 
+    assert_response :redirect
+    assert_match(/\Ahttp/i, response.headers["Location"])
+    assert_public_upload_redirect_cache_control!(response.headers["Cache-Control"])
+    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
+
+    follow_redirect!
     assert_response :success
     assert_equal "image/png", response.media_type
     assert_equal "pngdata", response.body
-    assert_immutable_upload_cache_control!(response.headers["Cache-Control"])
-    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
   ensure
     file&.tempfile&.close!
   end
@@ -54,11 +58,14 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
     get "/api/v1/uploads/#{signed_id}", headers: { "Origin" => "https://www.biddersweet.app" }
 
-    assert_response :success
+    assert_response :redirect
     assert_equal "https://www.biddersweet.app", response.headers["Access-Control-Allow-Origin"]
     assert_equal "true", response.headers["Access-Control-Allow-Credentials"]
-    assert_immutable_upload_cache_control!(response.headers["Cache-Control"])
+    assert_public_upload_redirect_cache_control!(response.headers["Cache-Control"])
     assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
+
+    follow_redirect!
+    assert_response :success
   ensure
     file&.tempfile&.close!
   end
@@ -136,10 +143,9 @@ class UploadsTest < ActionDispatch::IntegrationTest
     Rack::Test::UploadedFile.new(tmpfile.path, content_type, original_filename: filename)
   end
 
-  def assert_immutable_upload_cache_control!(cache_control)
+  def assert_public_upload_redirect_cache_control!(cache_control)
     value = cache_control.to_s
     assert_includes value, "public"
-    assert_includes value, "max-age=31536000"
-    assert_includes value, "immutable"
+    assert_match(/max-age=\d+/, value)
   end
 end

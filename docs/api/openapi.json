@@ -6351,7 +6351,7 @@
     },
     "/api/v1/uploads/{signed_id}": {
       "get": {
-        "description": "GET /api/v1/uploads/:signed_id\nReturns raw upload bytes for image rendering in public auction views.\nSuccessful responses include `Cache-Control: public, max-age=31536000, immutable`.\nActive Storage blobs are immutable in place, and replacing an image creates\na new blob/signed_id so long-lived caching remains safe.",
+        "description": "GET /api/v1/uploads/:signed_id\nRedirects to the Active Storage service URL for image rendering in public auction views.\nRedirect responses include cache hints aligned to the signed URL expiration.",
         "operationId": "GET__api_v1_uploads_{signed_id}",
         "parameters": [
           {
