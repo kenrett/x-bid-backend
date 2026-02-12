@@ -64,9 +64,8 @@ class AuctionsApiContractTest < ActionDispatch::IntegrationTest
     get "/api/v1/auctions"
 
     assert_response :success
-    body = JSON.parse(response.body)
-    auctions = body.fetch("auctions")
-    auctions = auctions.fetch("auctions") if auctions.is_a?(Hash) && auctions.key?("auctions")
+    auctions = JSON.parse(response.body)
+    assert_kind_of Array, auctions
     ids = auctions.map { |auction| auction.fetch("id") }
     statuses = auctions.map { |auction| auction.fetch("status") }.uniq
 

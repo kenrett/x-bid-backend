@@ -87,6 +87,26 @@ class OpenapiContractTest < ActionDispatch::IntegrationTest
     assert_openapi_response_schema!(method: :get, path: "/api/v1/logged_in", status: response.status)
   end
 
+  test "GET /api/v1/auctions matches OpenAPI (200) and returns array shape" do
+    auction = Auction.create!(
+      title: "OpenAPI Auction Index",
+      description: "Desc",
+      start_date: 1.minute.ago,
+      end_time: 1.hour.from_now,
+      current_price: BigDecimal("1.00"),
+      status: :active
+    )
+
+    get "/api/v1/auctions"
+
+    assert_response :success
+    assert_openapi_response_schema!(method: :get, path: "/api/v1/auctions", status: response.status)
+
+    body = JSON.parse(response.body)
+    assert_kind_of Array, body
+    assert_includes body.map { |entry| entry.fetch("id") }, auction.id
+  end
+
   test "POST /api/v1/checkouts matches OpenAPI (200 + 401)" do
     user = create_actor(role: :user)
     user.update!(email_verified_at: Time.current)
