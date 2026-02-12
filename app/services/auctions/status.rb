@@ -17,7 +17,10 @@ module Auctions
       def from_api(value)
         return nil if value.blank?
 
-        ALLOWED[value.to_s.downcase]
+        normalized = value.to_s.downcase
+        return "ended" if normalized == "ended"
+
+        ALLOWED[normalized]
       end
 
       def to_api(enum_value)

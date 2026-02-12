@@ -142,6 +142,31 @@ class AdminAuctionsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "legacy ended status is accepted by status parser" do
+    auction = Auction.create!(
+      title: "Close Me",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :inactive
+    )
+
+    each_role_case(required_role: :admin, success_status: 422) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/auctions/#{auction.id}", params: { auction: { status: "ended" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "invalid_state", body.dig("error", "code").to_s
+        refute_includes body.dig("error", "message"), "Invalid status"
+        assert_equal "inactive", auction.reload.status
+      else
+        assert_equal "inactive", auction.reload.status
+      end
+    end
+  end
+
   test "blocks hard delete through the model" do
     auction = Auction.create!(
       title: "Do Not Delete",
