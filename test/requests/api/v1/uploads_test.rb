@@ -37,6 +37,27 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "image/png", response.media_type
     assert_equal "pngdata", response.body
+    assert_immutable_upload_cache_control!(response.headers["Cache-Control"])
+    assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
+  ensure
+    file&.tempfile&.close!
+  end
+
+  test "GET /api/v1/uploads/:signed_id includes CORS headers for biddersweet frontend origin" do
+    host! "api.lvh.me"
+    headers = auth_headers_for(@user)
+    file = build_upload("hello.png", "image/png", "pngdata")
+
+    post "/api/v1/uploads", params: { file: file }, headers: headers
+    assert_response :success
+    signed_id = JSON.parse(response.body).fetch("signed_id")
+
+    get "/api/v1/uploads/#{signed_id}", headers: { "Origin" => "https://www.biddersweet.app" }
+
+    assert_response :success
+    assert_equal "https://www.biddersweet.app", response.headers["Access-Control-Allow-Origin"]
+    assert_equal "true", response.headers["Access-Control-Allow-Credentials"]
+    assert_immutable_upload_cache_control!(response.headers["Cache-Control"])
     assert_equal "cross-origin", response.headers["Cross-Origin-Resource-Policy"]
   ensure
     file&.tempfile&.close!
@@ -113,5 +134,12 @@ class UploadsTest < ActionDispatch::IntegrationTest
     tmpfile.write(body)
     tmpfile.rewind
     Rack::Test::UploadedFile.new(tmpfile.path, content_type, original_filename: filename)
+  end
+
+  def assert_immutable_upload_cache_control!(cache_control)
+    value = cache_control.to_s
+    assert_includes value, "public"
+    assert_includes value, "max-age=31536000"
+    assert_includes value, "immutable"
   end
 end

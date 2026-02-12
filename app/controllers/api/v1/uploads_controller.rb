@@ -4,6 +4,7 @@ module Api
       before_action :authenticate_request!, except: :show
 
       DEFAULT_CONTENT_TYPES = %w[image/jpeg image/png image/gif image/webp].freeze
+      PUBLIC_IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable".freeze
 
       # POST /api/v1/uploads
       def create
@@ -49,6 +50,13 @@ module Api
       end
 
       # GET /api/v1/uploads/:signed_id
+      # @summary Serve upload content by signed id
+      # Returns raw upload bytes for image rendering in public auction views.
+      # Successful responses include `Cache-Control: public, max-age=31536000, immutable`.
+      # Active Storage blobs are immutable in place, and replacing an image creates
+      # a new blob/signed_id so long-lived caching remains safe.
+      # @response Not found (404) [Error]
+      # @no_auth
       def show
         blob = ActiveStorage::Blob.find_signed(params[:signed_id])
         unless blob
@@ -61,6 +69,7 @@ module Api
         end
 
         response.set_header("Cross-Origin-Resource-Policy", "cross-origin")
+        response.set_header("Cache-Control", PUBLIC_IMMUTABLE_CACHE_CONTROL)
         send_data blob.download, filename: blob.filename.to_s, type: blob.content_type, disposition: "inline"
       rescue ActiveStorage::FileNotFoundError
         render_error(code: :not_found, message: "Upload not found", status: :not_found)

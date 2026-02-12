@@ -248,7 +248,7 @@ All endpoints are prefixed with `/api/v1`.
 ### Uploads
 
 * `POST /uploads`: Create a signed upload.
-* `GET /uploads/:signed_id`: Fetch upload metadata.
+* `GET /uploads/:signed_id`: Stream uploaded content by signed id (`Cache-Control: public, max-age=31536000, immutable`).
 
 ### Admin & Audit
 

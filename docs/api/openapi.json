@@ -6351,7 +6351,7 @@
     },
     "/api/v1/uploads/{signed_id}": {
       "get": {
-        "description": "GET /api/v1/uploads/:signed_id",
+        "description": "GET /api/v1/uploads/:signed_id\nReturns raw upload bytes for image rendering in public auction views.\nSuccessful responses include `Cache-Control: public, max-age=31536000, immutable`.\nActive Storage blobs are immutable in place, and replacing an image creates\na new blob/signed_id so long-lived caching remains safe.",
         "operationId": "GET__api_v1_uploads_{signed_id}",
         "parameters": [
           {
@@ -6359,25 +6359,11 @@
           }
         ],
         "responses": {
-          "401": {
-            "$ref": "#/components/responses/resp_043"
-          },
-          "403": {
-            "$ref": "#/components/responses/resp_050"
-          },
           "404": {
-            "$ref": "#/components/responses/resp_045"
-          },
-          "500": {
-            "$ref": "#/components/responses/resp_023"
+            "$ref": "#/components/responses/resp_003"
           }
         },
-        "security": [
-          {
-            "bearer_jwt": []
-          }
-        ],
-        "summary": "View",
+        "summary": "Serve upload content by signed id",
         "tags": [
           "Api"
         ]
