@@ -47,6 +47,31 @@ class UploadsTest < ActionDispatch::IntegrationTest
     file&.tempfile&.close!
   end
 
+  test "GET /api/v1/uploads/:signed_id generates a fresh redirect URL at request time" do
+    host! "api.lvh.me"
+    headers = auth_headers_for(@user)
+    file = build_upload("hello.png", "image/png", "pngdata")
+
+    post "/api/v1/uploads", params: { file: file }, headers: headers
+    assert_response :success
+    signed_id = JSON.parse(response.body).fetch("signed_id")
+
+    get "/api/v1/uploads/#{signed_id}"
+    assert_response :redirect
+    first_location = response.headers["Location"]
+    assert_match(/\Ahttp/i, first_location)
+
+    travel 2.minutes do
+      get "/api/v1/uploads/#{signed_id}"
+      assert_response :redirect
+      second_location = response.headers["Location"]
+      assert_match(/\Ahttp/i, second_location)
+      refute_equal first_location, second_location
+    end
+  ensure
+    file&.tempfile&.close!
+  end
+
   test "GET /api/v1/uploads/:signed_id includes CORS headers for biddersweet frontend origin" do
     host! "api.lvh.me"
     headers = auth_headers_for(@user)
@@ -79,6 +104,33 @@ class UploadsTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal "not_found", body.dig("error", "code")
     refute_equal "invalid_token", body.dig("error", "code")
+  end
+
+  test "GET /api/v1/uploads/:signed_id returns not_found for blank signed id" do
+    host! "api.lvh.me"
+
+    get "/api/v1/uploads/%20"
+
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code")
+  end
+
+  test "GET /api/v1/uploads/:signed_id returns not_found for valid signed id without upload authorization" do
+    host! "api.lvh.me"
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("pngdata"),
+      filename: "orphan.png",
+      content_type: "image/png"
+    )
+
+    get "/api/v1/uploads/#{blob.signed_id}"
+
+    assert_response :not_found
+    body = JSON.parse(response.body)
+    assert_equal "not_found", body.dig("error", "code")
+  ensure
+    blob&.purge
   end
 
   test "GET /api/v1/me remains protected without authentication" do

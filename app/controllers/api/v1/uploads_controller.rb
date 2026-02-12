@@ -56,14 +56,12 @@ module Api
       # @response Not found (404) [Error]
       # @no_auth
       def show
-        blob = ActiveStorage::Blob.find_signed(params[:signed_id])
-        unless blob
-          return render_error(code: :not_found, message: "Upload not found", status: :not_found)
-        end
+        signed_id = params[:signed_id].to_s
+        return render_upload_not_found! if signed_id.blank?
 
-        unless UploadAuthorization.exists?(blob_id: blob.id)
-          return render_error(code: :not_found, message: "Upload not found", status: :not_found)
-        end
+        blob = ActiveStorage::Blob.find_signed(signed_id)
+        return render_upload_not_found! unless blob
+        return render_upload_not_found! unless UploadAuthorization.exists?(blob_id: blob.id)
 
         ActiveStorage::Current.url_options = { host: request.base_url }
         service_url_expires_in = public_upload_url_expires_in
@@ -72,7 +70,7 @@ module Api
         response.set_header("Cache-Control", "public, max-age=#{service_url_expires_in}")
         redirect_to build_service_url(blob, expires_in: service_url_expires_in), allow_other_host: true
       rescue ActiveStorage::FileNotFoundError
-        render_error(code: :not_found, message: "Upload not found", status: :not_found)
+        render_upload_not_found!
       end
 
       private
@@ -138,6 +136,10 @@ module Api
       def render_invalid_upload!(message, details: nil)
         log_upload(success: false, uploaded_file: params[:file], error_message: message)
         render_error(code: :invalid_upload, message: message, status: :unprocessable_entity, details: details)
+      end
+
+      def render_upload_not_found!
+        render_error(code: :not_found, message: "Upload not found", status: :not_found)
       end
 
       def log_upload(success:, uploaded_file:, blob: nil, error: nil, error_message: nil)
