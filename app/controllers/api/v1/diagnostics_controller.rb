@@ -6,12 +6,15 @@ module Api
       # @summary Report auth-related diagnostics for the current request
       def auth
         origin = request.headers["Origin"]
+        signed_cookie_readable = cookies.signed[BROWSER_SESSION_COOKIE_NAME].present?
         render json: {
           host: request.host,
           origin: origin,
           origin_allowed: origin.present? ? FrontendOrigins.allowed_origin?(origin) : false,
           cookie_domain: CookieDomainResolver.domain_for(request.host),
-          browser_session_cookie_present: cookies.signed[:bs_session_id].present?
+          browser_session_cookie_present: signed_cookie_readable,
+          raw_cookie_present: browser_session_cookie_present?,
+          signed_cookie_readable: signed_cookie_readable
         }
       end
 
