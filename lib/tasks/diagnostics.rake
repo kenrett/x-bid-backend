@@ -7,6 +7,7 @@ namespace :diagnostics do
   desc "Print safe environment diagnostics (no secrets)."
   task env: :environment do
     puts "Rails.env: #{Rails.env}"
+    puts "SECRET_KEY_BASE present?: #{ENV.key?("SECRET_KEY_BASE") && ENV["SECRET_KEY_BASE"].to_s.strip != ""}"
     puts "DATABASE_URL present?: #{ENV.key?("DATABASE_URL") && ENV["DATABASE_URL"].to_s.strip != ""}"
 
     begin

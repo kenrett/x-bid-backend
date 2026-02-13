@@ -1,13 +1,15 @@
 # Fail fast if critical environment variables are missing in production
 if Rails.env.production?
-  if ENV["DATABASE_URL"].blank?
-    message = "DATABASE_URL environment variable is missing. Application cannot start."
-    Rails.logger.fatal(message)
-    raise message
-  end
+  required_env_vars = [
+    "SECRET_KEY_BASE",
+    "DATABASE_URL",
+    "REDIS_URL"
+  ]
 
-  if ENV["REDIS_URL"].blank?
-    message = "REDIS_URL environment variable is missing. Application cannot start."
+  required_env_vars.each do |env_var|
+    next if ENV[env_var].present?
+
+    message = "#{env_var} environment variable is missing. Application cannot start."
     Rails.logger.fatal(message)
     raise message
   end
