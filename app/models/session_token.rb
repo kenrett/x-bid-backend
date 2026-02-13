@@ -7,8 +7,21 @@ class SessionToken < ApplicationRecord
   validates :token_digest, presence: true, uniqueness: true
   validates :expires_at, presence: true
 
-  scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
-  scope :inactive, -> { where.not(revoked_at: nil).or(where("expires_at <= ?", Time.current)) }
+  scope :active, lambda {
+    now = Time.current
+    absolute_cutoff = now - absolute_ttl
+    where(revoked_at: nil)
+      .where("expires_at > ?", now)
+      .where("created_at > ?", absolute_cutoff)
+  }
+
+  scope :inactive, lambda {
+    now = Time.current
+    absolute_cutoff = now - absolute_ttl
+    where.not(revoked_at: nil)
+      .or(where("expires_at <= ?", now))
+      .or(where("created_at <= ?", absolute_cutoff))
+  }
 
   def self.digest(raw_token)
     Digest::SHA256.hexdigest(raw_token)
@@ -34,11 +47,39 @@ class SessionToken < ApplicationRecord
   end
 
   def self.default_ttl
-    Rails.configuration.x.session_token_ttl || 30.minutes
+    idle_ttl
   end
 
-  def active?
-    revoked_at.nil? && expires_at.future?
+  def self.idle_ttl
+    Rails.configuration.x.session_token_idle_ttl || Rails.configuration.x.session_token_ttl || 30.minutes
+  end
+
+  def self.absolute_ttl
+    Rails.configuration.x.session_token_absolute_ttl || 24.hours
+  end
+
+  def absolute_expires_at
+    return nil if created_at.blank?
+
+    created_at + self.class.absolute_ttl
+  end
+
+  def sliding_expires_at(now: Time.current)
+    idle_expires_at = now + self.class.idle_ttl
+    absolute_deadline = absolute_expires_at
+    return idle_expires_at if absolute_deadline.blank?
+
+    [ idle_expires_at, absolute_deadline ].min
+  end
+
+  def active?(now: Time.current)
+    return false unless revoked_at.nil?
+    return false unless expires_at.present? && expires_at > now
+
+    absolute_deadline = absolute_expires_at
+    return false if absolute_deadline.present? && absolute_deadline <= now
+
+    true
   end
 
   def revoke!

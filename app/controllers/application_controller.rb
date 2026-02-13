@@ -205,6 +205,11 @@ class ApplicationController < ActionController::API
     if should_touch_last_seen
       updates[:last_seen_at] = now
       updates[:updated_at] = now
+
+      target_expires_at = session_token.sliding_expires_at(now: now)
+      if target_expires_at.present? && target_expires_at > session_token.expires_at
+        updates[:expires_at] = target_expires_at
+      end
     end
 
     return if updates.empty?

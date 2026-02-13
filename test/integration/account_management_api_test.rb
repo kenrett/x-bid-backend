@@ -58,6 +58,40 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "authenticated activity slides session expiry until absolute deadline" do
+    with_session_ttls(idle_minutes: 5, absolute_minutes: 12) do
+      t0 = Time.current.change(usec: 0)
+      travel_to(t0)
+      begin
+        session_token = create_session_token_for(@user, expires_at: t0 + 5.minutes, last_seen_at: t0 - 10.minutes)
+
+        travel_to(t0 + 4.minutes)
+        get "/api/v1/account", headers: auth_headers(@user, session_token)
+        assert_response :success
+        first_expiry = session_token.reload.expires_at
+        assert_in_delta (t0 + 9.minutes).to_i, first_expiry.to_i, 1
+
+        travel_to(t0 + 8.minutes)
+        get "/api/v1/account", headers: auth_headers(@user, session_token)
+        assert_response :success
+        second_expiry = session_token.reload.expires_at
+        assert_in_delta (t0 + 12.minutes).to_i, second_expiry.to_i, 1
+
+        travel_to(t0 + 11.minutes)
+        get "/api/v1/account", headers: auth_headers(@user, session_token)
+        assert_response :success
+        third_expiry = session_token.reload.expires_at
+        assert_equal second_expiry.to_i, third_expiry.to_i
+
+        travel_to(t0 + 12.minutes + 1.second)
+        get "/api/v1/account", headers: auth_headers(@user, session_token)
+        assert_response :unauthorized
+      ensure
+        travel_back
+      end
+    end
+  end
+
   test "PATCH /api/v1/account updates name only" do
     session_token = create_session_token_for(@user)
 
@@ -299,14 +333,14 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
 
   private
 
-  def create_session_token_for(user, user_agent: nil, ip_address: nil)
+  def create_session_token_for(user, user_agent: nil, ip_address: nil, expires_at: 1.hour.from_now, last_seen_at: Time.current)
     SessionToken.create!(
       user: user,
       token_digest: SessionToken.digest(SecureRandom.hex(32)),
-      expires_at: 1.hour.from_now,
+      expires_at: expires_at,
       user_agent: user_agent,
       ip_address: ip_address,
-      last_seen_at: Time.current
+      last_seen_at: last_seen_at
     )
   end
 
@@ -327,5 +361,20 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     flattened = bodies.join("\n").gsub(/\s+/, "")
     match = flattened.match(/token(?:=|=3D)([0-9a-f]{64})/i)
     match&.captures&.first
+  end
+
+  def with_session_ttls(idle_minutes:, absolute_minutes:)
+    previous_idle = Rails.configuration.x.session_token_idle_ttl
+    previous_legacy = Rails.configuration.x.session_token_ttl
+    previous_absolute = Rails.configuration.x.session_token_absolute_ttl
+
+    Rails.configuration.x.session_token_idle_ttl = idle_minutes.minutes
+    Rails.configuration.x.session_token_ttl = idle_minutes.minutes
+    Rails.configuration.x.session_token_absolute_ttl = absolute_minutes.minutes
+    yield
+  ensure
+    Rails.configuration.x.session_token_idle_ttl = previous_idle
+    Rails.configuration.x.session_token_ttl = previous_legacy
+    Rails.configuration.x.session_token_absolute_ttl = previous_absolute
   end
 end
