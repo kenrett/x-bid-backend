@@ -282,9 +282,24 @@ class ApplicationController < ActionController::API
   def csrf_protection_needed?
     unsafe = request.post? || request.put? || request.patch? || request.delete?
     return false unless unsafe
-    return false if request.headers["Authorization"].present?
+    return true if browser_session_cookie_present?
 
-    request.headers["Origin"].present? || browser_session_cookie_present?
+    origin_present = request.headers["Origin"].present?
+    return false unless origin_present
+    return false if bearer_authenticated_request?
+
+    true
+  end
+
+  def bearer_authenticated_request?
+    return false unless request.headers["Authorization"].present?
+    return false unless Auth::AuthenticateRequest.bearer_allowed?
+
+    return @bearer_authenticated_request if instance_variable_defined?(:@bearer_authenticated_request)
+
+    @bearer_authenticated_request = Auth::AuthenticateRequest.call(request).method == :bearer
+  rescue JWT::ExpiredSignature, JWT::DecodeError, JWT::VerificationError, JWT::MissingRequiredClaim, ActiveRecord::RecordNotFound
+    @bearer_authenticated_request = false
   end
 
   def secure_token_compare(left, right)

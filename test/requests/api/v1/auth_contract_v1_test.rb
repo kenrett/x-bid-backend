@@ -50,7 +50,8 @@ class AuthContractV1Test < ActionDispatch::IntegrationTest
     assert_response :success
     login_body = JSON.parse(response.body)
 
-    delete "/api/v1/logout", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }
+    logout_headers = csrf_headers.merge("Authorization" => bearer(login_body.fetch("access_token")))
+    delete "/api/v1/logout", headers: logout_headers
     assert_response :success
 
     headers = csrf_headers
@@ -87,7 +88,8 @@ class AuthContractV1Test < ActionDispatch::IntegrationTest
     assert_response :success
     login_body = JSON.parse(response.body)
 
-    delete "/api/v1/logout", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }
+    logout_headers = csrf_headers.merge("Authorization" => bearer(login_body.fetch("access_token")))
+    delete "/api/v1/logout", headers: logout_headers
     assert_response :success
 
     get "/api/v1/me", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }

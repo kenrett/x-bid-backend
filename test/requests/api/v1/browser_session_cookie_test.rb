@@ -67,9 +67,10 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
       post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
       assert_response :success
       login_body = JSON.parse(response.body)
+      logout_headers = csrf_headers.merge("Authorization" => bearer(login_body.fetch("access_token")))
 
       SessionEventBroadcaster.stub(:session_invalidated, nil) do
-        delete "/api/v1/logout", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }
+        delete "/api/v1/logout", headers: logout_headers
       end
     end
 
@@ -90,9 +91,10 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
       post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
       assert_response :success
       login_body = JSON.parse(response.body)
+      logout_headers = csrf_headers.merge("Authorization" => bearer(login_body.fetch("access_token")))
 
       SessionEventBroadcaster.stub(:session_invalidated, nil) do
-        delete "/api/v1/logout", headers: { "Authorization" => bearer(login_body.fetch("access_token")) }
+        delete "/api/v1/logout", headers: logout_headers
       end
     end
 

@@ -63,7 +63,7 @@ Both use the same cookie-first authentication path above.
 
 ## CSRF Contract (Cookie Auth)
 
-For unsafe requests (`POST/PUT/PATCH/DELETE`) without an `Authorization` header:
+For unsafe requests (`POST/PUT/PATCH/DELETE`) in browser cookie/origin contexts, unless request auth resolves via bearer:
 
 1. Call `GET /api/v1/csrf` to receive `{ csrf_token }` and signed `csrf_token` cookie.
 2. Send `X-CSRF-Token` header with the returned token.

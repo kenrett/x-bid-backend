@@ -20,7 +20,7 @@ Ensure the frontend origin is one of:
 
 - `Access-Control-Allow-Credentials: true` must be present for allowed origins.
 - Frontend requests must send credentials (`withCredentials` / `credentials: include`).
-- For unsafe requests without Authorization header, include `X-CSRF-Token` from `GET /api/v1/csrf`.
+- For unsafe requests in browser cookie/origin contexts, include `X-CSRF-Token` from `GET /api/v1/csrf` unless auth resolves via bearer.
 - If a compatibility client uses bearer auth, allow the `Authorization` request header.
 
 ## Cookie notes

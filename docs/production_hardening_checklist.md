@@ -71,7 +71,7 @@ Cookie attributes (as implemented):
 
 CSRF strategy:
 - `GET /api/v1/csrf` sets a signed `csrf_token` cookie (HttpOnly) and returns the token in JSON.
-- For unsafe methods (`POST/PUT/PATCH/DELETE`) **without** an `Authorization` header, requests must include `X-CSRF-Token` matching the signed cookie.
+- For unsafe methods (`POST/PUT/PATCH/DELETE`) in browser cookie/origin contexts, requests must include `X-CSRF-Token` matching the signed cookie unless auth resolves via bearer.
 - Failure response: `401` with `code: invalid_token` and `reason: csrf_failed`.
 
 Checklist:

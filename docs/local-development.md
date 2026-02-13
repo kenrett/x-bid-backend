@@ -175,7 +175,7 @@ Symptoms:
 Fix:
 - confirm login response sets `bs_session_id` cookie
 - confirm frontend sends credentials (`withCredentials` / `credentials: include`)
-- for unsafe requests without Authorization, call `GET /api/v1/csrf` and send `X-CSRF-Token`
+- for unsafe requests in browser cookie/origin contexts, call `GET /api/v1/csrf` and send `X-CSRF-Token`
 - if using bearer compatibility mode intentionally, confirm `Authorization: Bearer <JWT>` is attached
 
 ### 3) WebSocket connects but no events arrive
