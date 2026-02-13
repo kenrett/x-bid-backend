@@ -4,7 +4,7 @@ require "json"
 namespace :uploads do
   desc "Audit ActiveStorage blobs vs S3 objects"
   task audit: :environment do
-    bucket = ENV.fetch("AWS_BUCKET")
+    bucket = ENV.fetch("S3_BUCKET")
     region = ENV.fetch("AWS_REGION")
     prefix = ENV.fetch("UPLOADS_PREFIX", "")
 
