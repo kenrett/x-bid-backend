@@ -95,9 +95,8 @@ bin/test
 ### Linting & Security
 
 ```bash
-bin/lint  # runs rubocop and brakeman
+bin/lint  # runs rubocop, brakeman, and bundler-audit
 ```
-CI also runs bundler-audit to check Gemfile.lock for vulnerable dependencies.
 Run lint/security checks before merging.
 
 ### API schema drift check
@@ -150,10 +149,10 @@ errors as `{ error: { code, message } }` using `result.code`/`result.message`.
 
 * Setup: `bin/setup` (installs gems, creates/migrates/seeds DB)
 * Run tests: `bin/test`
-* Lint & security: `bin/lint` (rubocop + brakeman)
+* Lint & security: `bin/lint` (rubocop + brakeman + bundler-audit)
 * Git hooks: `lefthook install` to enable pre-commit hooks (runs `bin/lint` and `bin/test`)
   * Pre-commit runs `bundle exec rubocop` for fast feedback.
-  * Pre-push runs `bin/test` and `bin/lint` (rubocop + brakeman).
+  * Pre-push runs `bin/test` and `bin/lint` (rubocop + brakeman + bundler-audit).
 
 ## Configuration
 
