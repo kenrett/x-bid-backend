@@ -167,7 +167,9 @@ The app relies on the following environment/config values:
 * `FRONTEND_WINS_URL`: optional override for win-claim links (defaults to `FRONTEND_URL` + `/wins`).
 * `FRONTEND_ORIGINS` or `CORS_ALLOWED_ORIGINS`: CORS allowlist overrides.
 * `SESSION_COOKIE_DOMAIN` and `COOKIE_SAMESITE`: optional cookie scoping overrides.
-* `SESSION_TOKEN_TTL`: optional session TTL override (defaults to 30 minutes).
+* `SESSION_TOKEN_IDLE_TTL_MINUTES`: optional idle session timeout override (defaults to 30 minutes).
+* `SESSION_TOKEN_ABSOLUTE_TTL_MINUTES`: optional absolute session lifetime override (defaults to 1440 minutes / 24 hours).
+* `SESSION_TOKEN_TTL_MINUTES`: legacy alias for idle timeout (used when `SESSION_TOKEN_IDLE_TTL_MINUTES` is unset).
 * Stripe keys: `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` (required for checkout flows).
 * Mailer SMTP settings for production delivery.
 * Active Storage S3: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, optional `AWS_ENDPOINT`, `AWS_FORCE_PATH_STYLE`.

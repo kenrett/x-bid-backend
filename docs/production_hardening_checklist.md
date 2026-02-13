@@ -130,7 +130,8 @@ Critical secrets and config (verify values exist and are correct):
 - `FRONTEND_WINS_URL` (optional override)
 - `FRONTEND_ORIGINS` / `CORS_ALLOWED_ORIGINS` (only if overriding credentials)
 - `SESSION_COOKIE_DOMAIN` / `SESSION_COOKIE_SAMESITE` / `COOKIE_SAMESITE` / `ALLOW_SAMESITE_NONE`
-- `SESSION_TOKEN_TTL_MINUTES`
+- `SESSION_TOKEN_IDLE_TTL_MINUTES` (or legacy `SESSION_TOKEN_TTL_MINUTES`)
+- `SESSION_TOKEN_ABSOLUTE_TTL_MINUTES`
 - `SESSION_LAST_SEEN_DEBOUNCE_SECONDS`
 - Stripe:
   - `STRIPE_WEBHOOK_SECRET` (webhook verification)
