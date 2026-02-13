@@ -113,6 +113,7 @@ Rails.application.routes.draw do
             post :repair_credits
           end
         end
+        post "/sessions/revoke_all", to: "sessions#revoke_all"
         post "/audit", to: "audit#create"
       end
     end

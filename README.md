@@ -258,6 +258,7 @@ All endpoints are prefixed with `/api/v1`.
 * `GET /api/v1/admin/payments/:id`: Payment details.
 * `POST /api/v1/admin/payments/:id/refund` and `POST /api/v1/admin/payments/:id/repair_credits`: Payment actions.
 * `POST /api/v1/admin/audit`: Create an audit log entry `{ action, target_type, target_id, payload }`.
+* `POST /api/v1/admin/sessions/revoke_all`: Superadmin-only global session revoke kill-switch (incident response).
 * `POST /api/v1/admin/fulfillments/:id/process`, `.../ship`, `.../complete`: Fulfillment workflow.
 * `GET /api/v1/maintenance`: Public maintenance flag `{ maintenance: { enabled, updated_at } }` (no auth).
 * `GET /api/v1/admin/maintenance` and `POST /api/v1/admin/maintenance`: Superadmin-only maintenance mode status/toggle.
