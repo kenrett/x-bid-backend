@@ -14,6 +14,7 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
       end_time: 1.day.from_now,
       current_price: 10.00,
       status: :active,
+      storefront_key: "main",
       is_adult: false
     )
 
@@ -24,6 +25,7 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
       end_time: 1.day.from_now,
       current_price: 10.00,
       status: :active,
+      storefront_key: "afterdark",
       is_adult: true
     )
   end

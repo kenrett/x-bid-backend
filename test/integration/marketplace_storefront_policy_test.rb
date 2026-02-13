@@ -12,6 +12,7 @@ class MarketplaceStorefrontPolicyTest < ActionDispatch::IntegrationTest
       end_time: 1.day.from_now,
       current_price: 10.00,
       status: :active,
+      storefront_key: "main",
       is_marketplace: false,
       is_adult: false
     )
@@ -23,6 +24,7 @@ class MarketplaceStorefrontPolicyTest < ActionDispatch::IntegrationTest
       end_time: 1.day.from_now,
       current_price: 10.00,
       status: :active,
+      storefront_key: "marketplace",
       is_marketplace: true,
       is_adult: false
     )

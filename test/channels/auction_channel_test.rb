@@ -21,6 +21,7 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
       end_time: 1.hour.from_now,
       current_price: 1.0,
       status: :active,
+      storefront_key: "main",
       is_marketplace: false,
       is_adult: false
     )
@@ -32,6 +33,7 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
       end_time: 1.hour.from_now,
       current_price: 1.0,
       status: :active,
+      storefront_key: "marketplace",
       is_marketplace: true,
       is_adult: false
     )
@@ -43,8 +45,21 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
       end_time: 1.hour.from_now,
       current_price: 1.0,
       status: :active,
+      storefront_key: "afterdark",
       is_marketplace: false,
       is_adult: true
+    )
+
+    @afterdark_general_auction = Auction.create!(
+      title: "Afterdark Auction",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :active,
+      storefront_key: "afterdark",
+      is_marketplace: false,
+      is_adult: false
     )
   end
 
@@ -87,6 +102,12 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
   test "rejects subscription when auction is out of storefront scope" do
     stub_storefront_connection(storefront_key: "main")
     subscribe(auction_id: @marketplace_auction.id)
+    assert subscription.rejected?
+  end
+
+  test "rejects subscription when auction storefront partition differs" do
+    stub_storefront_connection(storefront_key: "main")
+    subscribe(auction_id: @afterdark_general_auction.id)
     assert subscription.rejected?
   end
 

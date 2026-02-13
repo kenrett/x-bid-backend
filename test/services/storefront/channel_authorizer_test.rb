@@ -21,6 +21,7 @@ class StorefrontChannelAuthorizerTest < ActiveSupport::TestCase
       end_time: 1.hour.from_now,
       current_price: 1.0,
       status: :active,
+      storefront_key: "main",
       is_marketplace: false,
       is_adult: false
     )
@@ -31,6 +32,7 @@ class StorefrontChannelAuthorizerTest < ActiveSupport::TestCase
       end_time: 1.hour.from_now,
       current_price: 1.0,
       status: :active,
+      storefront_key: "marketplace",
       is_marketplace: true,
       is_adult: false
     )
@@ -41,6 +43,7 @@ class StorefrontChannelAuthorizerTest < ActiveSupport::TestCase
       end_time: 1.hour.from_now,
       current_price: 1.0,
       status: :active,
+      storefront_key: "afterdark",
       is_marketplace: false,
       is_adult: true
     )

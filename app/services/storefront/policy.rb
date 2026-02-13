@@ -7,11 +7,11 @@ module Storefront
     end
 
     def scope_auctions(relation:, storefront_key:)
-      key = storefront_key.to_s
+      key = normalize_storefront_key(storefront_key)
 
       # TODO: Phase 4 UGC - add curated-inventory rules/metadata (e.g. collections, featured sets)
       # and enforce them here instead of using simple boolean flags.
-      scoped = relation
+      scoped = relation.where(storefront_key: key)
 
       if Storefront::Capabilities.marketplace_catalog_enabled?(key)
         scoped = scoped.where(is_marketplace: true)
@@ -24,6 +24,14 @@ module Storefront
       else
         scoped.where(is_adult: false)
       end
+    end
+
+    def normalize_storefront_key(storefront_key)
+      key = storefront_key.to_s.strip.downcase
+      return StorefrontKeyable::DEFAULT_KEY if key.blank?
+      return key if StorefrontKeyable::CANONICAL_KEYS.include?(key)
+
+      StorefrontKeyable::DEFAULT_KEY
     end
 
     def adult_detail?(auction)
