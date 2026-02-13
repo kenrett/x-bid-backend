@@ -5,10 +5,7 @@
 `ApplicationCable::Connection` authenticates WebSocket connections using the signed browser session cookie:
 
 ```ruby
-Auth::CookieSessionAuthenticator::COOKIE_NAMES.each do |cookie_name|
-  session_token_id = cookies.signed[cookie_name]
-  break if session_token_id.present?
-end
+session_token_id = Auth::CookieSessionAuthenticator.session_cookie_id_from_jar(cookies)
 ```
 
 The connection is rejected when the cookie is missing, unknown, revoked, or expired.
@@ -23,7 +20,7 @@ Login/signup/refresh set:
 - `cable_session` (signed, HttpOnly, path `/cable`)
 - legacy `bs_session_id` is expired with `Domain=.biddersweet.app` during migration
 
-Current ActionCable runtime authenticates with `__Host-bs_session_id` and falls back to legacy `bs_session_id` during migration.
+Current ActionCable runtime authenticates with `__Host-bs_session_id` by default. Legacy `bs_session_id` is only accepted when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true` (migration window), and remains non-authoritative otherwise.
 `cable_session` is still issued/cleared for compatibility and operational continuity.
 
 ## Environment and domain expectations

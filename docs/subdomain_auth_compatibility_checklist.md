@@ -2,9 +2,9 @@
 
 ## Current auth transport
 
-- HTTP API auth is cookie-first via signed `__Host-bs_session_id` (`Auth::CookieSessionAuthenticator`), with legacy `bs_session_id` fallback during migration.
+- HTTP API auth is cookie-first via signed `__Host-bs_session_id` (`Auth::CookieSessionAuthenticator`); legacy `bs_session_id` fallback is only enabled when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true` during migration.
 - Bearer auth (`Authorization: Bearer <jwt>`) is fallback-only (`Auth::BearerAuthenticator`) and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
-- WebSocket (`/cable`) auth reads signed browser session cookies in `ApplicationCable::Connection` (`__Host-bs_session_id` first, `bs_session_id` fallback).
+- WebSocket (`/cable`) auth reads signed browser session cookies in `ApplicationCable::Connection` through `Auth::CookieSessionAuthenticator` (`__Host-bs_session_id` by default, optional legacy fallback only when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true`).
 
 ## Required frontend origins
 

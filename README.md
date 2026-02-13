@@ -201,7 +201,7 @@ All endpoints are prefixed with `/api/v1`.
 * `GET /session/remaining`: Session TTL remaining for the authenticated session.
 * `DELETE /logout`: Revoke the active session server-side and clear session cookies.
 * `GET /logged_in`: Check whether the current session is valid.
-* HTTP authentication is cookie-first via signed `__Host-bs_session_id`; legacy `bs_session_id` is accepted during migration. Bearer tokens are a compatibility fallback and may return `X-Auth-Deprecation: bearer`.
+* HTTP authentication is cookie-first via signed `__Host-bs_session_id`; legacy `bs_session_id` is accepted only when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true` during migration. Bearer tokens are a compatibility fallback and may return `X-Auth-Deprecation: bearer`.
 * Bearer access tokens include `iat`/`nbf` claims and are verified on decode.
 * `POST /password/forgot` and `POST /password/reset`: Request and complete password resets.
 * `POST /email_verifications/resend` and `GET /email_verifications/verify`: Email verification.

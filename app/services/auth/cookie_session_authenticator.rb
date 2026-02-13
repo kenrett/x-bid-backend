@@ -2,6 +2,7 @@ module Auth
   class CookieSessionAuthenticator
     COOKIE_NAME = :"__Host-bs_session_id"
     LEGACY_COOKIE_NAME = :bs_session_id
+    LEGACY_COOKIE_AUTH_ENV = "ALLOW_LEGACY_SESSION_COOKIE_AUTH".freeze
     COOKIE_NAMES = [ COOKIE_NAME, LEGACY_COOKIE_NAME ].freeze
 
     def self.call(request)
@@ -22,12 +23,22 @@ module Auth
     end
 
     def self.session_cookie_id_from_jar(cookie_jar)
-      COOKIE_NAMES.each do |cookie_name|
+      cookie_names_for_auth.each do |cookie_name|
         value = cookie_jar.signed[cookie_name]
         return value if value.present?
       end
 
       nil
+    end
+
+    def self.cookie_names_for_auth
+      return [ COOKIE_NAME ] unless legacy_cookie_auth_enabled?
+
+      [ COOKIE_NAME, LEGACY_COOKIE_NAME ]
+    end
+
+    def self.legacy_cookie_auth_enabled?
+      ENV[LEGACY_COOKIE_AUTH_ENV].to_s == "true"
     end
   end
 end

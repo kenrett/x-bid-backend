@@ -37,12 +37,7 @@ module ApplicationCable
     end
 
     def browser_session_cookie_id
-      Auth::CookieSessionAuthenticator::COOKIE_NAMES.each do |cookie_name|
-        session_token_id = cookies.signed[cookie_name]
-        return session_token_id if session_token_id.present?
-      end
-
-      nil
+      Auth::CookieSessionAuthenticator.session_cookie_id_from_jar(cookies)
     end
 
     def browser_session_cookie_present?

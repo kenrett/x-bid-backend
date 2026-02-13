@@ -27,8 +27,7 @@ class AuthSessionDocsContractTest < ActiveSupport::TestCase
     cookie_name = Auth::CookieSessionAuthenticator::COOKIE_NAME.to_s
     legacy_cookie_name = Auth::CookieSessionAuthenticator::LEGACY_COOKIE_NAME.to_s
 
-    assert_includes connection_source, "Auth::CookieSessionAuthenticator::COOKIE_NAMES.each"
-    assert_includes connection_source, "cookies.signed[cookie_name]"
+    assert_includes connection_source, "Auth::CookieSessionAuthenticator.session_cookie_id_from_jar(cookies)"
     assert_includes actioncable_doc, cookie_name
     assert_includes actioncable_doc, legacy_cookie_name
     refute_includes actioncable_doc, "?token="

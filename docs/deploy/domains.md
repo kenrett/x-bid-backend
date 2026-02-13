@@ -10,7 +10,7 @@ This backend serves the API at `api.biddersweet.app` and issues host-only browse
 ## Why this is required
 
 - **Host-only browser session cookie:** Auth/session cookie is set as `__Host-bs_session_id` without a `Domain` attribute so sibling subdomains cannot receive it.
-- **ActionCable cookie auth:** WebSocket auth reads `__Host-bs_session_id` first and falls back to `bs_session_id` during migration; `cable_session` is also issued on `/cable` for compatibility.
+- **ActionCable cookie auth:** WebSocket auth reads `__Host-bs_session_id` by default; legacy `bs_session_id` fallback is enabled only when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true` during migration. `cable_session` is also issued on `/cable` for compatibility.
 - **CORS with credentials:** We allow credentialed requests only from explicit storefront origins so browsers can attach cookies without CORS failures.
 
 ## Operational notes

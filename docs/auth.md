@@ -9,7 +9,7 @@ This document describes the auth/session contract currently implemented by the b
 - Login/signup/refresh responses always include `session_token_id` and `user`.
 - `access_token` and `refresh_token` are returned only when bearer auth is enabled.
 - Bearer auth is fallback-only and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
-- ActionCable authenticates from signed browser session cookies (`__Host-bs_session_id` first, `bs_session_id` fallback during migration).
+- ActionCable authenticates from signed browser session cookies via `Auth::CookieSessionAuthenticator` (`__Host-bs_session_id` by default; legacy `bs_session_id` only when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true` during migration).
 
 ## Session Lifecycle
 
@@ -31,7 +31,7 @@ On successful auth or registration, backend runtime:
 
 `Auth::AuthenticateRequest.call(request)` resolves auth in this order:
 
-1. Signed cookie (`__Host-bs_session_id`, then `bs_session_id` fallback) via `Auth::CookieSessionAuthenticator`.
+1. Signed cookie (`__Host-bs_session_id`; optional legacy `bs_session_id` fallback only when `ALLOW_LEGACY_SESSION_COOKIE_AUTH=true`) via `Auth::CookieSessionAuthenticator`.
 2. Bearer token fallback (`Authorization: Bearer ...`) via `Auth::BearerAuthenticator`, when allowed.
 
 If bearer fallback is used, backend adds `X-Auth-Deprecation: bearer` to response headers.
