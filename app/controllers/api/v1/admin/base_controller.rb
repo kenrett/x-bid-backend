@@ -22,7 +22,14 @@ module Api
         def enforce_admin_two_factor
           return unless require_admin_two_factor?
           return unless @current_user&.admin? || @current_user&.superadmin?
-          return unless @current_user.two_factor_enabled?
+          unless @current_user.two_factor_enabled?
+            return render_error(
+              code: :two_factor_setup_required,
+              message: "Two-factor authentication setup required",
+              status: :forbidden
+            )
+          end
+
           return if @current_session_token&.two_factor_verified_at.present?
 
           render_error(code: :two_factor_required, message: "Two-factor authentication required", status: :unauthorized)

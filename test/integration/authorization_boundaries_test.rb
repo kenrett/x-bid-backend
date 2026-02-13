@@ -66,20 +66,33 @@ class AuthorizationBoundariesTest < ActionDispatch::IntegrationTest
     assert_nil body.fetch("export"), "Expected export to be scoped to current user"
   end
 
-  test "admin endpoints require 2FA when enabled" do
-    admin = create_actor(role: :admin)
-    admin.two_factor_secret = ROTP::Base32.random
-    admin.update!(two_factor_enabled_at: Time.current)
+  test "admin endpoints require 2FA enrollment when enabled" do
+    with_env("REQUIRE_ADMIN_2FA" => "true") do
+      admin = create_actor(role: :admin)
+      headers, = auth_headers_and_session_token_for(admin)
 
-    headers, session_token = auth_headers_and_session_token_for(admin)
+      get "/api/v1/admin/payments", headers: headers
+      assert_response :forbidden
+      assert_equal "two_factor_setup_required", JSON.parse(response.body).dig("error", "code").to_s
+    end
+  end
 
-    get "/api/v1/admin/payments", headers: headers
-    assert_response :unauthorized
-    assert_equal "two_factor_required", JSON.parse(response.body).dig("error", "code").to_s
+  test "admin endpoints require verified 2FA session when enabled" do
+    with_env("REQUIRE_ADMIN_2FA" => "true") do
+      admin = create_actor(role: :admin)
+      admin.two_factor_secret = ROTP::Base32.random
+      admin.update!(two_factor_enabled_at: Time.current)
 
-    session_token.update!(two_factor_verified_at: Time.current)
-    get "/api/v1/admin/payments", headers: headers
-    assert_response :success
+      headers, session_token = auth_headers_and_session_token_for(admin)
+
+      get "/api/v1/admin/payments", headers: headers
+      assert_response :unauthorized
+      assert_equal "two_factor_required", JSON.parse(response.body).dig("error", "code").to_s
+
+      session_token.update!(two_factor_verified_at: Time.current)
+      get "/api/v1/admin/payments", headers: headers
+      assert_response :success
+    end
   end
 
   test "ban/disable revokes sessions immediately" do

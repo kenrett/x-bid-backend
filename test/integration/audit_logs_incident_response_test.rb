@@ -114,7 +114,9 @@ class AuditLogsIncidentResponseTest < ActionDispatch::IntegrationTest
 
   test "creates an audit log for an admin action" do
     admin = create_actor(role: :admin)
+    admin.update!(two_factor_enabled_at: Time.current)
     session_token = SessionToken.create!(user: admin, token_digest: SessionToken.digest("audit_admin"), expires_at: 1.hour.from_now)
+    session_token.update!(two_factor_verified_at: Time.current)
 
     post "/api/v1/admin/audit",
          params: { audit: { action: "incident.test", target_type: "User", target_id: admin.id, payload: { "ok" => true } } },

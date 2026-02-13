@@ -24,11 +24,14 @@ module AuthHelpers
   end
 
   def auth_headers_for(actor, expires_at: 1.hour.from_now)
+    prime_admin_two_factor!(actor)
+
     session_token = SessionToken.create!(
       user: actor,
       token_digest: SessionToken.digest(SecureRandom.hex(32)),
       expires_at: expires_at
     )
+    session_token.update!(two_factor_verified_at: Time.current) if actor.admin? || actor.superadmin?
 
     payload = { user_id: actor.id, session_token_id: session_token.id, exp: expires_at.to_i }
     jwt = encode_jwt(payload)
@@ -61,5 +64,14 @@ module AuthHelpers
 
   def assert_unauthorized(test_response = response)
     assert_equal 401, test_response.status, "Expected 401 Unauthorized, got #{test_response.status}.\nBody: #{test_response.body}"
+  end
+
+  private
+
+  def prime_admin_two_factor!(actor)
+    return unless actor.admin? || actor.superadmin?
+    return if actor.two_factor_enabled?
+
+    actor.update!(two_factor_enabled_at: Time.current)
   end
 end
