@@ -16,4 +16,16 @@ class ApplicationCable::ConnectionTest < ActionCable::Connection::TestCase
       connect
     end
   end
+
+  test "diagnostics read cable_session from signed cookies" do
+    user = User.create!(name: "User", email_address: "signed-cable@example.com", password: "password", bid_credits: 0)
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
+
+    cookies.signed[:bs_session_id] = session_token.id
+    cookies.signed[:cable_session] = session_token.id
+    connect
+
+    context = connection.send(:connection_log_context)
+    assert_equal true, context[:cable_session_cookie_present]
+  end
 end

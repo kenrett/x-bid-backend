@@ -83,7 +83,7 @@ rg '"event":"action_cable.connect.diagnostics"' log/production.log
 Confirm:
 - `cookie_present` and `cookie_names`
 - `param_keys`
-- `token_present` and `token_redacted`
+- `cable_session_cookie_present` and `browser_session_cookie_present`
 - `origin` and `path`
 
-This shows what was available to the ActionCable connection without exposing sensitive values.
+The cookie presence fields are derived from signed cookies (`cookies.signed[:cable_session]` and `cookies.signed[:bs_session_id]`) without exposing sensitive values.
