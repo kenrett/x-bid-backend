@@ -173,7 +173,7 @@ Symptoms:
 - API calls fail after navigation
 
 Fix:
-- confirm login response sets `bs_session_id` cookie
+- confirm login response sets `__Host-bs_session_id` cookie (and may clear legacy `bs_session_id`)
 - confirm frontend sends credentials (`withCredentials` / `credentials: include`)
 - for unsafe requests in browser cookie/origin contexts, call `GET /api/v1/csrf` and send `X-CSRF-Token`
 - if using bearer compatibility mode intentionally, confirm `Authorization: Bearer <JWT>` is attached

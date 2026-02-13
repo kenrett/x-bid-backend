@@ -4,12 +4,12 @@ This document describes the auth/session contract currently implemented by the b
 
 ## Runtime Contract (Current)
 
-- HTTP API auth is cookie-first through a signed HttpOnly `bs_session_id` cookie.
+- HTTP API auth is cookie-first through a signed HttpOnly `__Host-bs_session_id` cookie.
 - `SessionToken` rows are the source of truth for session validity (active, revoked, expired).
 - Login/signup/refresh responses always include `session_token_id` and `user`.
 - `access_token` and `refresh_token` are returned only when bearer auth is enabled.
 - Bearer auth is fallback-only and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
-- ActionCable currently authenticates from the signed `bs_session_id` cookie.
+- ActionCable authenticates from signed browser session cookies (`__Host-bs_session_id` first, `bs_session_id` fallback during migration).
 
 ## Session Lifecycle
 
@@ -22,15 +22,16 @@ On successful auth or registration, backend runtime:
 - Returns JSON payload with `session_token_id` and `user`.
 - Also returns `access_token` and `refresh_token` when bearer auth is enabled.
 - Sets two signed HttpOnly cookies:
-  - `bs_session_id` (browser/API cookie)
+  - `__Host-bs_session_id` (browser/API cookie; host-only)
   - `cable_session` (path `/cable`)
+  - Clears legacy `bs_session_id` (`Domain=.biddersweet.app`) during migration
 - Sets `X-Auth-Mode: cookie` response header.
 
 ### 2. Authenticated HTTP requests
 
 `Auth::AuthenticateRequest.call(request)` resolves auth in this order:
 
-1. Signed cookie (`bs_session_id`) via `Auth::CookieSessionAuthenticator`.
+1. Signed cookie (`__Host-bs_session_id`, then `bs_session_id` fallback) via `Auth::CookieSessionAuthenticator`.
 2. Bearer token fallback (`Authorization: Bearer ...`) via `Auth::BearerAuthenticator`, when allowed.
 
 If bearer fallback is used, backend adds `X-Auth-Deprecation: bearer` to response headers.
@@ -42,7 +43,7 @@ If bearer fallback is used, backend adds `X-Auth-Deprecation: bearer` to respons
 - Accepts `refresh_token` (flat or nested under `session`).
 - Revokes the old `SessionToken`.
 - Creates a new `SessionToken` + refresh token pair.
-- Re-issues session cookies (`bs_session_id`, `cable_session`).
+- Re-issues session cookies (`__Host-bs_session_id`, `cable_session`) and expires legacy shared-domain `bs_session_id`.
 - Returns the same auth response shape as login.
 
 Note: This endpoint is part of the backend contract, but browser clients running cookie-first auth do not need to call it on every page load.
@@ -92,6 +93,6 @@ No local storage token persistence is required for this flow.
 
 ## TL;DR
 
-Cookie-first auth (`bs_session_id`) is the runtime default.
+Cookie-first auth (`__Host-bs_session_id`) is the runtime default.
 `SessionToken` rows control authorization/revocation.
 Bearer and refresh-token paths exist for compatibility, not as the primary browser-session mechanism.

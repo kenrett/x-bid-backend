@@ -165,7 +165,7 @@ The app relies on the following environment/config values:
 * `FRONTEND_URL`: base URL for password reset links and checkout returns (defaults to `http://localhost:5173`).
 * `FRONTEND_WINS_URL`: optional override for win-claim links (defaults to `FRONTEND_URL` + `/wins`).
 * `FRONTEND_ORIGINS` or `CORS_ALLOWED_ORIGINS`: CORS allowlist overrides.
-* `SESSION_COOKIE_DOMAIN` and `COOKIE_SAMESITE`: optional cookie scoping overrides.
+* `COOKIE_SAMESITE`: optional session-cookie SameSite override (`lax` or `strict`).
 * `SESSION_TOKEN_IDLE_TTL_MINUTES`: optional idle session timeout override (defaults to 30 minutes).
 * `SESSION_TOKEN_ABSOLUTE_TTL_MINUTES`: optional absolute session lifetime override (defaults to 1440 minutes / 24 hours).
 * `SESSION_TOKEN_TTL_MINUTES`: legacy alias for idle timeout (used when `SESSION_TOKEN_IDLE_TTL_MINUTES` is unset).
@@ -196,12 +196,12 @@ All endpoints are prefixed with `/api/v1`.
 ### Authentication
 
 * `POST /users` and `POST /signup`: Register a new user and create a session.
-* `POST /login`: Create a session. Response always includes `session_token_id` and `user`, and includes `access_token`/`refresh_token` only when bearer auth is enabled. Also sets signed HttpOnly cookies (`bs_session_id` for HTTP and `cable_session` for `/cable`).
+* `POST /login`: Create a session. Response always includes `session_token_id` and `user`, and includes `access_token`/`refresh_token` only when bearer auth is enabled. Also sets signed HttpOnly cookies (`__Host-bs_session_id` for HTTP and `cable_session` for `/cable`).
 * `POST /session/refresh`: Rotate session tokens and re-issue session cookies (supported for clients that use refresh tokens).
 * `GET /session/remaining`: Session TTL remaining for the authenticated session.
 * `DELETE /logout`: Revoke the active session server-side and clear session cookies.
 * `GET /logged_in`: Check whether the current session is valid.
-* HTTP authentication is cookie-first via signed `bs_session_id`; bearer tokens are a compatibility fallback and may return `X-Auth-Deprecation: bearer`.
+* HTTP authentication is cookie-first via signed `__Host-bs_session_id`; legacy `bs_session_id` is accepted during migration. Bearer tokens are a compatibility fallback and may return `X-Auth-Deprecation: bearer`.
 * Bearer access tokens include `iat`/`nbf` claims and are verified on decode.
 * `POST /password/forgot` and `POST /password/reset`: Request and complete password resets.
 * `POST /email_verifications/resend` and `GET /email_verifications/verify`: Email verification.

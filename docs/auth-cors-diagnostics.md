@@ -86,4 +86,4 @@ Confirm:
 - `cable_session_cookie_present` and `browser_session_cookie_present`
 - `origin` and `path`
 
-The cookie presence fields are derived from signed cookies (`cookies.signed[:cable_session]` and `cookies.signed[:bs_session_id]`) without exposing sensitive values.
+The cookie presence fields are derived from signed cookies (`cookies.signed[:cable_session]` and browser session cookies in `Auth::CookieSessionAuthenticator::COOKIE_NAMES`) without exposing sensitive values.

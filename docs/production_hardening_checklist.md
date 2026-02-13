@@ -51,23 +51,21 @@ Checklist:
 ## Cookies + CSRF
 
 Cookie names:
-- Browser session: `bs_session_id` (signed; primary HTTP and current ActionCable auth cookie)
+- Browser session: `__Host-bs_session_id` (signed; primary HTTP and current ActionCable auth cookie)
 - Cable session: `cable_session` (signed, path `/cable`; compatibility cookie)
 - CSRF: `csrf_token` (signed)
 
 Cookie attributes (as implemented):
 - `HttpOnly: true` for session + CSRF cookies.
 - Domain:
-  - Production: `.biddersweet.app` for any `*.biddersweet.app` host.
-  - Local dev: `.lvh.me` for any `*.lvh.me` host.
-  - Override: `SESSION_COOKIE_DOMAIN` (must match request host suffix; `.biddersweet.app` override only applies in production).
+  - Session cookies are host-only (no `Domain` attribute).
+  - During migration, legacy `bs_session_id` is explicitly expired with `Domain=.biddersweet.app`.
 - SameSite:
   - Default: `Lax`.
-  - Override: `SESSION_COOKIE_SAMESITE` or `COOKIE_SAMESITE` (`strict|lax|none`).
-  - `none` is allowed only when `ALLOW_SAMESITE_NONE=true`.
+  - Override: `SESSION_COOKIE_SAMESITE` or `COOKIE_SAMESITE` (`strict|lax`).
 - Secure:
-  - Always `true` in production.
-  - When `SameSite=None` in production, Secure remains `true`.
+  - Session cookies are always `Secure`.
+  - CSRF cookie is `Secure` in production.
 
 CSRF strategy:
 - `GET /api/v1/csrf` sets a signed `csrf_token` cookie (HttpOnly) and returns the token in JSON.
@@ -75,9 +73,7 @@ CSRF strategy:
 - Failure response: `401` with `code: invalid_token` and `reason: csrf_failed`.
 
 Checklist:
-- [ ] Confirm `SESSION_COOKIE_DOMAIN` is unset unless a scoped override is required.
 - [ ] Confirm `SESSION_COOKIE_SAMESITE` / `COOKIE_SAMESITE` are set intentionally (default is `Lax`).
-- [ ] Confirm `ALLOW_SAMESITE_NONE` is not enabled unless required for cross-site embedding.
 - [ ] Validate CSRF flow: `GET /api/v1/csrf` then submit with `X-CSRF-Token` on unsafe requests.
 
 ## CSP + Security Headers (Backend API)
@@ -129,7 +125,7 @@ Critical secrets and config (verify values exist and are correct):
 - `FRONTEND_URL`
 - `FRONTEND_WINS_URL` (optional override)
 - `FRONTEND_ORIGINS` / `CORS_ALLOWED_ORIGINS` (only if overriding credentials)
-- `SESSION_COOKIE_DOMAIN` / `SESSION_COOKIE_SAMESITE` / `COOKIE_SAMESITE` / `ALLOW_SAMESITE_NONE`
+- `SESSION_COOKIE_SAMESITE` / `COOKIE_SAMESITE`
 - `SESSION_TOKEN_IDLE_TTL_MINUTES` (or legacy `SESSION_TOKEN_TTL_MINUTES`)
 - `SESSION_TOKEN_ABSOLUTE_TTL_MINUTES`
 - `SESSION_LAST_SEEN_DEBOUNCE_SECONDS`

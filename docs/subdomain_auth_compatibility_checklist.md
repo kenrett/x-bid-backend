@@ -2,9 +2,9 @@
 
 ## Current auth transport
 
-- HTTP API auth is cookie-first via signed `bs_session_id` (`Auth::CookieSessionAuthenticator`).
+- HTTP API auth is cookie-first via signed `__Host-bs_session_id` (`Auth::CookieSessionAuthenticator`), with legacy `bs_session_id` fallback during migration.
 - Bearer auth (`Authorization: Bearer <jwt>`) is fallback-only (`Auth::BearerAuthenticator`) and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
-- WebSocket (`/cable`) auth currently reads signed `bs_session_id` in `ApplicationCable::Connection`.
+- WebSocket (`/cable`) auth reads signed browser session cookies in `ApplicationCable::Connection` (`__Host-bs_session_id` first, `bs_session_id` fallback).
 
 ## Required frontend origins
 
@@ -25,6 +25,6 @@ Ensure the frontend origin is one of:
 
 ## Cookie notes
 
-- Production cookies should resolve to `Domain=.biddersweet.app` when applicable.
+- Browser session cookies are host-only (no `Domain` attribute).
 - Session cookies should remain `Secure` + `HttpOnly` with explicit `SameSite` policy.
 - WebSocket compatibility depends on storefront -> API host requests carrying session cookies.
