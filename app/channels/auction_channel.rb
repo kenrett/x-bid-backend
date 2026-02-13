@@ -33,6 +33,10 @@ class AuctionChannel < ApplicationCable::Channel
   private
 
   def subscribe_to_list
+    if list_subscription_requires_age_verification? && !age_verified_session?
+      return reject_with_reason("age_gate_required")
+    end
+
     stream_from list_stream
   end
 
@@ -68,6 +72,15 @@ class AuctionChannel < ApplicationCable::Channel
 
   def storefront_key
     connection.current_storefront_key.to_s.presence || StorefrontKeyable::DEFAULT_KEY
+  end
+
+  def list_subscription_requires_age_verification?
+    Storefront::Capabilities.requires_age_gate?(storefront_key)
+  end
+
+  def age_verified_session?
+    token = connection.current_session_token
+    token&.respond_to?(:age_verified_at) && token.age_verified_at.present?
   end
 
   def reject_with_reason(reason, **context)

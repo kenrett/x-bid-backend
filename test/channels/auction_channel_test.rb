@@ -80,6 +80,20 @@ class AuctionChannelTest < ActionCable::Channel::TestCase
     refute stream_exists_for?(list_stream_name("marketplace"))
   end
 
+  test "rejects afterdark list subscription without age-verified session" do
+    stub_storefront_connection(storefront_key: "afterdark")
+    subscribe(stream: "list")
+    assert subscription.rejected?
+  end
+
+  test "allows afterdark list subscription with age-verified session" do
+    @session_token.update!(age_verified_at: Time.current)
+    stub_storefront_connection(storefront_key: "afterdark")
+    subscribe(stream: "list")
+    assert subscription.confirmed?
+    assert stream_exists_for?(list_stream_name("afterdark"))
+  end
+
   test "rejects subscription when auction_id is missing" do
     stub_storefront_connection(storefront_key: "main")
     subscribe
