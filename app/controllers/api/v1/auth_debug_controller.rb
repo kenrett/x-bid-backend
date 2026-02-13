@@ -7,7 +7,7 @@ module Api
       # @summary Report auth header/cookie presence for the current request
       def show
         origin = request.headers["Origin"]
-        signed_cookie_readable = cookies.signed[BROWSER_SESSION_COOKIE_NAME].present?
+        signed_cookie_readable = signed_browser_session_cookie_present?
         render json: {
           host: request.host,
           origin: origin,

@@ -13,7 +13,8 @@ class ApplicationController < ActionController::API
 
   CABLE_SESSION_COOKIE_NAME = "cable_session"
   CABLE_SESSION_COOKIE_PATH = "/cable"
-  BROWSER_SESSION_COOKIE_NAME = "bs_session_id"
+  BROWSER_SESSION_COOKIE_NAME = Auth::CookieSessionAuthenticator::COOKIE_NAME.to_s
+  LEGACY_BROWSER_SESSION_COOKIE_NAME = Auth::CookieSessionAuthenticator::LEGACY_COOKIE_NAME.to_s
 
   def authenticate_request!
     begin
@@ -231,7 +232,15 @@ class ApplicationController < ActionController::API
   end
 
   def browser_session_cookie_present?
-    request.cookies.key?(BROWSER_SESSION_COOKIE_NAME)
+    browser_session_cookie_names.any? { |cookie_name| request.cookies.key?(cookie_name) }
+  end
+
+  def signed_browser_session_cookie_present?
+    browser_session_cookie_names.any? { |cookie_name| cookies.signed[cookie_name].present? }
+  end
+
+  def browser_session_cookie_names
+    [ BROWSER_SESSION_COOKIE_NAME, LEGACY_BROWSER_SESSION_COOKIE_NAME ]
   end
 
   def handle_parameter_missing(exception)
@@ -369,7 +378,7 @@ class ApplicationController < ActionController::API
   def set_cable_session_cookie(session_token)
     return unless session_token
 
-    cookie_options = CookieDomainResolver.cookie_options(request.host, path: CABLE_SESSION_COOKIE_PATH)
+    cookie_options = auth_cookie_options(path: CABLE_SESSION_COOKIE_PATH)
     AppLogger.log(
       event: "auth.cable_cookie_set",
       level: :debug,
@@ -390,7 +399,7 @@ class ApplicationController < ActionController::API
   def set_browser_session_cookie(session_token)
     return unless session_token
 
-    cookie_options = CookieDomainResolver.cookie_options(request.host)
+    cookie_options = auth_cookie_options
     log_level = Rails.env.production? ? :info : :debug
     AppLogger.log(
       event: "auth.session_cookie_set",
@@ -408,10 +417,12 @@ class ApplicationController < ActionController::API
       httponly: true,
       **cookie_options
     }.compact
+
+    clear_legacy_browser_session_cookie
   end
 
   def clear_cable_session_cookie
-    cookie_options = CookieDomainResolver.cookie_options(request.host, path: CABLE_SESSION_COOKIE_PATH)
+    cookie_options = auth_cookie_options(path: CABLE_SESSION_COOKIE_PATH)
     cookies.signed[CABLE_SESSION_COOKIE_NAME] = {
       value: "",
       expires: 1.day.ago,
@@ -421,13 +432,34 @@ class ApplicationController < ActionController::API
   end
 
   def clear_browser_session_cookie
-    cookie_options = CookieDomainResolver.cookie_options(request.host)
+    cookie_options = auth_cookie_options
     cookies.signed[BROWSER_SESSION_COOKIE_NAME] = {
       value: "",
       expires: 1.day.ago,
       httponly: true,
       **cookie_options
     }.compact
+
+    clear_legacy_browser_session_cookie
+  end
+
+  def clear_legacy_browser_session_cookie
+    cookie_domains = [ nil, CookieDomainResolver.legacy_domain_for(request.host) ].compact.uniq
+
+    cookie_domains.each do |domain|
+      cookie_options = auth_cookie_options
+      cookie_options = cookie_options.merge(domain: domain) if domain.present?
+      cookies.signed[LEGACY_BROWSER_SESSION_COOKIE_NAME] = {
+        value: "",
+        expires: 1.day.ago,
+        httponly: true,
+        **cookie_options
+      }.compact
+    end
+  end
+
+  def auth_cookie_options(path: "/")
+    CookieDomainResolver.cookie_options(request.host, path: path)
   end
 
   def encode_jwt(payload = {}, expires_at: nil, **kwargs)
