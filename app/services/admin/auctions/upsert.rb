@@ -4,8 +4,7 @@ module Admin
       def initialize(actor:, auction: nil, attrs:, request: nil)
         auction ||= ::Auction.new
         auction.storefront_key ||= Current.storefront_key.to_s.presence
-        normalized_attrs = normalize_status(attrs)
-        super(actor: actor, auction: auction, attrs: normalized_attrs, request: request)
+        super(actor: actor, auction: auction, attrs: attrs, request: request)
       end
 
       def perform
@@ -33,21 +32,7 @@ module Admin
         return true unless @attrs&.key?("status") || @attrs&.key?(:status)
 
         key = @attrs.key?("status") ? "status" : :status
-        value = @attrs[key]
-        return true if ::Auctions::Status.from_api(value).present?
-        return true if ::Auction.statuses.key?(value.to_s)
-
-        false
-      end
-
-      def normalize_status(attrs)
-        return attrs unless attrs.respond_to?(:to_h)
-        hash = attrs.to_h
-        return hash unless hash.key?("status") || hash.key?(:status)
-
-        key = hash.key?("status") ? "status" : :status
-        mapped = ::Auctions::Status.from_api(hash[key])
-        mapped ? hash.merge(key => mapped) : hash
+        ::Auctions::Status.to_internal(@attrs[key]).present?
       end
 
       def apply_details!
@@ -76,37 +61,7 @@ module Admin
       def apply_status_transition!
         desired_status = @attrs[:status] || @attrs["status"]
         return unless desired_status
-        return if desired_status.to_s == @auction.status.to_s
-
-        desired = desired_status.to_s
-        current = @auction.status.to_s
-
-        case desired
-        when "pending"
-          unless @auction.new_record? || @auction.pending? || @auction.inactive?
-            raise_invalid_transition!(from: current, to: desired)
-          end
-          @auction.schedule!(starts_at: @auction.start_date, ends_at: @auction.end_time)
-        when "active"
-          raise_invalid_transition!(from: current, to: desired) unless @auction.pending?
-          @auction.start!
-        when "ended"
-          raise_invalid_transition!(from: current, to: desired) unless @auction.active?
-          @auction.close!
-        when "cancelled"
-          unless @auction.pending? || @auction.active?
-            raise_invalid_transition!(from: current, to: desired)
-          end
-          @auction.cancel!
-        when "inactive"
-          @auction.retire!
-        else
-          raise ::Auction::InvalidState, "Unsupported status: #{desired_status}"
-        end
-      end
-
-      def raise_invalid_transition!(from:, to:)
-        raise ::Auction::InvalidState, "Cannot transition auction from #{::Auctions::Status.to_api(from)} to #{::Auctions::Status.to_api(to)}"
+        @auction.transition_to!(desired_status)
       end
     end
   end

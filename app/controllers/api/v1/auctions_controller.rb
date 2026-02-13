@@ -4,8 +4,6 @@ module Api
       before_action :authenticate_request!, only: [ :create, :update, :destroy, :extend_time ]
       before_action -> { authorize!(:admin) }, only: [ :create, :update, :destroy, :extend_time ]
 
-      ALLOWED_STATUSES = Auctions::Status.allowed_keys
-
       # @summary List all auctions
       # Returns public auction summaries filtered by status.
       # @parameter status(query) [String] Filter by status (allowed: inactive, scheduled, active, complete, cancelled)
@@ -86,10 +84,7 @@ module Api
       # @response Forbidden (403) [Error]
       # @response Validation error (422) [Error]
       def create
-        attrs = normalized_auction_params
-        return render_invalid_status unless attrs
-
-        result = ::Admin::Auctions::Upsert.new(actor: @current_user, attrs: attrs, request: request).call
+        result = ::Admin::Auctions::Upsert.new(actor: @current_user, attrs: auction_params.to_h, request: request).call
         return render_service_error(result) unless result.ok?
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json, status: :created
@@ -106,10 +101,7 @@ module Api
       # @response Validation error (422) [Error]
       def update
         auction = Auction.find(params[:id])
-        attrs = normalized_auction_params
-        return render_invalid_status unless attrs
-
-        result = ::Admin::Auctions::Upsert.new(actor: @current_user, auction: auction, attrs: attrs, request: request).call
+        result = ::Admin::Auctions::Upsert.new(actor: @current_user, auction: auction, attrs: auction_params.to_h, request: request).call
         return render_service_error(result) unless result.ok?
 
         render json: Api::V1::Admin::AuctionSerializer.new(result.record).as_json
@@ -178,28 +170,6 @@ module Api
         return if vary.split(",").map(&:strip).include?("X-Storefront-Key")
 
         response.headers["Vary"] = "#{vary}, X-Storefront-Key"
-      end
-
-      def normalized_auction_params
-        attrs = auction_params.to_h
-        return attrs unless attrs.key?("status")
-
-        normalized = normalize_status(attrs["status"])
-        return nil unless normalized
-
-        attrs.merge!("status" => normalized)
-      rescue ArgumentError => e
-        # Log the error if you want, e.g. Rails.logger.error(e.message)
-        nil
-      end
-
-      def normalize_status(raw_status)
-        Auctions::Status.from_api(raw_status)
-      end
-
-      def render_invalid_status
-        render_error(code: :invalid_status, message: "Invalid status. Allowed: #{ALLOWED_STATUSES.join(', ')}", status: :unprocessable_entity)
-        nil
       end
 
       def render_service_error(result)

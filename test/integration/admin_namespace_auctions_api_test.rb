@@ -172,6 +172,54 @@ class AdminNamespaceAuctionsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "PUT /api/v1/admin/auctions/:id transitions scheduled auction to active" do
+    auction = Auction.create!(
+      title: "Schedule Then Activate",
+      description: "Desc",
+      start_date: 2.hours.from_now,
+      end_time: 3.hours.from_now,
+      current_price: 1.0,
+      status: :pending
+    )
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/admin/auctions/#{auction.id}", params: { auction: { status: "active" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "active", body.fetch("status")
+        assert_equal "active", auction.reload.status
+      else
+        assert_equal "pending", auction.reload.status
+      end
+    end
+  end
+
+  test "PUT /api/v1/admin/auctions/:id transitions active auction to complete" do
+    auction = Auction.create!(
+      title: "Complete Me",
+      description: "Desc",
+      start_date: 2.hours.ago,
+      end_time: 1.minute.ago,
+      current_price: 1.0,
+      status: :active
+    )
+
+    each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
+      put "/api/v1/admin/auctions/#{auction.id}", params: { auction: { status: "complete" } }, headers: headers
+      assert_response expected_status, "role=#{role}"
+
+      if success
+        body = JSON.parse(response.body)
+        assert_equal "complete", body.fetch("status")
+        assert_equal "ended", auction.reload.status
+      else
+        assert_equal "active", auction.reload.status
+      end
+    end
+  end
+
   test "PUT /api/v1/admin/auctions/:id rejects inactive to active transition" do
     auction = Auction.create!(
       title: "Cannot Publish",

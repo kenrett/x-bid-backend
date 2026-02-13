@@ -17,16 +17,6 @@ class Auction < ApplicationRecord
 
   before_destroy :prevent_destroy
 
-  # Accept external status values and map them to internal enum keys.
-  def status=(value)
-    mapped = Auctions::Status.from_api(value) || value
-    super(mapped)
-  end
-
-  def self.normalize_status(value)
-    Auctions::Status.from_api(value)
-  end
-
   # An auction is considered closed if it's not active or its end time has passed.
   def closed?
     status != "active" || (end_time.present? && end_time < Time.current)
@@ -120,6 +110,37 @@ class Auction < ApplicationRecord
     update!(status: :inactive)
   end
 
+  def transition_to!(new_status)
+    desired = Auctions::Status.to_internal(new_status)
+    raise InvalidState, "Unsupported status: #{new_status}" if desired.blank?
+
+    current = status.to_s
+    return if desired == current
+
+    case desired
+    when "pending"
+      unless new_record? || pending? || inactive?
+        raise_invalid_transition!(from: current, to: desired)
+      end
+      schedule!(starts_at: start_date, ends_at: end_time)
+    when "active"
+      raise_invalid_transition!(from: current, to: desired) unless pending?
+      start!
+    when "ended"
+      raise_invalid_transition!(from: current, to: desired) unless active?
+      close!
+    when "cancelled"
+      unless pending? || active?
+        raise_invalid_transition!(from: current, to: desired)
+      end
+      cancel!
+    when "inactive"
+      retire!
+    else
+      raise InvalidState, "Unsupported status: #{new_status}"
+    end
+  end
+
   def allowed_admin_transitions
     transitions = []
     transitions << "scheduled" if pending? || inactive? || new_record?
@@ -151,5 +172,9 @@ class Auction < ApplicationRecord
 
   def assert_state!(condition, message)
     raise InvalidState, message unless condition
+  end
+
+  def raise_invalid_transition!(from:, to:)
+    raise InvalidState, "Cannot transition auction from #{Auctions::Status.to_api(from)} to #{Auctions::Status.to_api(to)}"
   end
 end

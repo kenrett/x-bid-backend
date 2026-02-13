@@ -1,6 +1,6 @@
 module Auctions
   class Status
-    ALLOWED = {
+    EXTERNAL_TO_INTERNAL = {
       "inactive" => "inactive",
       "scheduled" => "pending",
       "active" => "active",
@@ -8,20 +8,25 @@ module Auctions
       "cancelled" => "cancelled"
     }.freeze
 
+    INTERNAL = %w[pending active ended cancelled inactive].freeze
+
     REVERSE = {
       "pending" => "scheduled",
       "ended" => "complete"
     }.freeze
 
     class << self
-      def from_api(value)
+      def to_internal(value)
         return nil if value.blank?
 
         normalized = value.to_s.downcase
-        return "pending" if normalized == "pending"
-        return "ended" if normalized == "ended"
+        return normalized if INTERNAL.include?(normalized)
 
-        ALLOWED[normalized]
+        EXTERNAL_TO_INTERNAL[normalized]
+      end
+
+      def from_api(value)
+        to_internal(value)
       end
 
       def to_api(enum_value)
@@ -29,7 +34,7 @@ module Auctions
       end
 
       def allowed_keys
-        ALLOWED.keys
+        EXTERNAL_TO_INTERNAL.keys
       end
     end
   end
