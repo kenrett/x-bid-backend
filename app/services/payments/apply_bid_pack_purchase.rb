@@ -302,7 +302,6 @@ module Payments
       def pending_status_for(purchase)
         status = purchase.status.to_s
         return "paid_pending_apply" if status.blank? || status.in?(%w[created failed pending])
-        return "applied" if status == "completed"
 
         status
       end
@@ -310,7 +309,6 @@ module Payments
       def applied_status_for(purchase)
         status = purchase.status.to_s
         return status if status.in?(%w[refunded partially_refunded voided])
-        return "applied" if status == "completed"
 
         "applied"
       end

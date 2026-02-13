@@ -20,6 +20,7 @@ class Purchase < ApplicationRecord
 
   validates :amount_cents, numericality: { greater_than_or_equal_to: 0 }
   validates :currency, presence: true
+  validates :status, presence: true, inclusion: { in: STATUSES }
   validates :stripe_checkout_session_id, uniqueness: true, allow_nil: true
   validates :stripe_payment_intent_id, uniqueness: true, allow_nil: true
   validates :stripe_event_id, uniqueness: true, allow_nil: true

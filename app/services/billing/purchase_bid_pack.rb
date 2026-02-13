@@ -14,7 +14,7 @@ module Billing
 
       ActiveRecord::Base.transaction do
         purchase = find_purchase
-        if purchase&.status.in?(%w[applied completed])
+        if purchase&.status.in?(%w[applied])
           return ServiceResult.ok(code: :already_processed, message: "Payment already applied", data: { purchase: purchase, idempotent: true })
         end
 

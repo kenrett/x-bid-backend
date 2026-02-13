@@ -105,7 +105,7 @@ module Admin
       end
 
       def refundable_state?
-        !@payment.voided? && !@payment.failed? && %w[applied completed partially_refunded].include?(@payment.status)
+        !@payment.voided? && !@payment.failed? && %w[applied partially_refunded].include?(@payment.status)
       end
 
       def refund_already_recorded?

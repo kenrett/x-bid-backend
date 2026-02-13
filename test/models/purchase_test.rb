@@ -19,4 +19,21 @@ class PurchaseTest < ActiveSupport::TestCase
     assert purchase.valid?
     assert_equal "pending", purchase.receipt_status
   end
+
+  test "status must be present and canonical" do
+    purchase = Purchase.new(
+      user: @user,
+      bid_pack: @bid_pack,
+      amount_cents: 100,
+      currency: "usd",
+      status: "completed"
+    )
+
+    refute purchase.valid?
+    assert_includes purchase.errors[:status], "is not included in the list"
+
+    purchase.status = nil
+    refute purchase.valid?
+    assert_includes purchase.errors[:status], "can't be blank"
+  end
 end
