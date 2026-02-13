@@ -1,7 +1,7 @@
 require "test_helper"
 
 class CookieSessionAuthTest < ActionDispatch::IntegrationTest
-  test "cookie auth succeeds across subdomains" do
+  test "host-only cookie auth does not cross subdomains" do
     user = User.create!(
       name: "Cookie User",
       email_address: "cookie-auth@example.com",
@@ -11,12 +11,13 @@ class CookieSessionAuthTest < ActionDispatch::IntegrationTest
 
     Rails.stub(:env, ActiveSupport::StringInquirer.new("development")) do
       host! "api.lvh.me"
+      https!
       post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password" } }
       assert_response :success
 
       host! "store.lvh.me"
       get "/api/v1/me"
-      assert_response :success
+      assert_response :unauthorized
     end
   end
 

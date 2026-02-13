@@ -27,7 +27,7 @@ class CsrfEndpointTest < ActionDispatch::IntegrationTest
     assert_match(/httponly/i, set_cookie)
     assert_match(/secure/i, set_cookie)
     assert_match(/samesite=lax/i, set_cookie)
-    assert_match(/domain=\.biddersweet\.app/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
   end
 
   private

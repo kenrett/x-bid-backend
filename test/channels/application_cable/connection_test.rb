@@ -4,7 +4,7 @@ class ApplicationCable::ConnectionTest < ActionCable::Connection::TestCase
     user = User.create!(name: "User", email_address: "user@example.com", password: "password", bid_credits: 0)
     session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
 
-    cookies.signed[:bs_session_id] = session_token.id
+    cookies.signed[Auth::CookieSessionAuthenticator::COOKIE_NAME] = session_token.id
     connect
 
     assert_equal user.id, connection.current_user.id
@@ -21,11 +21,22 @@ class ApplicationCable::ConnectionTest < ActionCable::Connection::TestCase
     user = User.create!(name: "User", email_address: "signed-cable@example.com", password: "password", bid_credits: 0)
     session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
 
-    cookies.signed[:bs_session_id] = session_token.id
+    cookies.signed[Auth::CookieSessionAuthenticator::COOKIE_NAME] = session_token.id
     cookies.signed[:cable_session] = session_token.id
     connect
 
     context = connection.send(:connection_log_context)
     assert_equal true, context[:cable_session_cookie_present]
+  end
+
+  test "connects with legacy browser session cookie during migration window" do
+    user = User.create!(name: "User", email_address: "legacy-cookie@example.com", password: "password", bid_credits: 0)
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
+
+    cookies.signed[Auth::CookieSessionAuthenticator::LEGACY_COOKIE_NAME] = session_token.id
+    connect
+
+    assert_equal user.id, connection.current_user.id
+    assert_equal session_token.id, connection.current_session_token.id
   end
 end

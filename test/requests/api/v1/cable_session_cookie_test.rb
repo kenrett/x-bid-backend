@@ -14,12 +14,12 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
 
     assert_response :success
-    set_cookie = set_cookie_header
+    set_cookie = cookie_header_for("cable_session")
     assert set_cookie.present?, "Expected Set-Cookie header to be present"
-    assert_includes set_cookie, "cable_session="
     assert_match(/httponly/i, set_cookie)
     assert_match(/samesite=lax/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
   end
 
   test "signup sets cable session cookie with expected flags" do
@@ -33,12 +33,12 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     }
 
     assert_response :created
-    set_cookie = set_cookie_header
+    set_cookie = cookie_header_for("cable_session")
     assert set_cookie.present?, "Expected Set-Cookie header to be present"
-    assert_includes set_cookie, "cable_session="
     assert_match(/httponly/i, set_cookie)
     assert_match(/samesite=lax/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
   end
 
   test "refresh sets cable session cookie with expected flags" do
@@ -50,12 +50,12 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     post "/api/v1/session/refresh", params: { refresh_token: login_body.fetch("refresh_token") }, headers: headers
 
     assert_response :success
-    set_cookie = set_cookie_header
+    set_cookie = cookie_header_for("cable_session")
     assert set_cookie.present?, "Expected Set-Cookie header to be present"
-    assert_includes set_cookie, "cable_session="
     assert_match(/httponly/i, set_cookie)
     assert_match(/samesite=lax/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
   end
 
   test "login sets Secure on cable session cookie in production" do
@@ -66,15 +66,14 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    set_cookie = set_cookie_header
-    assert_includes set_cookie, "cable_session="
-    assert_match(/domain=\.biddersweet\.app/i, set_cookie)
+    set_cookie = cookie_header_for("cable_session")
     assert_match(/secure/i, set_cookie)
     assert_match(/samesite=lax/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
   end
 
-  test "login sets SameSite=None on cable session cookie when opted in" do
+  test "login keeps SameSite=Lax on cable session cookie when none is requested" do
     with_env("SESSION_COOKIE_SAMESITE" => "none", "ALLOW_SAMESITE_NONE" => "true") do
       Rails.stub(:env, ActiveSupport::StringInquirer.new("production")) do
         host! "api.biddersweet.app"
@@ -84,12 +83,11 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    set_cookie = set_cookie_header
-    assert_includes set_cookie, "cable_session="
-    assert_match(/domain=\.biddersweet\.app/i, set_cookie)
+    set_cookie = cookie_header_for("cable_session")
     assert_match(/secure/i, set_cookie)
-    assert_match(/samesite=none/i, set_cookie)
+    assert_match(/samesite=lax/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
   end
 
   test "logout clears cable session cookie" do
@@ -103,7 +101,7 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    set_cookie = set_cookie_header
+    set_cookie = cookie_header_for("cable_session")
     assert_match(/cable_session=;?/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
     assert_match(/httponly/i, set_cookie)
@@ -112,7 +110,7 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     assert_expired_cookie!(set_cookie)
   end
 
-  test "logout clears cable session cookie with production domain and attributes" do
+  test "logout clears cable session cookie with production attributes" do
     Rails.stub(:env, ActiveSupport::StringInquirer.new("production")) do
       host! "api.biddersweet.app"
       https!
@@ -127,14 +125,14 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    set_cookie = set_cookie_header
+    set_cookie = cookie_header_for("cable_session")
     assert_match(/cable_session=;?/i, set_cookie)
     assert_match(/expires=/i, set_cookie)
     assert_match(/path=\/cable/i, set_cookie)
-    assert_match(/domain=\.biddersweet\.app/i, set_cookie)
     assert_match(/httponly/i, set_cookie)
     assert_match(/samesite=lax/i, set_cookie)
     assert_match(/secure/i, set_cookie)
+    refute_match(/domain=/i, set_cookie)
     assert_expired_cookie!(set_cookie)
   end
 
@@ -144,11 +142,21 @@ class CableSessionCookieTest < ActionDispatch::IntegrationTest
     "Bearer #{access_token}"
   end
 
-  def set_cookie_header
-    header = response.headers["Set-Cookie"]
-    return header.join("\n") if header.is_a?(Array)
+  def set_cookie_headers
+    if response.headers.respond_to?(:get_all)
+      values = response.headers.get_all("Set-Cookie")
+      return values if values.present?
+    end
 
-    header.to_s
+    header = response.headers["Set-Cookie"]
+    return [] if header.blank?
+    return header if header.is_a?(Array)
+
+    header.split("\n")
+  end
+
+  def cookie_header_for(name)
+    set_cookie_headers.find { |header| header.match?(/\A#{Regexp.escape(name)}=/) }.to_s
   end
 
   def assert_expired_cookie!(set_cookie)

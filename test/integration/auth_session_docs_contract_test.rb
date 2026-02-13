@@ -25,9 +25,12 @@ class AuthSessionDocsContractTest < ActiveSupport::TestCase
     actioncable_doc = read_doc("docs/auth/actioncable.md")
     connection_source = read_doc("app/channels/application_cable/connection.rb")
     cookie_name = Auth::CookieSessionAuthenticator::COOKIE_NAME.to_s
+    legacy_cookie_name = Auth::CookieSessionAuthenticator::LEGACY_COOKIE_NAME.to_s
 
-    assert_includes connection_source, "cookies.signed[:#{cookie_name}]"
-    assert_includes actioncable_doc, "cookies.signed[:#{cookie_name}]"
+    assert_includes connection_source, "Auth::CookieSessionAuthenticator::COOKIE_NAMES.each"
+    assert_includes connection_source, "cookies.signed[cookie_name]"
+    assert_includes actioncable_doc, cookie_name
+    assert_includes actioncable_doc, legacy_cookie_name
     refute_includes actioncable_doc, "?token="
   end
 
