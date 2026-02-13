@@ -17,6 +17,27 @@ class ApplicationCable::ConnectionTest < ActionCable::Connection::TestCase
     end
   end
 
+  test "rejects connection when origin is not allowlisted" do
+    user = User.create!(name: "User", email_address: "origin-reject@example.com", password: "password", bid_credits: 0)
+    session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)
+    cookies.signed[Auth::CookieSessionAuthenticator::COOKIE_NAME] = session_token.id
+
+    logged = []
+    AppLogger.stub(:log, lambda { |event:, level: :info, **context|
+      logged << { event: event, level: level, context: context }
+      nil
+    }) do
+      assert_raises(ActionCable::Connection::Authorization::UnauthorizedError) do
+        connect headers: { "Origin" => "https://rogue.biddersweet.app" }
+      end
+    end
+
+    origin_rejected = logged.find { |item| item[:event] == "origin_rejected" }
+    assert origin_rejected, "Expected origin_rejected log entry"
+    assert_equal "https://rogue.biddersweet.app", origin_rejected.dig(:context, :origin)
+    assert origin_rejected.dig(:context, :host).present?
+  end
+
   test "diagnostics read cable_session from signed cookies" do
     user = User.create!(name: "User", email_address: "signed-cable@example.com", password: "password", bid_credits: 0)
     session_token = SessionToken.create!(user: user, token_digest: SessionToken.digest("raw"), expires_at: 1.hour.from_now)

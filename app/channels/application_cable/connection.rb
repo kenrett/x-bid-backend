@@ -4,6 +4,7 @@ module ApplicationCable
 
     def connect
       set_storefront_context!
+      enforce_allowed_origin!
       log_connection_diagnostics
       session_token = authenticate_connection
       self.current_session_token = session_token
@@ -34,6 +35,23 @@ module ApplicationCable
       end
 
       session_token
+    end
+
+    def enforce_allowed_origin!
+      origin = connection_origin
+      return if origin.blank?
+      return if FrontendOrigins.allowed_origin?(origin)
+
+      AppLogger.log(
+        event: "origin_rejected",
+        level: :warn,
+        reason: "origin_not_allowed",
+        transport: "action_cable",
+        **connection_log_context,
+        origin: origin,
+        origin_allowed: false
+      )
+      reject_unauthorized_connection
     end
 
     def browser_session_cookie_id
@@ -92,7 +110,7 @@ module ApplicationCable
         action: "connect",
         method: request.request_method,
         path: request.path,
-        origin: request.headers["Origin"],
+        origin: connection_origin,
         host: request.host,
         cookie_present: request.headers["Cookie"].present?,
         authorization_present: request.headers["Authorization"].present?,
@@ -101,6 +119,10 @@ module ApplicationCable
         storefront_key: current_storefront_key || Current.storefront_key,
         storefront_key_param_present: storefront_key_param_present?
       }
+    end
+
+    def connection_origin
+      request.origin.presence || request.headers["Origin"].presence
     end
 
     def storefront_key_param_present?

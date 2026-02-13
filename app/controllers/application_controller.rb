@@ -20,6 +20,15 @@ class ApplicationController < ActionController::API
     begin
       result = Auth::AuthenticateRequest.call(request)
       session_token = result.session_token
+      if origin_rejected_for_cookie_session?(auth_method: result.method, session_token: session_token)
+        log_origin_rejected(reason: :origin_not_allowed, auth_method: result.method)
+        return render_auth_failure!(
+          code: :invalid_token,
+          reason: :origin_not_allowed,
+          message: "Origin is not allowed",
+          status: :forbidden
+        )
+      end
       unless session_token
         log_details = {}
         if request.headers["Authorization"].present? && !Auth::AuthenticateRequest.bearer_allowed?
@@ -373,6 +382,34 @@ class ApplicationController < ActionController::API
     return :missing_session_cookie if cookie_header_present
 
     :missing_authorization_header
+  end
+
+  def origin_rejected_for_cookie_session?(auth_method:, session_token:)
+    return false unless auth_method == :cookie
+    return false unless session_token.present?
+
+    origin = request.headers["Origin"].to_s
+    return false if origin.blank?
+
+    !FrontendOrigins.allowed_origin?(origin)
+  end
+
+  def log_origin_rejected(reason:, auth_method:)
+    AppLogger.log(
+      event: "origin_rejected",
+      level: :warn,
+      reason: reason.to_s,
+      auth_method: auth_method.to_s,
+      request_id: request.request_id,
+      controller_action: "#{controller_name}##{action_name}",
+      controller: controller_name,
+      action: action_name,
+      method: request.request_method,
+      path: request.fullpath,
+      origin: request.headers["Origin"],
+      host: request.host,
+      storefront_key: Current.storefront_key
+    )
   end
 
   def set_cable_session_cookie(session_token)

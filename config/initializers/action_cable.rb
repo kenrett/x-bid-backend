@@ -5,8 +5,7 @@ if ENV.fetch("PROCESS_ROLE", "web") == "web"
     origins = FrontendOrigins.allowed_origin_patterns
 
     if ActionCable.server
-      existing = Array(ActionCable.server.config.allowed_request_origins)
-      ActionCable.server.config.allowed_request_origins = (existing + origins).uniq
+      ActionCable.server.config.allowed_request_origins = origins
     end
   end
 end

@@ -30,4 +30,17 @@ class FrontendOriginsTest < ActiveSupport::TestCase
     assert FrontendOrigins.allowed_origin?("https://account.biddersweet.app", env: "production", credentials: creds)
     refute FrontendOrigins.allowed_origin?("https://biddersweet.app.evil.com", env: "production", credentials: creds)
   end
+
+  test "rejects wildcard origins from env configuration" do
+    creds = Object.new
+    ENV["FRONTEND_ORIGINS"] = "https://*.biddersweet.app"
+
+    error = assert_raises(RuntimeError) do
+      FrontendOrigins.for_env!("production", credentials: creds)
+    end
+
+    assert_includes error.message, "Wildcard frontend origin(s) are not allowed"
+  ensure
+    ENV.delete("FRONTEND_ORIGINS")
+  end
 end

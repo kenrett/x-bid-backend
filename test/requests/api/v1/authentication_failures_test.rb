@@ -35,4 +35,33 @@ class AuthenticationFailuresTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_token", body.dig("error", "code")
     assert_equal "missing_session_cookie", body.dig("error", "details", "reason")
   end
+
+  test "session-authenticated request rejects disallowed origin and logs origin_rejected" do
+    user = User.create!(
+      name: "Origin Check User",
+      email_address: "origin-check@example.com",
+      password: "password",
+      bid_credits: 0
+    )
+    post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password" } }
+    assert_response :success
+
+    logged = []
+    AppLogger.stub(:log, lambda { |event:, level: :info, **context|
+      logged << { event: event, level: level, context: context }
+      nil
+    }) do
+      get "/api/v1/me", headers: { "Origin" => "https://rogue.biddersweet.app" }
+    end
+
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_equal "invalid_token", body.dig("error", "code")
+    assert_equal "origin_not_allowed", body.dig("error", "details", "reason")
+
+    origin_rejected = logged.find { |item| item[:event] == "origin_rejected" }
+    assert origin_rejected, "Expected origin_rejected log entry"
+    assert_equal "https://rogue.biddersweet.app", origin_rejected.dig(:context, :origin)
+    assert origin_rejected.dig(:context, :host).present?
+  end
 end

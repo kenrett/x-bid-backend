@@ -69,6 +69,9 @@ module FrontendOrigins
     invalid = normalized.reject { |origin| origin.start_with?("http://", "https://") }
     raise "Invalid frontend origin(s) for #{env_key}: #{invalid.join(", ")}" if invalid.any?
 
+    wildcards = normalized.select { |origin| origin.include?("*") }
+    raise "Wildcard frontend origin(s) are not allowed for #{env_key}: #{wildcards.join(", ")}" if wildcards.any?
+
     normalized
   end
 
