@@ -6,6 +6,8 @@
 bundle exec rake uploads:audit AWS_BUCKET=<bucket> AWS_REGION=<region>
 ```
 
+`AWS_BUCKET` is preferred. `S3_BUCKET` is also accepted for compatibility.
+
 Optional prefix filter:
 
 ```bash
@@ -14,7 +16,7 @@ bundle exec rake uploads:audit AWS_BUCKET=<bucket> AWS_REGION=<region> UPLOADS_P
 
 Output report:
 
-`uploads_audit.json`
+`tmp/uploads_audit.json`
 
 ## 2) Rehydrate auction image URLs from attached blobs
 

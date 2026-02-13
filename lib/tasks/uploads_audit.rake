@@ -1,44 +1,28 @@
-require "set"
 require "json"
+
+begin
+  require "aws-sdk-s3"
+rescue LoadError
+  # Uploads::AuditReport surfaces a clear error if the SDK is unavailable.
+end
 
 namespace :uploads do
   desc "Audit ActiveStorage blobs vs S3 objects"
   task audit: :environment do
-    bucket = ENV.fetch("S3_BUCKET")
-    region = ENV.fetch("AWS_REGION")
+    bucket = Uploads::AuditReport.bucket_from_env
+    abort "Missing required env var: set AWS_BUCKET (preferred) or S3_BUCKET." if bucket.blank?
+
+    region = Uploads::AuditReport.region_from_env
+    abort "Missing required env var: AWS_REGION." if region.blank?
+
     prefix = ENV.fetch("UPLOADS_PREFIX", "")
 
-    s3 = Aws::S3::Client.new(region: region)
-    s3_keys = []
-    token = nil
+    report_path = Uploads::AuditReport::REPORT_PATH
+    report = Uploads::AuditReport.new(bucket: bucket, region: region, prefix: prefix).write_report(path: report_path)
 
-    loop do
-      resp = s3.list_objects_v2(
-        bucket: bucket,
-        prefix: prefix,
-        continuation_token: token
-      )
-      s3_keys.concat(resp.contents.map(&:key))
-      break unless resp.is_truncated
-      token = resp.next_continuation_token
-    end
-
-    s3_set = s3_keys.to_set
-    db_set = ActiveStorage::Blob.pluck(:key).to_set
-
-    missing_in_db = (s3_set - db_set).to_a
-    missing_in_s3 = (db_set - s3_set).to_a
-
-    report = {
-      s3_count: s3_set.size,
-      db_count: db_set.size,
-      missing_in_db_count: missing_in_db.size,
-      missing_in_s3_count: missing_in_s3.size,
-      missing_in_db: missing_in_db.take(200),
-      missing_in_s3: missing_in_s3.take(200)
-    }
-
-    File.write(Rails.root.join("tmp/uploads_audit.json"), JSON.pretty_generate(report))
     puts JSON.pretty_generate(report)
+    puts "Wrote report to #{report_path}"
+  rescue Uploads::AuditReport::MissingDependencyError => e
+    abort e.message
   end
 end
