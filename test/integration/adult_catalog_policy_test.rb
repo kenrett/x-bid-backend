@@ -115,6 +115,28 @@ class AdultCatalogPolicyTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "afterdark adult detail works with cookie session after age gate accept" do
+    user = create_actor(role: :user)
+    host!("afterdark.biddersweet.app")
+    post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password" } }
+    assert_response :success
+    session_token = user.session_tokens.order(:created_at).last
+    assert session_token.present?
+
+    get "/api/v1/auctions/#{@adult_auction.id}"
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_equal "AGE_GATE_REQUIRED", body.dig("error", "code").to_s
+    assert_nil session_token.reload.age_verified_at
+
+    post "/api/v1/age_gate/accept", headers: csrf_headers
+    assert_response :no_content
+    assert session_token.reload.age_verified_at.present?
+
+    get "/api/v1/auctions/#{@adult_auction.id}"
+    assert_response :success
+  end
+
   test "afterdark adult bid history requires age gate acceptance and succeeds after accepting" do
     winning_user = create_actor(role: :user)
     bid = Bid.create!(user: winning_user, auction: @adult_auction, amount: 11.0, created_at: 1.minute.ago)
