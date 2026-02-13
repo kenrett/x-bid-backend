@@ -2991,13 +2991,14 @@
         "type": "object"
       },
       "UserSession": {
-        "description": "Auth Contract v1 session details returned after signup/login/refresh.",
+        "description": "Auth Contract v1 session details returned after signup/login/refresh. Bearer tokens are omitted when bearer auth is disabled.",
         "properties": {
           "access_token": {
-            "description": "JWT used for authenticated requests.",
+            "description": "JWT used for authenticated requests when bearer auth is enabled.",
             "type": "string"
           },
           "refresh_token": {
+            "description": "Refresh token for bearer-token clients when bearer auth is enabled.",
             "type": "string"
           },
           "session_token_id": {
@@ -3015,8 +3016,6 @@
           }
         },
         "required": [
-          "access_token",
-          "refresh_token",
           "session_token_id",
           "user"
         ],

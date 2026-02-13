@@ -37,6 +37,29 @@ class SessionEndpointResponseKeysTest < ActionDispatch::IntegrationTest
     refute body.key?("token"), "Expected response not to include legacy token"
   end
 
+  test "POST /api/v1/login omits bearer tokens when bearer auth is disabled in production" do
+    user = User.create!(
+      name: "Session Keys",
+      email_address: "session_keys_login_bearer_disabled@example.com",
+      password: "password",
+      role: :user,
+      bid_credits: 0,
+      email_verified_at: Time.current
+    )
+
+    with_env("DISABLE_BEARER_AUTH" => "true") do
+      Rails.stub(:env, ActiveSupport::StringInquirer.new("production")) do
+        post "/api/v1/login", params: { session: { email_address: user.email_address, password: "password" } }
+      end
+    end
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    assert_equal %w[session_token_id user].sort, body.keys.sort
+    refute body.key?("access_token"), "Expected response not to include access_token when bearer auth is disabled"
+    refute body.key?("refresh_token"), "Expected response not to include refresh_token when bearer auth is disabled"
+  end
+
   test "POST /api/v1/signup returns access_token (not token) with exact top-level keys" do
     post "/api/v1/signup",
          params: {

@@ -6,7 +6,8 @@ This document describes the auth/session contract currently implemented by the b
 
 - HTTP API auth is cookie-first through a signed HttpOnly `bs_session_id` cookie.
 - `SessionToken` rows are the source of truth for session validity (active, revoked, expired).
-- Login/signup/refresh responses still include `access_token` and `refresh_token` for compatibility clients.
+- Login/signup/refresh responses always include `session_token_id` and `user`.
+- `access_token` and `refresh_token` are returned only when bearer auth is enabled.
 - Bearer auth is fallback-only and can be disabled in production with `DISABLE_BEARER_AUTH=true`.
 - ActionCable currently authenticates from the signed `bs_session_id` cookie.
 
@@ -18,7 +19,8 @@ On successful auth or registration, backend runtime:
 
 - Creates a `SessionToken` row.
 - Issues a raw refresh token (stored hashed in `session_tokens.token_digest`).
-- Returns JSON payload with `access_token`, `refresh_token`, `session_token_id`, and `user`.
+- Returns JSON payload with `session_token_id` and `user`.
+- Also returns `access_token` and `refresh_token` when bearer auth is enabled.
 - Sets two signed HttpOnly cookies:
   - `bs_session_id` (browser/API cookie)
   - `cable_session` (path `/cable`)

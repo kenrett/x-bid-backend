@@ -197,7 +197,7 @@ All endpoints are prefixed with `/api/v1`.
 ### Authentication
 
 * `POST /users` and `POST /signup`: Register a new user and create a session.
-* `POST /login`: Create a session. Response includes `access_token`/`refresh_token` and user flags, and sets signed HttpOnly cookies (`bs_session_id` for HTTP and `cable_session` for `/cable`).
+* `POST /login`: Create a session. Response always includes `session_token_id` and `user`, and includes `access_token`/`refresh_token` only when bearer auth is enabled. Also sets signed HttpOnly cookies (`bs_session_id` for HTTP and `cable_session` for `/cable`).
 * `POST /session/refresh`: Rotate session tokens and re-issue session cookies (supported for clients that use refresh tokens).
 * `GET /session/remaining`: Session TTL remaining for the authenticated session.
 * `DELETE /logout`: Revoke the active session server-side and clear session cookies.

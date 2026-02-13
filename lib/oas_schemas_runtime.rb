@@ -131,10 +131,10 @@ module OasSchemasRuntime
     },
     "UserSession" => {
       type: "object",
-      description: "Auth Contract v1 session details returned after signup/login/refresh.",
+      description: "Auth Contract v1 session details returned after signup/login/refresh. Bearer tokens are omitted when bearer auth is disabled.",
       properties: {
-        access_token: { type: "string", description: "JWT used for authenticated requests." },
-        refresh_token: { type: "string" },
+        access_token: { type: "string", description: "JWT used for authenticated requests when bearer auth is enabled." },
+        refresh_token: { type: "string", description: "Refresh token for bearer-token clients when bearer auth is enabled." },
         session_token_id: {
           oneOf: [
             { type: "integer" },
@@ -143,7 +143,7 @@ module OasSchemasRuntime
         },
         user: { "$ref" => "#/components/schemas/User" }
       },
-      required: %w[access_token refresh_token session_token_id user]
+      required: %w[session_token_id user]
     },
     "LoggedInStatus" => {
       type: "object",

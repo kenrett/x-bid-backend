@@ -2,6 +2,12 @@ module Auth
   class SessionResponseBuilder
     def self.build(user:, session_token:, refresh_token:, jwt_encoder:)
       flags = flags_for(user)
+      payload = {
+        session_token_id: session_token.id,
+        user: user_data(user, flags: flags)
+      }
+      return payload unless Auth::AuthenticateRequest.bearer_allowed?
+
       jwt_payload = {
         user_id: user.id,
         session_token_id: session_token.id,
@@ -9,12 +15,10 @@ module Auth
         is_superuser: flags[:is_superuser]
       }
 
-      {
+      payload.merge(
         access_token: jwt_encoder.call(jwt_payload, expires_at: session_token.expires_at),
-        refresh_token: refresh_token,
-        session_token_id: session_token.id,
-        user: user_data(user, flags: flags)
-      }
+        refresh_token: refresh_token
+      )
     end
 
     def self.flags_for(user)
