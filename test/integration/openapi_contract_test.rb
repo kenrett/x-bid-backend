@@ -173,4 +173,32 @@ class OpenapiContractTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
     assert_openapi_response_schema!(method: :post, path: "/api/v1/auctions/#{auction.id}/bids", status: response.status)
   end
+
+  test "PUT /api/v1/admin/auctions/:id documents storefront_key in request contract and matches response schema" do
+    storefront_key_property = openapi_document
+      .dig("components", "schemas", "AuctionUpsert", "properties", "auction", "properties", "storefront_key")
+
+    assert storefront_key_property.present?
+    assert_equal %w[main afterdark marketplace], storefront_key_property.fetch("enum")
+
+    auction = Auction.create!(
+      title: "OpenAPI Storefront Reassign",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: BigDecimal("1.00"),
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false,
+      is_adult: false
+    )
+    admin = create_actor(role: :admin)
+
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "marketplace" } },
+        headers: auth_headers_for(admin)
+
+    assert_response :success
+    assert_openapi_response_schema!(method: :put, path: "/api/v1/admin/auctions/#{auction.id}", status: response.status)
+  end
 end

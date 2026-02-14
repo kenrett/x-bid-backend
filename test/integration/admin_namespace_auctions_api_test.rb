@@ -211,6 +211,129 @@ class AdminNamespaceAuctionsApiTest < ActionDispatch::IntegrationTest
     assert_equal false, auction.is_adult
   end
 
+  test "PUT /api/v1/admin/auctions/:id returns 422 for invalid storefront_key" do
+    auction = Auction.create!(
+      title: "Storefront Update Invalid",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false
+    )
+
+    admin = create_actor(role: :admin)
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "invalid-storefront" } },
+        headers: auth_headers_for(admin)
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "invalid_auction", body.dig("error", "code")
+    assert_includes body.dig("error", "message"), "Storefront key must be one of"
+    assert_includes body.dig("error", "field_errors", "storefront_key"), "must be one of: main, afterdark, marketplace"
+
+    auction.reload
+    assert_equal "main", auction.storefront_key
+    assert_equal false, auction.is_marketplace
+  end
+
+  test "PUT /api/v1/admin/auctions/:id storefront_key takes precedence over legacy flags" do
+    auction = Auction.create!(
+      title: "Storefront Precedence",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false,
+      is_adult: false
+    )
+
+    admin = create_actor(role: :admin)
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "marketplace", is_adult: true, is_marketplace: false } },
+        headers: auth_headers_for(admin)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "marketplace", body.fetch("storefront_key")
+    assert_equal true, body.fetch("is_marketplace")
+    assert_equal false, body.fetch("is_adult")
+
+    auction.reload
+    assert_equal "marketplace", auction.storefront_key
+    assert_equal true, auction.is_marketplace
+    assert_equal false, auction.is_adult
+  end
+
+  test "PUT /api/v1/admin/auctions/:id returns 422 when storefront reassignment conflicts with existing bids" do
+    auction = Auction.create!(
+      title: "Storefront Bid Conflict",
+      description: "Desc",
+      start_date: 1.hour.ago,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :active,
+      storefront_key: "main",
+      is_marketplace: false,
+      is_adult: false
+    )
+    bidder = create_actor(role: :user)
+    Bid.create!(auction: auction, user: bidder, amount: 2.0, storefront_key: "main")
+
+    admin = create_actor(role: :admin)
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "marketplace" } },
+        headers: auth_headers_for(admin)
+
+    assert_response :unprocessable_content
+    body = JSON.parse(response.body)
+    assert_equal "invalid_auction", body.dig("error", "code")
+    assert_includes body.dig("error", "field_errors", "storefront_key"), "cannot be reassigned after bids have been placed"
+
+    auction.reload
+    assert_equal "main", auction.storefront_key
+    assert_equal false, auction.is_marketplace
+  end
+
+  test "PUT /api/v1/admin/auctions/:id storefront reassignment preserves status and non-storefront fields" do
+    auction = Auction.create!(
+      title: "Preserve Fields",
+      description: "Original description",
+      start_date: Time.current,
+      end_time: 2.hours.from_now,
+      current_price: 13.5,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false,
+      is_adult: false
+    )
+
+    admin = create_actor(role: :admin)
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "afterdark" } },
+        headers: auth_headers_for(admin)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "afterdark", body.fetch("storefront_key")
+    assert_equal false, body.fetch("is_marketplace")
+    assert_equal true, body.fetch("is_adult")
+    assert_equal "scheduled", body.fetch("status")
+    assert_equal "Preserve Fields", body.fetch("title")
+    assert_equal "Original description", body.fetch("description")
+    assert_equal "13.5", body.fetch("current_price")
+
+    auction.reload
+    assert_equal "pending", auction.status
+    assert_equal "Preserve Fields", auction.title
+    assert_equal "Original description", auction.description
+    assert_equal BigDecimal("13.5"), auction.current_price
+  end
+
   test "PUT /api/v1/admin/auctions/:id restores inactive auction when status is scheduled" do
     auction = Auction.create!(
       title: "Restore Me",

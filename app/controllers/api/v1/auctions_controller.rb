@@ -174,7 +174,12 @@ module Api
       end
 
       def render_service_error(result)
-        render_error(code: result.code, message: result.message, status: result.http_status)
+        render_error(
+          code: result.code,
+          message: result.message,
+          status: result.http_status,
+          field_errors: result.data[:field_errors]
+        )
       end
 
       def public_index_params

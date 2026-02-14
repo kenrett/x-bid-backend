@@ -2115,12 +2115,12 @@
                 "type": "string"
               },
               "is_adult": {
-                "description": "Marks the auction as adult inventory (restricted to afterdark storefront + age gate).",
+                "description": "Legacy storefront flag. Accepted for backward compatibility; when storefront_key is present, storefront_key determines canonical flags.",
                 "nullable": true,
                 "type": "boolean"
               },
               "is_marketplace": {
-                "description": "Marks the auction as marketplace-curated inventory (restricted to marketplace storefront).",
+                "description": "Legacy storefront flag. Accepted for backward compatibility; when storefront_key is present, storefront_key determines canonical flags.",
                 "nullable": true,
                 "type": "boolean"
               },
@@ -2141,7 +2141,7 @@
                 "type": "string"
               },
               "storefront_key": {
-                "description": "Storefront assignment for this auction.",
+                "description": "Storefront assignment for this auction. When provided with legacy flags (is_adult/is_marketplace), storefront_key takes precedence.",
                 "enum": [
                   "main",
                   "afterdark",

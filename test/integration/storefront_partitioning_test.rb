@@ -97,6 +97,41 @@ class StorefrontPartitioningTest < ActionDispatch::IntegrationTest
     refute_equal main_etag, response.headers["ETag"]
   end
 
+  test "storefront reassignment is reflected immediately in storefront-scoped list and detail visibility" do
+    auction = Auction.create!(
+      title: "Reassign Visibility",
+      description: "Desc",
+      start_date: 1.hour.ago,
+      end_time: 1.hour.from_now,
+      current_price: 5.0,
+      status: :active,
+      storefront_key: "main",
+      is_marketplace: false,
+      is_adult: false
+    )
+
+    admin = create_actor(role: :admin)
+    host!("biddersweet.app")
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "marketplace" } },
+        headers: auth_headers_for(admin)
+    assert_response :success
+
+    host!("biddersweet.app")
+    get "/api/v1/auctions"
+    assert_response :success
+    refute includes_auction_id?(response.body, auction.id)
+    get "/api/v1/auctions/#{auction.id}"
+    assert_response :not_found
+
+    host!("marketplace.biddersweet.app")
+    get "/api/v1/auctions"
+    assert_response :success
+    assert includes_auction_id?(response.body, auction.id)
+    get "/api/v1/auctions/#{auction.id}"
+    assert_response :success
+  end
+
   private
 
   def includes_auction_id?(json, auction_id)

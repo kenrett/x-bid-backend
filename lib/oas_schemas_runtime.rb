@@ -713,10 +713,10 @@ module OasSchemasRuntime
               type: "string",
               enum: STOREFRONT_KEYS,
               nullable: true,
-              description: "Storefront assignment for this auction."
+              description: "Storefront assignment for this auction. When provided with legacy flags (is_adult/is_marketplace), storefront_key takes precedence."
             },
-            is_adult: { type: "boolean", nullable: true, description: "Marks the auction as adult inventory (restricted to afterdark storefront + age gate)." },
-            is_marketplace: { type: "boolean", nullable: true, description: "Marks the auction as marketplace-curated inventory (restricted to marketplace storefront)." },
+            is_adult: { type: "boolean", nullable: true, description: "Legacy storefront flag. Accepted for backward compatibility; when storefront_key is present, storefront_key determines canonical flags." },
+            is_marketplace: { type: "boolean", nullable: true, description: "Legacy storefront flag. Accepted for backward compatibility; when storefront_key is present, storefront_key determines canonical flags." },
             status: { type: "string", enum: STATUSES, nullable: true },
             start_date: { type: "string", format: "date-time", nullable: true },
             end_time: { type: "string", format: "date-time", nullable: true },

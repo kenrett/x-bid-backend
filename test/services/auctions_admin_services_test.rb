@@ -85,6 +85,53 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     assert_equal false, auction.is_adult
   end
 
+  test "admin upsert rejects invalid storefront_key" do
+    auction = Auction.create!(
+      title: "Move Me",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false
+    )
+
+    result = Admin::Auctions::Upsert.new(actor: @admin, auction: auction, attrs: { storefront_key: "invalid-key" }).call
+
+    refute result.ok?
+    assert_equal :invalid_auction, result.code
+    assert_includes result.error, "Storefront key must be one of"
+    assert_equal [ "must be one of: main, afterdark, marketplace" ], result.data[:field_errors][:storefront_key]
+    assert_equal "main", auction.reload.storefront_key
+  end
+
+  test "admin upsert uses storefront_key over legacy catalog flags when both are provided" do
+    auction = Auction.create!(
+      title: "Move Me",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false,
+      is_adult: false
+    )
+
+    result = Admin::Auctions::Upsert.new(
+      actor: @admin,
+      auction: auction,
+      attrs: { storefront_key: "marketplace", is_marketplace: false, is_adult: true }
+    ).call
+
+    assert result.ok?
+    auction.reload
+    assert_equal "marketplace", auction.storefront_key
+    assert_equal true, auction.is_marketplace
+    assert_equal false, auction.is_adult
+  end
+
   test "admin upsert rejects inactive to active transition" do
     auction = Auction.create!(title: "Inactive", description: "Desc", start_date: 2.hours.from_now, end_time: 1.day.from_now, current_price: 1.0, status: :inactive)
     attrs = { status: :active }
