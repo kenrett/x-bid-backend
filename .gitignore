@@ -46,3 +46,6 @@ AWSCLIV2.pkg
 # Large installers
 AWSCLIV2.pkg
 **/AWSCLIV2.pkg
+
+# Local Codex machine config
+/.codex/config.toml
