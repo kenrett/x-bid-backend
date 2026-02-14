@@ -17,6 +17,19 @@ class SessionsApiContractTest < ActionDispatch::IntegrationTest
     assert_equal false, body.dig("user", "is_superuser")
   end
 
+  test "POST /api/v1/login revokes prior active sessions for the user" do
+    prior_session = SessionToken.create!(user: @user, token_digest: SessionToken.digest("prior"), expires_at: 1.hour.from_now)
+
+    post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    current_session = SessionToken.find(body.fetch("session_token_id"))
+
+    assert prior_session.reload.revoked_at.present?
+    assert current_session.active?
+  end
+
   test "POST /api/v1/login accepts flat payload (email_address/password)" do
     post "/api/v1/login", params: { email_address: @user.email_address, password: "password" }
 

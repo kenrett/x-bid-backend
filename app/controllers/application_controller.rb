@@ -56,7 +56,8 @@ class ApplicationController < ActionController::API
       @current_session_token = session_token
       @current_user = session_token.user
       set_authenticated_request_context!
-      track_session_token!(session_token)
+      session_tracking = track_session_token!(session_token)
+      refresh_auth_cookies!(session_token) if result.method == :cookie && session_tracking[:expires_at_extended]
       if result.method == :bearer
         response.set_header("X-Auth-Deprecation", "bearer")
         AppLogger.log(
@@ -196,7 +197,7 @@ class ApplicationController < ActionController::API
   end
 
   def track_session_token!(session_token)
-    return unless session_token
+    return { expires_at_extended: false } unless session_token
 
     now = Time.current
     debounce_seconds = (ENV["SESSION_LAST_SEEN_DEBOUNCE_SECONDS"].presence || 60).to_i
@@ -222,11 +223,19 @@ class ApplicationController < ActionController::API
       end
     end
 
-    return if updates.empty?
+    return { expires_at_extended: false } if updates.empty?
 
     session_token.update_columns(updates)
+    session_token.expires_at = updates[:expires_at] if updates.key?(:expires_at)
+    { expires_at_extended: updates.key?(:expires_at) }
   rescue StandardError => e
     AppLogger.error(event: "auth.session_token.track_failed", error: e, session_token_id: session_token&.id)
+    { expires_at_extended: false }
+  end
+
+  def refresh_auth_cookies!(session_token)
+    set_cable_session_cookie(session_token)
+    set_browser_session_cookie(session_token)
   end
 
   def extract_authorization_token

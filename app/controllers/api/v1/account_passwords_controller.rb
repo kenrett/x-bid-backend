@@ -6,7 +6,7 @@ module Api
 
       # POST /api/v1/account/password
       # @summary Change password for the current user
-      # Revokes all other active sessions on success.
+      # Revokes existing sessions on success.
       # @request_body Change password payload (application/json) [!ChangePasswordRequest]
       # @response Success (200) [Hash{ status: String, sessions_revoked: Integer }]
       # @response Unauthorized (401) [Error]
@@ -21,6 +21,8 @@ module Api
 
         return render_error(code: result.code, message: result.message, status: result.http_status) unless result.ok?
 
+        clear_cable_session_cookie
+        clear_browser_session_cookie
         render json: { status: "password_updated", sessions_revoked: result.sessions_revoked }, status: :ok
       end
 

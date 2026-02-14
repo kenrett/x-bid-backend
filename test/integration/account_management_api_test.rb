@@ -100,7 +100,7 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_equal "New Name", @user.reload.name
   end
 
-  test "POST /api/v1/account/password requires current password and revokes other sessions" do
+  test "POST /api/v1/account/password requires current password and revokes existing sessions" do
     current_session = create_session_token_for(@user)
     other_session = create_session_token_for(@user)
 
@@ -122,9 +122,11 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = JSON.parse(response.body)
     assert_equal "password_updated", body["status"]
-    assert_equal 1, body["sessions_revoked"]
+    assert_equal 2, body["sessions_revoked"]
     assert other_session.reload.revoked_at.present?
-    assert_nil current_session.reload.revoked_at
+    assert current_session.reload.revoked_at.present?
+    get "/api/v1/account", headers: auth_headers(@user, current_session)
+    assert_response :unauthorized
     assert audit_events.any? { |e| e[:event] == "account.password_change.succeeded" }
     assert audit_events.any? { |e| e[:event] == "account.session.revoked" && e[:reason] == "password_change" }
   end
@@ -158,6 +160,9 @@ class AccountManagementApiTest < ActionDispatch::IntegrationTest
     assert @user.email_verified_at.present?
     assert_nil @user.unverified_email_address
     assert_nil @user.email_verification_token_digest
+    assert session_token.reload.revoked_at.present?
+    get "/api/v1/account", headers: auth_headers(@user, session_token)
+    assert_response :unauthorized
   end
 
   test "GET /api/v1/email_verifications/verify rejects expired tokens" do

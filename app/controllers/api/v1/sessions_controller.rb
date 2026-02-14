@@ -28,6 +28,12 @@ module Api
             return if performed?
           end
 
+          revoked_sessions = Auth::RevokeUserSessions.new(
+            user: user,
+            reason: "login_replaced",
+            actor: user,
+            request: request
+          ).call
           session_token, refresh_token = SessionToken.generate_for(user:, two_factor_verified_at: two_factor_verified_at)
           track_session_token!(session_token)
           set_cable_session_cookie(session_token)
@@ -39,7 +45,10 @@ module Api
             user: user,
             session_token_id: session_token.id,
             request: request,
-            payload: { session_token_id: session_token.id }
+            payload: {
+              session_token_id: session_token.id,
+              replaced_session_count: revoked_sessions
+            }
           )
           render json: Auth::SessionResponseBuilder.build(user:, session_token:, refresh_token:, jwt_encoder: method(:encode_jwt))
         else

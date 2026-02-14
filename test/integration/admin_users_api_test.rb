@@ -102,6 +102,23 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "role changes revoke target user sessions" do
+    target = create_actor(role: :user)
+    target_session = SessionToken.create!(
+      user: target,
+      token_digest: SessionToken.digest("role-change"),
+      expires_at: 1.hour.from_now
+    )
+    target_headers = auth_headers_for_session(target, target_session)
+
+    post "/api/v1/admin/users/#{target.id}/grant_admin", headers: auth_headers_for(@superadmin)
+    assert_response :success
+    assert target_session.reload.revoked_at.present?
+
+    get "/api/v1/me", headers: target_headers
+    assert_response :unauthorized
+  end
+
   test "POST /api/v1/admin/users/:id/ban allows admin moderation of role=user and is idempotent" do
     target = create_actor(role: :user)
 
@@ -204,5 +221,11 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
       body.values.find { |v| v.is_a?(Hash) && (v.key?("status") || v.key?("role") || v.key?("email_address") || v.key?("emailAddress")) } ||
       body ||
       {}
+  end
+
+  def auth_headers_for_session(user, session_token, exp: 1.hour.from_now.to_i)
+    payload = { user_id: user.id, session_token_id: session_token.id, exp: exp }
+    token = encode_jwt(payload)
+    { "Authorization" => "Bearer #{token}" }
   end
 end

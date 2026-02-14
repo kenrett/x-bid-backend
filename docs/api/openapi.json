@@ -3745,7 +3745,7 @@
     },
     "/api/v1/account/password": {
       "post": {
-        "description": "POST /api/v1/account/password\nRevokes all other active sessions on success.",
+        "description": "POST /api/v1/account/password\nRevokes existing sessions on success.",
         "operationId": "POST__api_v1_account_password",
         "requestBody": {
           "$ref": "#/components/requestBodies/req_010"

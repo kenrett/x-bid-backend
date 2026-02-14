@@ -30,7 +30,12 @@ module Account
         )
       end
 
-      AppLogger.log(event: "account.email_verification.verified", user_id: user.id)
+      sessions_revoked = Auth::RevokeUserSessions.new(
+        user: user,
+        reason: "email_change",
+        actor: user
+      ).call
+      AppLogger.log(event: "account.email_verification.verified", user_id: user.id, sessions_revoked: sessions_revoked)
       ServiceResult.ok(code: :verified, data: { user: user })
     rescue ActiveRecord::RecordInvalid => e
       ServiceResult.fail(e.record.errors.full_messages.to_sentence, code: :invalid_email, record: e.record)

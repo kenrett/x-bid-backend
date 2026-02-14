@@ -13,9 +13,11 @@ module Admin
         return ServiceResult.fail("User is already a superadmin") if superadmin_conflict?
         return ServiceResult.fail("User is already an admin") if admin_conflict?
 
+        previous_role = @user.role
         if @user.update(role: @role)
+          sessions_revoked = revoke_sessions_after_role_change(previous_role)
           AuditLogger.log(action: action_name, actor: @actor, target: @user, request: @request)
-          ServiceResult.ok(user: @user)
+          ServiceResult.ok(user: @user, data: { sessions_revoked: sessions_revoked })
         else
           ServiceResult.fail(@user.errors.full_messages.to_sentence)
         end
@@ -41,6 +43,18 @@ module Admin
         when :user then @user.superadmin? ? "user.revoke_superadmin" : "user.revoke_admin"
         else "user.update"
         end
+      end
+
+      def revoke_sessions_after_role_change(previous_role)
+        return 0 if previous_role.to_s == @user.role.to_s
+
+        Auth::RevokeUserSessions.new(
+          user: @user,
+          reason: "role_change",
+          actor: @actor,
+          actor_session_token_id: Current.session_token_id,
+          request: @request
+        ).call
       end
     end
   end

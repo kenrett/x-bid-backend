@@ -1,6 +1,8 @@
 require "test_helper"
 
 class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
+  include ActiveSupport::Testing::TimeHelpers
+
   setup do
     @user = User.create!(
       name: "Cookie User",
@@ -104,6 +106,29 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
     assert_expired_cookie!(legacy_cookie)
   end
 
+  test "cookie expiration is refreshed when sliding session ttl extends" do
+    with_session_ttls(idle_minutes: 5, absolute_minutes: 30) do
+      t0 = Time.current.change(usec: 0)
+      travel_to(t0)
+      begin
+        post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+        assert_response :success
+        initial_cookie = cookie_header_for("__Host-bs_session_id")
+        initial_expires = Time.httpdate(cookie_attribute(initial_cookie, "expires"))
+
+        travel_to(t0 + 4.minutes)
+        get "/api/v1/logged_in"
+        assert_response :success
+        refreshed_cookie = cookie_header_for("__Host-bs_session_id")
+        refreshed_expires = Time.httpdate(cookie_attribute(refreshed_cookie, "expires"))
+
+        assert_operator refreshed_expires, :>, initial_expires
+      ensure
+        travel_back
+      end
+    end
+  end
+
   private
 
   def bearer(access_token)
@@ -140,5 +165,20 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
   def cookie_attribute(set_cookie, name)
     match = set_cookie.match(/#{name}=([^;]+)/i)
     match&.captures&.first
+  end
+
+  def with_session_ttls(idle_minutes:, absolute_minutes:)
+    previous_idle = Rails.configuration.x.session_token_idle_ttl
+    previous_legacy = Rails.configuration.x.session_token_ttl
+    previous_absolute = Rails.configuration.x.session_token_absolute_ttl
+
+    Rails.configuration.x.session_token_idle_ttl = idle_minutes.minutes
+    Rails.configuration.x.session_token_ttl = idle_minutes.minutes
+    Rails.configuration.x.session_token_absolute_ttl = absolute_minutes.minutes
+    yield
+  ensure
+    Rails.configuration.x.session_token_idle_ttl = previous_idle
+    Rails.configuration.x.session_token_ttl = previous_legacy
+    Rails.configuration.x.session_token_absolute_ttl = previous_absolute
   end
 end

@@ -119,6 +119,7 @@ module Api
           return unless attrs
 
           if @user.update(attrs)
+            revoke_sessions_after_sensitive_change!
             AuditLogger.log(action: "user.update", actor: @current_user, target: @user, payload: attrs.to_h, request: request)
             render_admin_user(@user)
           else
@@ -246,6 +247,24 @@ module Api
 
         def render_validation_error(user)
           render_error(code: :invalid_user, message: user.errors.full_messages.to_sentence, status: :unprocessable_entity)
+        end
+
+        def revoke_sessions_after_sensitive_change!
+          reason =
+            if @user.saved_change_to_role?
+              "role_change"
+            elsif @user.saved_change_to_email_address?
+              "email_change"
+            end
+          return if reason.blank?
+
+          Auth::RevokeUserSessions.new(
+            user: @user,
+            reason: reason,
+            actor: @current_user,
+            actor_session_token_id: @current_session_token&.id,
+            request: request
+          ).call
         end
       end
     end
