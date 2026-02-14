@@ -235,6 +235,16 @@
         },
         "style": "simple"
       },
+      "e0d944d02d590b58a7425c159e5428f2": {
+        "description": "Filter by storefront key (main, afterdark, marketplace)",
+        "in": "query",
+        "name": "storefront_key",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "style": "form"
+      },
       "e47fcdce1e2038e964734571e689bfeb": {
         "description": "ID of the bid pack to purchase",
         "in": "query",
@@ -1977,6 +1987,14 @@
             "nullable": true,
             "type": "string"
           },
+          "is_adult": {
+            "description": "Whether this auction is restricted to adult-catalog storefront access.",
+            "type": "boolean"
+          },
+          "is_marketplace": {
+            "description": "Whether this auction is restricted to marketplace storefront listings.",
+            "type": "boolean"
+          },
           "start_date": {
             "format": "date-time",
             "type": "string"
@@ -1988,6 +2006,15 @@
               "active",
               "complete",
               "cancelled"
+            ],
+            "type": "string"
+          },
+          "storefront_key": {
+            "description": "Storefront partition this auction belongs to.",
+            "enum": [
+              "main",
+              "afterdark",
+              "marketplace"
             ],
             "type": "string"
           },
@@ -2109,6 +2136,16 @@
                   "active",
                   "complete",
                   "cancelled"
+                ],
+                "nullable": true,
+                "type": "string"
+              },
+              "storefront_key": {
+                "description": "Storefront assignment for this auction.",
+                "enum": [
+                  "main",
+                  "afterdark",
+                  "marketplace"
                 ],
                 "nullable": true,
                 "type": "string"
@@ -3957,6 +3994,9 @@
           },
           {
             "$ref": "#/components/parameters/2f283202ff70ebb99d8bc91461022917"
+          },
+          {
+            "$ref": "#/components/parameters/e0d944d02d590b58a7425c159e5428f2"
           },
           {
             "$ref": "#/components/parameters/0abd227a13448d9299e1c1de37060965"

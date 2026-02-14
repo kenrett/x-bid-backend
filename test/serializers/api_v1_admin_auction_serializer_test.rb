@@ -21,6 +21,9 @@ class ApiV1AdminAuctionSerializerTest < ActiveSupport::TestCase
     assert_equal "complete", json[:status] # ended -> complete via external_status
     assert_equal @user.id, json[:winning_user_id]
     assert_equal @user.name, json[:winning_user_name]
+    assert_equal "main", json[:storefront_key]
+    assert_equal false, json[:is_adult]
+    assert_equal false, json[:is_marketplace]
     assert json.key?(:current_price)
     assert_equal [ "inactive" ], json[:allowed_admin_transitions]
   end

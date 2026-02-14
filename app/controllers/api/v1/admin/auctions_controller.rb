@@ -11,6 +11,7 @@ module Api
         # @parameter start_date_to(query) [String] ISO8601 upper bound for start date
         # @parameter sort(query) [String] Sort column (e.g., start_date, end_time)
         # @parameter direction(query) [String] Sort direction (asc or desc)
+        # @parameter storefront_key(query) [String] Filter by storefront key (main, afterdark, marketplace)
         # @parameter page(query) [Integer] Page number for pagination
         # @parameter per_page(query) [Integer] Number of records per page
         # @response Admin auctions (200) [Array<Auction>]
@@ -122,6 +123,7 @@ module Api
             :search,
             :start_date_from,
             :start_date_to,
+            :storefront_key,
             :sort,
             :direction,
             :page,
@@ -138,6 +140,7 @@ module Api
             :start_date,
             :end_time,
             :current_price,
+            :storefront_key,
             :is_adult,
             :is_marketplace
           )

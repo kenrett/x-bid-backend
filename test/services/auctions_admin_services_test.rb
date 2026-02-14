@@ -23,6 +23,27 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
     end
   end
 
+  test "admin upsert in marketplace storefront defaults marketplace flags" do
+    attrs = {
+      title: "Marketplace Auction",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :active
+    }
+
+    Current.storefront_key = "marketplace"
+    result = Admin::Auctions::Upsert.new(actor: @admin, attrs: attrs).call
+
+    assert result.ok?
+    assert_equal "marketplace", result.record.storefront_key
+    assert_equal true, result.record.is_marketplace
+    assert_equal false, result.record.is_adult
+  ensure
+    Current.storefront_key = nil
+  end
+
   test "admin upsert updates an auction" do
     auction = Auction.create!(title: "Old", description: "Desc", start_date: Time.current, end_time: 1.day.from_now, current_price: 1.0, status: :pending)
     attrs = { status: :active }
@@ -41,6 +62,27 @@ class AuctionsAdminServicesTest < ActiveSupport::TestCase
 
     assert result.ok?
     assert_equal "pending", auction.reload.status
+  end
+
+  test "admin upsert can move an auction to a different storefront" do
+    auction = Auction.create!(
+      title: "Move Me",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false
+    )
+
+    result = Admin::Auctions::Upsert.new(actor: @admin, auction: auction, attrs: { storefront_key: "marketplace" }).call
+
+    assert result.ok?
+    auction.reload
+    assert_equal "marketplace", auction.storefront_key
+    assert_equal true, auction.is_marketplace
+    assert_equal false, auction.is_adult
   end
 
   test "admin upsert rejects inactive to active transition" do

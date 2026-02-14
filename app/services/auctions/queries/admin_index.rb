@@ -15,6 +15,7 @@ module Auctions
       def call
         scope = base_scope
         scope = filter_by_status(scope)
+        scope = filter_by_storefront(scope)
         scope = filter_by_search(scope)
         scope = filter_by_start_date_range(scope)
         scope = apply_sort(scope)
@@ -43,6 +44,9 @@ module Auctions
             :current_price,
             :image_url,
             :status,
+            :storefront_key,
+            :is_adult,
+            :is_marketplace,
             :winning_user_id
           )
           .includes(:winning_user)
@@ -62,6 +66,15 @@ module Auctions
 
         term = "%#{params[:search].to_s.downcase}%"
         scope.where("LOWER(auctions.title) LIKE :term OR LOWER(auctions.description) LIKE :term", term: term)
+      end
+
+      def filter_by_storefront(scope)
+        return scope unless params[:storefront_key].present?
+
+        storefront_key = params[:storefront_key].to_s.strip.downcase
+        return scope.none unless StorefrontKeyable::CANONICAL_KEYS.include?(storefront_key)
+
+        scope.where(storefront_key: storefront_key)
       end
 
       def filter_by_start_date_range(scope)

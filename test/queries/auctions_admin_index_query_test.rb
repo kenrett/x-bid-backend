@@ -10,6 +10,7 @@ class AuctionsAdminIndexQueryTest < ActiveSupport::TestCase
       end_time: 1.day.from_now,
       current_price: 10.0,
       status: :active,
+      storefront_key: "main",
       winning_user: @winner
     )
     @pending = Auction.create!(
@@ -18,7 +19,8 @@ class AuctionsAdminIndexQueryTest < ActiveSupport::TestCase
       start_date: 2.days.from_now,
       end_time: 3.days.from_now,
       current_price: 5.0,
-      status: :pending
+      status: :pending,
+      storefront_key: "afterdark"
     )
     @ended = Auction.create!(
       title: "Ended Auction",
@@ -26,7 +28,9 @@ class AuctionsAdminIndexQueryTest < ActiveSupport::TestCase
       start_date: 3.days.ago,
       end_time: 2.days.ago,
       current_price: 2.0,
-      status: :ended
+      status: :ended,
+      storefront_key: "marketplace",
+      is_marketplace: true
     )
   end
 
@@ -48,6 +52,19 @@ class AuctionsAdminIndexQueryTest < ActiveSupport::TestCase
     result = Auctions::Queries::AdminIndex.call(params: { search: "future" })
 
     assert_equal [ @pending.id ], result.records.map(&:id)
+  end
+
+  test "filters by storefront key" do
+    result = Auctions::Queries::AdminIndex.call(params: { storefront_key: "marketplace" })
+
+    assert_equal [ @ended.id ], result.records.map(&:id)
+  end
+
+  test "returns no records for invalid storefront filter" do
+    result = Auctions::Queries::AdminIndex.call(params: { storefront_key: "invalid" })
+
+    assert_empty result.records
+    assert_equal 0, result.meta[:total_count]
   end
 
   test "filters by start_date range" do

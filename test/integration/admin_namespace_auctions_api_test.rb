@@ -83,6 +83,41 @@ class AdminNamespaceAuctionsApiTest < ActionDispatch::IntegrationTest
     assert_includes auctions.map { |auction| auction.fetch("id") }, inactive.id
   end
 
+  test "GET /api/v1/admin/auctions filters by storefront key" do
+    main = Auction.create!(
+      title: "Main Auction",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :active,
+      storefront_key: "main",
+      is_marketplace: false
+    )
+    marketplace = Auction.create!(
+      title: "Marketplace Auction",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.day.from_now,
+      current_price: 1.0,
+      status: :active,
+      storefront_key: "marketplace",
+      is_marketplace: true
+    )
+
+    admin = create_actor(role: :admin)
+    get "/api/v1/admin/auctions", params: { storefront_key: "marketplace" }, headers: auth_headers_for(admin)
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    auctions = body["auctions"] || body["adminAuctions"] || body["admin_auctions"] || body
+    auctions = auctions["auctions"] if auctions.is_a?(Hash) && auctions.key?("auctions")
+    ids = auctions.map { |auction| auction.fetch("id") }
+
+    assert_includes ids, marketplace.id
+    refute_includes ids, main.id
+  end
+
   test "GET /api/v1/admin/auctions/:id enforces role matrix" do
     each_role_case(required_role: :admin, success_status: 200) do |role:, headers:, expected_status:, success:, **|
       get "/api/v1/admin/auctions/#{@auction.id}", headers: headers
@@ -146,6 +181,34 @@ class AdminNamespaceAuctionsApiTest < ActionDispatch::IntegrationTest
         assert_equal "Update Me", auction.reload.title
       end
     end
+  end
+
+  test "PUT /api/v1/admin/auctions/:id can update storefront assignment" do
+    auction = Auction.create!(
+      title: "Storefront Update",
+      description: "Desc",
+      start_date: Time.current,
+      end_time: 1.hour.from_now,
+      current_price: 1.0,
+      status: :pending,
+      storefront_key: "main",
+      is_marketplace: false
+    )
+
+    admin = create_actor(role: :admin)
+    put "/api/v1/admin/auctions/#{auction.id}",
+        params: { auction: { storefront_key: "marketplace" } },
+        headers: auth_headers_for(admin)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "marketplace", body.fetch("storefront_key")
+    assert_equal true, body.fetch("is_marketplace")
+
+    auction.reload
+    assert_equal "marketplace", auction.storefront_key
+    assert_equal true, auction.is_marketplace
+    assert_equal false, auction.is_adult
   end
 
   test "PUT /api/v1/admin/auctions/:id restores inactive auction when status is scheduled" do

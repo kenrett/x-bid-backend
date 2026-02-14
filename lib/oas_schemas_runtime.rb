@@ -1,5 +1,6 @@
 module OasSchemasRuntime
   STATUSES = %w[inactive scheduled active complete cancelled].freeze
+  STOREFRONT_KEYS = %w[main afterdark marketplace].freeze
   BID_PACK_STATUSES = %w[active retired].freeze
   PURCHASE_STATUSES = %w[
     created
@@ -27,6 +28,19 @@ module OasSchemasRuntime
           type: "string",
           nullable: true,
           description: "Stable upload path (`/api/v1/uploads/:signed_id`) for authorized uploads; legacy external URLs may appear for older records."
+        },
+        storefront_key: {
+          type: "string",
+          enum: STOREFRONT_KEYS,
+          description: "Storefront partition this auction belongs to."
+        },
+        is_adult: {
+          type: "boolean",
+          description: "Whether this auction is restricted to adult-catalog storefront access."
+        },
+        is_marketplace: {
+          type: "boolean",
+          description: "Whether this auction is restricted to marketplace storefront listings."
         },
         highest_bidder_id: { type: "integer", nullable: true },
         winning_user_id: { type: "integer", nullable: true },
@@ -694,6 +708,12 @@ module OasSchemasRuntime
               type: "string",
               nullable: true,
               description: "Auction image reference. Upload proxy paths and legacy upload URLs are accepted; stored values are normalized when possible."
+            },
+            storefront_key: {
+              type: "string",
+              enum: STOREFRONT_KEYS,
+              nullable: true,
+              description: "Storefront assignment for this auction."
             },
             is_adult: { type: "boolean", nullable: true, description: "Marks the auction as adult inventory (restricted to afterdark storefront + age gate)." },
             is_marketplace: { type: "boolean", nullable: true, description: "Marks the auction as marketplace-curated inventory (restricted to marketplace storefront)." },

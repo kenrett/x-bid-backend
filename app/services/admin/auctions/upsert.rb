@@ -1,6 +1,9 @@
 module Admin
   module Auctions
     class Upsert < Admin::BaseCommand
+      MARKETPLACE_STOREFRONT = "marketplace".freeze
+      ADULT_STOREFRONT = "afterdark".freeze
+
       def initialize(actor:, auction: nil, attrs:, request: nil)
         auction ||= ::Auction.new
         auction.storefront_key ||= Current.storefront_key.to_s.presence
@@ -36,7 +39,8 @@ module Admin
       end
 
       def apply_details!
-        detail_attrs = @attrs.except(:status, "status").compact
+        detail_attrs = @attrs.except(:status, "status").compact.symbolize_keys
+        normalize_catalog_flags!(detail_attrs)
         return if detail_attrs.empty?
 
         normalize_image_url!(detail_attrs)
@@ -44,14 +48,27 @@ module Admin
       end
 
       def normalize_image_url!(detail_attrs)
-        key = if detail_attrs.key?(:image_url)
-          :image_url
-        elsif detail_attrs.key?("image_url")
-          "image_url"
-        end
-        return unless key
+        return unless detail_attrs.key?(:image_url)
 
-        detail_attrs[key] = Uploads::ImageUrl.stable(detail_attrs[key])
+        detail_attrs[:image_url] = Uploads::ImageUrl.stable(detail_attrs[:image_url])
+      end
+
+      def normalize_catalog_flags!(detail_attrs)
+        storefront_key = detail_attrs[:storefront_key].presence || @auction.storefront_key.to_s.presence
+        normalized_storefront = normalize_storefront_key(storefront_key)
+        return unless normalized_storefront
+
+        detail_attrs[:storefront_key] = normalized_storefront if detail_attrs.key?(:storefront_key)
+        detail_attrs[:is_marketplace] = normalized_storefront == MARKETPLACE_STOREFRONT
+        detail_attrs[:is_adult] = false unless normalized_storefront == ADULT_STOREFRONT
+      end
+
+      def normalize_storefront_key(value)
+        key = value.to_s.strip.downcase
+        return nil if key.blank?
+        return key if StorefrontKeyable::CANONICAL_KEYS.include?(key)
+
+        nil
       end
 
       def action_result_code

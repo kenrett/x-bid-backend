@@ -159,6 +159,7 @@ module Api
           :start_date,
           :end_time,
           :current_price,
+          :storefront_key,
           :is_adult,
           :is_marketplace
         )

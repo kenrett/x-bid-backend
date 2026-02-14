@@ -1,7 +1,18 @@
 class Auction < ApplicationRecord
   class InvalidState < StandardError; end
 
-  DETAIL_FIELDS = %i[title description current_price image_url start_date end_time winning_user_id].freeze
+  DETAIL_FIELDS = %i[
+    title
+    description
+    current_price
+    image_url
+    start_date
+    end_time
+    winning_user_id
+    storefront_key
+    is_adult
+    is_marketplace
+  ].freeze
 
   belongs_to :winning_user, class_name: "User", optional: true
   has_many :bids, -> { order(created_at: :desc) }, dependent: :destroy
