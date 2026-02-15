@@ -8,7 +8,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListResourceTemplatesRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { OpsEnvDiffInputSchema, OpsTriageProdErrorInputSchema, OpsVerifyDeployWindow401InputSchema, runOpsEnvDiff, runOpsTriageProdError, runOpsVerifyDeployWindow401 } from "./orchestrators/ops.js";
-import { DevRouteContractCheckInputSchema, DevSmokeFullstackInputSchema, runDevRouteContractCheck, runDevSmokeFullstack } from "./orchestrators/dev.js";
+import { DevRouteContractCheckInputSchema, DevSmokeFullstackInputSchema, runDevRouteContractCheck } from "./orchestrators/dev.js";
 const MAX_FILE_SIZE_BYTES = 200 * 1024;
 const MAX_PREVIEW_CHARS = 300;
 const MAX_CMD_OUTPUT_BYTES = 10 * 1024;
@@ -99,6 +99,14 @@ const DEV_BENCHMARK_ALLOWLIST = [
         envAllowlist: []
     }
 ];
+const DEV_SMOKE_BACKEND_COMMANDS = [
+    ["bundle", "exec", "rspec"],
+    ["bin/test"]
+];
+const DEV_SMOKE_FRONTEND_LINT_SCRIPTS = ["lint", "lint:ci"];
+const DEV_SMOKE_FRONTEND_TEST_SCRIPTS = ["test:ci", "ci:test", "test"];
+const DEV_SMOKE_TIMEOUT_MS = 20 * 60 * 1000;
+const DEV_SMOKE_MAX_OUTPUT_BYTES = 64 * 1024;
 const SKIP_DIR_NAMES = new Set([
     "node_modules",
     "vendor",
@@ -667,13 +675,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 inputSchema: {
                     type: "object",
                     properties: {
-                        serviceName: { type: "string" },
-                        includeIntegration: { type: "boolean" },
-                        destructiveIntent: { type: "boolean" },
-                        confirmToken: { type: "string" },
-                        confirmText: { type: "string" }
+                        serviceName: { type: "string" }
                     },
-                    required: ["serviceName"],
                     additionalProperties: false
                 }
             }
@@ -918,7 +921,7 @@ async function handleRepoInfo(_input) {
     const isGitRepo = await detectGitRepo();
     const availableDevCommands = [];
     if (gemfile || packageJson) {
-        availableDevCommands.push("dev.run_tests", "dev.run_lint");
+        availableDevCommands.push("dev.run_tests", "dev.run_lint", "dev.smoke_fullstack");
     }
     if (DEV_RUN_ALLOWLIST.length > 0) {
         availableDevCommands.push("dev.run");
@@ -2285,30 +2288,234 @@ async function handleDevRouteContractCheck(input) {
     });
 }
 async function handleDevSmokeFullstack(input) {
-    return runDevSmokeFullstack(input, {
-        getRoutesSummary: async () => ({ routeCount: 0, truncated: false }),
-        getOpenApiPathCount: async () => 0,
-        getDevToolsSummary: async () => {
-            const summary = await getDevToolsSummary();
-            const nodeVersion = await getCommandVersion("node");
-            return {
-                rgPresent: summary.rgPresent,
-                gitPresent: summary.gitPresent,
-                nodePresent: Boolean(nodeVersion)
-            };
-        },
-        runSmokeBenchmark: async () => {
-            const result = await handleDevBenchmarkSmoke({ name: "json-parse-smoke" });
-            const ok = result &&
-                typeof result === "object" &&
-                "exitCode" in result &&
-                result.exitCode === 0;
-            const durationMs = result && typeof result === "object" && "durationMs" in result
-                ? Number(result.durationMs ?? 0)
-                : 0;
-            return { ok, durationMs };
-        }
+    const tools = await checkDevTools(["bundle", "npm", "yarn", "pnpm"]);
+    const packageManager = await detectPackageManager();
+    const packageScripts = await readPackageScripts();
+    const backend = await runBackendSmokeStage(tools);
+    let frontend;
+    if (backend.failed) {
+        frontend = {
+            output: {
+                status: "skipped",
+                command: formatSmokeCommand(["npm", "run", "lint"], ["npm", "run", "test:ci"]),
+                duration: 0,
+                top_failures: ["Skipped due to fail-fast after backend failure."]
+            },
+            failed: false,
+            hints: []
+        };
+    }
+    else {
+        frontend = await runFrontendSmokeStage({ packageManager, tools, packageScripts });
+    }
+    return {
+        backend: backend.output,
+        frontend: frontend.output,
+        next_actions: buildSmokeNextActions(backend, frontend, input.serviceName)
+    };
+}
+async function runBackendSmokeStage(tools) {
+    const command = await selectBackendSmokeCommand(tools);
+    if (!command) {
+        return {
+            output: {
+                status: "failed",
+                command: DEV_SMOKE_BACKEND_COMMANDS.map((candidate) => candidate.join(" ")).join(" or "),
+                duration: 0,
+                top_failures: ["Backend smoke command unavailable (requires Gemfile + bundle/bin test command)."]
+            },
+            failed: true,
+            hints: []
+        };
+    }
+    const env = buildSmokeExecutionEnv();
+    const result = await runAllowlistedCommand(command, {
+        timeoutMs: DEV_SMOKE_TIMEOUT_MS,
+        maxOutputBytes: DEV_SMOKE_MAX_OUTPUT_BYTES,
+        env
     });
+    const analysis = summarizeSmokeFailures("backend", result.stdout, result.stderr);
+    return {
+        output: {
+            status: result.exitCode === 0 ? "passed" : "failed",
+            command: command.join(" "),
+            duration: result.durationMs,
+            top_failures: result.exitCode === 0 ? [] : analysis.topFailures
+        },
+        failed: result.exitCode !== 0,
+        hints: analysis.hints
+    };
+}
+async function runFrontendSmokeStage(input) {
+    const lintCommand = selectFrontendSmokeCommand(input.packageManager, input.tools, input.packageScripts, "lint");
+    const testCommand = selectFrontendSmokeCommand(input.packageManager, input.tools, input.packageScripts, "test");
+    const commandSummary = formatSmokeCommand(lintCommand, testCommand);
+    if (!lintCommand || !testCommand) {
+        const missing = [];
+        if (!lintCommand)
+            missing.push("lint command unavailable (expected lint/lint:ci script)");
+        if (!testCommand)
+            missing.push("test command unavailable (expected test:ci/ci:test/test script)");
+        return {
+            output: {
+                status: "failed",
+                command: commandSummary,
+                duration: 0,
+                top_failures: missing
+            },
+            failed: true,
+            hints: []
+        };
+    }
+    const lint = await runAllowlistedCommand(lintCommand, {
+        timeoutMs: DEV_SMOKE_TIMEOUT_MS,
+        maxOutputBytes: DEV_SMOKE_MAX_OUTPUT_BYTES,
+        env: buildSmokeExecutionEnv()
+    });
+    if (lint.exitCode !== 0) {
+        const lintAnalysis = summarizeSmokeFailures("frontend", lint.stdout, lint.stderr);
+        return {
+            output: {
+                status: "failed",
+                command: commandSummary,
+                duration: lint.durationMs,
+                top_failures: lintAnalysis.topFailures
+            },
+            failed: true,
+            hints: lintAnalysis.hints
+        };
+    }
+    const test = await runAllowlistedCommand(testCommand, {
+        timeoutMs: DEV_SMOKE_TIMEOUT_MS,
+        maxOutputBytes: DEV_SMOKE_MAX_OUTPUT_BYTES,
+        env: buildSmokeExecutionEnv()
+    });
+    const testAnalysis = summarizeSmokeFailures("frontend", test.stdout, test.stderr);
+    return {
+        output: {
+            status: test.exitCode === 0 ? "passed" : "failed",
+            command: commandSummary,
+            duration: lint.durationMs + test.durationMs,
+            top_failures: test.exitCode === 0 ? [] : testAnalysis.topFailures
+        },
+        failed: test.exitCode !== 0,
+        hints: testAnalysis.hints
+    };
+}
+async function selectBackendSmokeCommand(tools) {
+    if (!(await existsInRepo("Gemfile")))
+        return null;
+    if (tools.bundle.present)
+        return [...DEV_SMOKE_BACKEND_COMMANDS[0]];
+    if (await existsInRepo("bin/test"))
+        return [...DEV_SMOKE_BACKEND_COMMANDS[1]];
+    return null;
+}
+async function readPackageScripts() {
+    const parsed = await readRepoJsonFile("package.json");
+    if (!parsed.ok || !parsed.data || typeof parsed.data !== "object")
+        return {};
+    const scriptsRaw = parsed.data.scripts;
+    if (!scriptsRaw || typeof scriptsRaw !== "object")
+        return {};
+    const scripts = {};
+    for (const [key, value] of Object.entries(scriptsRaw)) {
+        if (typeof value === "string")
+            scripts[key] = value;
+    }
+    return scripts;
+}
+function selectFrontendSmokeCommand(packageManager, tools, scripts, stage) {
+    if (packageManager !== "npm")
+        return null;
+    if (!tools.npm.present)
+        return null;
+    const scriptCandidates = stage === "lint" ? DEV_SMOKE_FRONTEND_LINT_SCRIPTS : DEV_SMOKE_FRONTEND_TEST_SCRIPTS;
+    const script = scriptCandidates.find((candidate) => typeof scripts[candidate] === "string");
+    if (!script)
+        return null;
+    return ["npm", "run", script];
+}
+function formatSmokeCommand(lintCommand, testCommand) {
+    const lint = lintCommand ? lintCommand.join(" ") : "npm run lint";
+    const test = testCommand ? testCommand.join(" ") : "npm run test:ci";
+    return `${lint} && ${test}`;
+}
+function buildSmokeExecutionEnv() {
+    const env = {};
+    for (const [key, value] of Object.entries(process.env)) {
+        if (typeof value === "string")
+            env[key] = value;
+    }
+    return env;
+}
+function summarizeSmokeFailures(stage, stdout, stderr) {
+    const combined = [stdout, stderr].filter(Boolean).join("\n");
+    const parsed = parseFailureOutput(combined);
+    const hints = [];
+    for (const error of parsed.errors.slice(0, 5)) {
+        hints.push({
+            stage,
+            file: error.file,
+            line: error.line,
+            message: error.message
+        });
+    }
+    if (hints.length === 0) {
+        const fallback = extractFallbackFailureLines(combined);
+        for (const message of fallback) {
+            hints.push({ stage, message });
+        }
+    }
+    return {
+        topFailures: hints.slice(0, 5).map((hint) => formatSmokeFailureHint(hint)),
+        hints
+    };
+}
+function extractFallbackFailureLines(text) {
+    const lines = normalizeLineEndings(text)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    const candidates = lines.filter((line) => /error|failed|failure|exception|fatal/i.test(line));
+    const source = candidates.length > 0 ? candidates : lines;
+    return source.slice(Math.max(0, source.length - 3), source.length);
+}
+function formatSmokeFailureHint(hint) {
+    if (hint.file && hint.line)
+        return `${hint.file}:${hint.line} ${hint.message}`;
+    if (hint.file)
+        return `${hint.file} ${hint.message}`;
+    return hint.message;
+}
+function buildSmokeNextActions(backend, frontend, serviceName) {
+    const actions = [];
+    if (backend.failed) {
+        actions.push("Fix backend smoke failures first, then rerun dev.smoke_fullstack.");
+    }
+    else if (frontend.failed) {
+        actions.push("Backend passed; address frontend smoke failures and rerun dev.smoke_fullstack.");
+    }
+    else {
+        actions.push("Smoke suite passed; proceed to full CI gates and deploy validation.");
+    }
+    const allHints = [...backend.hints, ...frontend.hints];
+    const seen = new Set();
+    for (const hint of allHints) {
+        if (!hint.file || !hint.line)
+            continue;
+        const key = `${hint.stage}:${hint.file}:${hint.line}`;
+        if (seen.has(key))
+            continue;
+        seen.add(key);
+        actions.push(`Investigate ${hint.stage} failure at ${hint.file}:${hint.line}.`);
+        if (actions.length >= 4)
+            break;
+    }
+    if (serviceName && serviceName.trim().length > 0 && !backend.failed && !frontend.failed) {
+        actions.push(`Run deploy readiness checks for ${serviceName.trim()} after CI is green.`);
+    }
+    return actions;
 }
 async function getGitSummary() {
     const status = await handleGitStatus({});

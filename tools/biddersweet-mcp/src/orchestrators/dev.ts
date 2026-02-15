@@ -8,7 +8,7 @@ export const DevRouteContractCheckInputSchema = z.object({
 });
 
 export const DevSmokeFullstackInputSchema = z.object({
-  serviceName: z.string().trim().min(1),
+  serviceName: z.string().trim().min(1).optional(),
   includeIntegration: z.boolean().optional().default(false),
   destructiveIntent: z.boolean().optional().default(false),
   confirmToken: z.string().optional(),

@@ -382,6 +382,7 @@ test("repo.info returns metadata for configured repo", async () => {
   assert.deepEqual(payload.availableDevCommands, [
     "dev.run_tests",
     "dev.run_lint",
+    "dev.smoke_fullstack",
     "dev.run",
     "dev.benchmark_smoke",
     "dev.explain_failure",
@@ -1294,24 +1295,26 @@ test("dev.route_contract_check rejects invalid threshold", async () => {
   assert.equal(payload.error, "invalid_request");
 });
 
-test("dev.smoke_fullstack returns structured smoke payload", async () => {
-  const { result, payload } = await callTool("dev.smoke_fullstack", {
-    serviceName: "x-bid-api"
-  });
+test("dev.smoke_fullstack returns backend/frontend smoke summary", async () => {
+  const { result, payload } = await callTool("dev.smoke_fullstack", {});
   assert.equal(result.isError, false);
-  assert.equal(typeof payload.summary, "string");
-  assert.ok(Array.isArray(payload.signals));
+  assert.ok(payload.backend);
+  assert.ok(payload.frontend);
   assert.ok(Array.isArray(payload.next_actions));
-  assert.ok(Array.isArray(payload.artifacts));
-  assert.equal(typeof payload.confidence, "number");
+  assert.equal(typeof payload.backend.command, "string");
+  assert.equal(typeof payload.frontend.command, "string");
+  assert.equal(typeof payload.backend.duration, "number");
+  assert.equal(typeof payload.frontend.duration, "number");
+  assert.ok(Array.isArray(payload.backend.top_failures));
+  assert.ok(Array.isArray(payload.frontend.top_failures));
+  assert.ok(["passed", "failed", "skipped"].includes(payload.backend.status));
+  assert.ok(["passed", "failed", "skipped"].includes(payload.frontend.status));
 });
 
-test("dev.smoke_fullstack refuses destructive mode without two-step confirmation", async () => {
-  const { result, payload } = await callTool("dev.smoke_fullstack", {
-    serviceName: "x-bid-api",
-    destructiveIntent: true
-  });
-  assert.equal(result.isError, false);
-  assert.equal(payload.refused, true);
-  assert.equal(payload.refusal_reason, "destructive_confirmation_required");
+test("dev.smoke_fullstack fail-fast skips frontend when backend fails", async () => {
+  const { payload } = await callTool("dev.smoke_fullstack", {});
+  if (payload.backend.status === "failed") {
+    assert.equal(payload.frontend.status, "skipped");
+    assert.ok(payload.frontend.top_failures.some((item) => /fail-fast/i.test(item)));
+  }
 });
