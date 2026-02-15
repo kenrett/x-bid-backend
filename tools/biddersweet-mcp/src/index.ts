@@ -171,6 +171,34 @@ type McpResourceCatalogEntry = {
   mimeType: string;
 };
 
+type McpTemplateParameterType = "string" | "number" | "boolean";
+
+type McpTemplateParameter = {
+  name: string;
+  type: McpTemplateParameterType;
+  required?: boolean;
+  description: string;
+  defaultValue?: string | number | boolean;
+};
+
+type McpTemplateStep = {
+  tool: string;
+  description: string;
+  arguments: Record<string, unknown>;
+  fallback?: boolean;
+};
+
+type McpWorkflowTemplateCatalogEntry = {
+  templateId: string;
+  uriTemplate: string;
+  name: string;
+  description: string;
+  whatThisDoes: string;
+  mimeType: string;
+  parameters: McpTemplateParameter[];
+  buildSteps: (params: Record<string, string | number | boolean>) => McpTemplateStep[];
+};
+
 const MCP_RESOURCE_CATALOG: McpResourceCatalogEntry[] = [
   {
     uri: "biddersweet://runbooks/incident-triage",
@@ -215,6 +243,502 @@ const MCP_RESOURCE_CATALOG: McpResourceCatalogEntry[] = [
     mimeType: "application/json"
   }
 ];
+
+const MCP_WORKFLOW_TEMPLATE_CATALOG: McpWorkflowTemplateCatalogEntry[] = [
+  {
+    templateId: "triage-prod-error",
+    uriTemplate: "biddersweet://templates/triage-prod-error{?service,window_minutes,endpoint,filter,request_id}",
+    name: "Triage Prod Error",
+    description: "Run bounded production-error triage, then gather supporting repo context.",
+    whatThisDoes: "Builds a fast incident summary (errors, deploy correlation, metrics) with optional endpoint/request narrowing.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Render backend service name/id." },
+      { name: "window_minutes", type: "number", defaultValue: 30, description: "Triage time window in minutes." },
+      { name: "endpoint", type: "string", description: "Optional API path fragment to narrow logs." },
+      { name: "filter", type: "string", description: "Optional error/message filter." },
+      { name: "request_id", type: "string", description: "Optional request id for single-request triage." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "ops.triage_prod_error",
+        description: "Primary orchestrator: collect top errors + deploy + metrics signals.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          endpoint: params.endpoint,
+          filter: params.filter,
+          request_id: params.request_id
+        }
+      },
+      {
+        tool: "git.status",
+        description: "Raw fallback: confirm local branch/worktree state for incident context.",
+        arguments: {},
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "deploy-window-401-check",
+    uriTemplate: "biddersweet://templates/deploy-window-401-check{?service,window_minutes,frontend_hint}",
+    name: "Deploy Window 401 Check",
+    description: "Classify 401 bursts as transient deploy-window noise vs regression.",
+    whatThisDoes: "Runs 401-focused deploy correlation first, then checks env drift for auth/session config mismatch.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Render backend service name/id." },
+      { name: "window_minutes", type: "number", defaultValue: 60, description: "Window for deploy/401 correlation." },
+      { name: "frontend_hint", type: "string", description: "Optional frontend domain/path hint for filtering." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "ops.verify_deploy_window_401",
+        description: "Primary orchestrator: classify transient/regression/unknown 401 pattern.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          frontend_hint: params.frontend_hint
+        }
+      },
+      {
+        tool: "ops.env_diff",
+        description: "Orchestrator follow-up: compare the service against itself/peer for auth env drift.",
+        arguments: {
+          service_a: params.service,
+          service_b: params.service
+        },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "env-drift-report",
+    uriTemplate: "biddersweet://templates/env-drift-report{?service_a,service_b,show_values}",
+    name: "Env Drift Report",
+    description: "Generate a key drift report between two Render services.",
+    whatThisDoes: "Compares environment keys (and optional redacted value metadata) to detect release risk before deploy.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service_a", type: "string", required: true, description: "Baseline service name/id." },
+      { name: "service_b", type: "string", required: true, description: "Comparison service name/id." },
+      { name: "show_values", type: "boolean", defaultValue: false, description: "Include redacted value metadata." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "ops.env_diff",
+        description: "Primary orchestrator: key-level env drift report.",
+        arguments: {
+          service_a: params.service_a,
+          service_b: params.service_b,
+          show_values: params.show_values
+        }
+      },
+      {
+        tool: "repo.search",
+        description: "Raw fallback: scan repo for suspicious auth/cors/cookie key usage.",
+        arguments: {
+          query: "SECRET_KEY_BASE|SESSION|COOKIE|CORS|CSRF",
+          maxResults: 40
+        },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "csp-image-loading-regression-check",
+    uriTemplate:
+      "biddersweet://templates/csp-image-loading-regression-check{?service,window_minutes,domain,image_path}",
+    name: "CSP/Image Loading Regression Check",
+    description: "Check likely CSP/image loading regressions using incident + code/config signals.",
+    whatThisDoes:
+      "Starts with production triage for CSP/image failures, then checks 401 deploy-window auth effects and security header config in repo.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Render backend service name/id." },
+      { name: "window_minutes", type: "number", defaultValue: 60, description: "Inspection window in minutes." },
+      { name: "domain", type: "string", description: "Frontend domain hint for auth/csp correlation." },
+      { name: "image_path", type: "string", defaultValue: "/api/v1/uploads/", description: "Image/upload endpoint hint." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "ops.triage_prod_error",
+        description: "Primary orchestrator: detect CSP/image-related error signatures and correlation.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          endpoint: params.image_path,
+          filter: "csp|content security|img|image|upload|active storage|forbidden"
+        }
+      },
+      {
+        tool: "ops.verify_deploy_window_401",
+        description: "Orchestrator follow-up: rule out auth/session deploy-window regressions.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          frontend_hint: params.domain
+        },
+        fallback: true
+      },
+      {
+        tool: "repo.search",
+        description: "Raw fallback: inspect CSP/security header config and tests in codebase.",
+        arguments: {
+          query: "Content-Security-Policy|security_headers|img-src|frame-src|upload",
+          maxResults: 60
+        },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "route-contract-check",
+    uriTemplate: "biddersweet://templates/route-contract-check{?max_allowed_drift}",
+    name: "Route Contract Check",
+    description: "Check Rails route vs OpenAPI path drift.",
+    whatThisDoes: "Runs route-contract orchestrator first, then raw route inventory if drift needs deeper inspection.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "max_allowed_drift", type: "number", defaultValue: 25, description: "Allowed route/openapi drift threshold." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "dev.route_contract_check",
+        description: "Primary orchestrator: compare routes inventory against OpenAPI path inventory.",
+        arguments: {
+          maxAllowedDrift: params.max_allowed_drift
+        }
+      },
+      {
+        tool: "rails.routes",
+        description: "Raw fallback: inspect static route inventory when drift exceeds threshold.",
+        arguments: {
+          mode: "static",
+          maxResults: 500
+        },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "fullstack-smoke",
+    uriTemplate: "biddersweet://templates/fullstack-smoke{?service,include_integration}",
+    name: "Fullstack Smoke",
+    description: "Run orchestrated fullstack smoke checks with optional integration scope.",
+    whatThisDoes: "Performs a fast orchestrated smoke first, then lints/tests via raw tools for deeper validation.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Target service/release label." },
+      {
+        name: "include_integration",
+        type: "boolean",
+        defaultValue: false,
+        description: "Include integration-oriented smoke context."
+      }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "dev.smoke_fullstack",
+        description: "Primary orchestrator: run read-only smoke orchestration.",
+        arguments: {
+          serviceName: params.service,
+          includeIntegration: params.include_integration
+        }
+      },
+      {
+        tool: "dev.run_lint",
+        description: "Raw fallback: run allowlisted lint after smoke pass.",
+        arguments: { target: "both" },
+        fallback: true
+      },
+      {
+        tool: "dev.run_tests",
+        description: "Raw fallback: run allowlisted tests after smoke pass.",
+        arguments: { target: "both" },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "deploy-readiness-gate",
+    uriTemplate:
+      "biddersweet://templates/deploy-readiness-gate{?service,service_a,service_b,max_allowed_drift,include_integration}",
+    name: "Deploy Readiness Gate",
+    description: "Run orchestrated pre-deploy checks across contract, smoke, and env drift.",
+    whatThisDoes: "Combines route contract, smoke, and env drift orchestrators into one repeatable release gate.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Primary service/release label." },
+      { name: "service_a", type: "string", required: true, description: "Env baseline service." },
+      { name: "service_b", type: "string", required: true, description: "Env comparison service." },
+      { name: "max_allowed_drift", type: "number", defaultValue: 25, description: "Route/OpenAPI drift threshold." },
+      {
+        name: "include_integration",
+        type: "boolean",
+        defaultValue: false,
+        description: "Enable integration smoke context."
+      }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "dev.route_contract_check",
+        description: "Orchestrator #1: route/openapi drift.",
+        arguments: { maxAllowedDrift: params.max_allowed_drift }
+      },
+      {
+        tool: "dev.smoke_fullstack",
+        description: "Orchestrator #2: read-only fullstack smoke.",
+        arguments: {
+          serviceName: params.service,
+          includeIntegration: params.include_integration
+        }
+      },
+      {
+        tool: "ops.env_diff",
+        description: "Orchestrator #3: env drift guard before deploy.",
+        arguments: {
+          service_a: params.service_a,
+          service_b: params.service_b
+        }
+      }
+    ]
+  },
+  {
+    templateId: "auth-session-regression-check",
+    uriTemplate: "biddersweet://templates/auth-session-regression-check{?service,window_minutes,frontend_hint}",
+    name: "Auth Session Regression Check",
+    description: "Investigate auth/session regressions with deploy-window and env signals.",
+    whatThisDoes:
+      "Runs deploy-window 401 classification first, then triages auth failures and checks env drift for session/cookie keys.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Render backend service name/id." },
+      { name: "window_minutes", type: "number", defaultValue: 45, description: "Auth regression check window." },
+      { name: "frontend_hint", type: "string", description: "Frontend host/path hint." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "ops.verify_deploy_window_401",
+        description: "Primary orchestrator: classify auth-related 401 spikes near deploys.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          frontend_hint: params.frontend_hint
+        }
+      },
+      {
+        tool: "ops.triage_prod_error",
+        description: "Orchestrator follow-up: capture auth error signatures + deploy correlation.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          filter: "401|unauthorized|csrf|session|cookie"
+        },
+        fallback: true
+      },
+      {
+        tool: "repo.search",
+        description: "Raw fallback: locate auth/session/cookie config hotspots in code.",
+        arguments: {
+          query: "session|cookie|csrf|SameSite|SECRET_KEY_BASE|origin",
+          maxResults: 60
+        },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "storefront-routing-drift-check",
+    uriTemplate: "biddersweet://templates/storefront-routing-drift-check{?max_allowed_drift,storefront_key}",
+    name: "Storefront Routing Drift Check",
+    description: "Validate storefront routing compatibility against route/contracts context.",
+    whatThisDoes: "Runs route-contract orchestrator first, then scans storefront routing markers in code.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "max_allowed_drift", type: "number", defaultValue: 25, description: "Allowed route/openapi drift threshold." },
+      {
+        name: "storefront_key",
+        type: "string",
+        defaultValue: "marketplace",
+        description: "Storefront key to inspect in code references."
+      }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "dev.route_contract_check",
+        description: "Primary orchestrator: route/openapi consistency baseline.",
+        arguments: { maxAllowedDrift: params.max_allowed_drift }
+      },
+      {
+        tool: "repo.search",
+        description: "Raw fallback: scan storefront key references and routing boundaries.",
+        arguments: {
+          query: String(params.storefront_key),
+          maxResults: 50
+        },
+        fallback: true
+      },
+      {
+        tool: "rails.routes",
+        description: "Raw fallback: inspect route surface for storefront namespace drift.",
+        arguments: {
+          mode: "static",
+          maxResults: 500
+        },
+        fallback: true
+      }
+    ]
+  },
+  {
+    templateId: "incident-to-contract-followup",
+    uriTemplate:
+      "biddersweet://templates/incident-to-contract-followup{?service,window_minutes,endpoint,filter,max_allowed_drift}",
+    name: "Incident To Contract Follow-up",
+    description: "Turn a production incident into contract/smoke follow-up checks.",
+    whatThisDoes:
+      "Runs incident triage first, then validates route/openapi drift and smoke readiness to prevent repeat regressions.",
+    mimeType: "application/json",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Render backend service name/id." },
+      { name: "window_minutes", type: "number", defaultValue: 30, description: "Incident triage window." },
+      { name: "endpoint", type: "string", description: "Optional incident endpoint path." },
+      { name: "filter", type: "string", description: "Optional incident error filter." },
+      { name: "max_allowed_drift", type: "number", defaultValue: 25, description: "Route/OpenAPI drift threshold." }
+    ],
+    buildSteps: (params) => [
+      {
+        tool: "ops.triage_prod_error",
+        description: "Orchestrator #1: collect incident diagnostics.",
+        arguments: {
+          service: params.service,
+          window_minutes: params.window_minutes,
+          endpoint: params.endpoint,
+          filter: params.filter
+        }
+      },
+      {
+        tool: "dev.route_contract_check",
+        description: "Orchestrator #2: verify contract drift after incident.",
+        arguments: {
+          maxAllowedDrift: params.max_allowed_drift
+        }
+      },
+      {
+        tool: "dev.smoke_fullstack",
+        description: "Orchestrator #3: smoke-check post-fix readiness.",
+        arguments: {
+          serviceName: params.service
+        }
+      }
+    ]
+  }
+];
+
+function parseTemplateUri(uri: string): { templateId: string; searchParams: URLSearchParams } | null {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== "biddersweet:") return null;
+    if (parsed.hostname !== "templates") return null;
+    const templateId = parsed.pathname.replace(/^\/+/, "").trim();
+    if (!templateId) return null;
+    return { templateId, searchParams: parsed.searchParams };
+  } catch {
+    return null;
+  }
+}
+
+function resolveTemplateParameters(
+  parameters: McpTemplateParameter[],
+  searchParams: URLSearchParams
+): { values: Record<string, string | number | boolean>; missingRequired: string[] } {
+  const values: Record<string, string | number | boolean> = {};
+  const missingRequired: string[] = [];
+  for (const parameter of parameters) {
+    const raw = searchParams.get(parameter.name);
+    if (raw === null || raw.length === 0) {
+      if (parameter.defaultValue !== undefined) values[parameter.name] = parameter.defaultValue;
+      else if (parameter.required) missingRequired.push(parameter.name);
+      continue;
+    }
+    if (parameter.type === "number") {
+      const parsedNumber = Number(raw);
+      if (Number.isFinite(parsedNumber)) {
+        values[parameter.name] = parsedNumber;
+        continue;
+      }
+      if (parameter.defaultValue !== undefined) values[parameter.name] = parameter.defaultValue;
+      else if (parameter.required) missingRequired.push(parameter.name);
+      continue;
+    }
+    if (parameter.type === "boolean") {
+      const normalized = raw.toLowerCase();
+      values[parameter.name] = normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+      continue;
+    }
+    values[parameter.name] = raw;
+  }
+  return { values, missingRequired };
+}
+
+function compactTemplateArguments(input: Record<string, unknown>): Record<string, unknown> {
+  const entries = Object.entries(input).filter(([, value]) => value !== undefined);
+  return Object.fromEntries(entries);
+}
+
+function buildWorkflowTemplateResource(
+  uri: string
+):
+  | {
+      uri: string;
+      mimeType: string;
+      text: string;
+    }
+  | null {
+  const parsed = parseTemplateUri(uri);
+  if (!parsed) return null;
+
+  const template = MCP_WORKFLOW_TEMPLATE_CATALOG.find((entry) => entry.templateId === parsed.templateId);
+  if (!template) return null;
+
+  const resolved = resolveTemplateParameters(template.parameters, parsed.searchParams);
+  const steps = template
+    .buildSteps(resolved.values)
+    .map((step, index) => ({
+      order: index + 1,
+      tool: step.tool,
+      description: step.description,
+      fallback: Boolean(step.fallback),
+      arguments: compactTemplateArguments(step.arguments)
+    }));
+
+  const payload = {
+    template_id: template.templateId,
+    name: template.name,
+    what_this_does: template.whatThisDoes,
+    uri_template: template.uriTemplate,
+    required_parameters: template.parameters.filter((parameter) => parameter.required).map((parameter) => parameter.name),
+    parameters: template.parameters.map((parameter) => ({
+      name: parameter.name,
+      type: parameter.type,
+      required: Boolean(parameter.required),
+      description: parameter.description,
+      default: parameter.defaultValue
+    })),
+    provided_parameters: resolved.values,
+    missing_required_parameters: resolved.missingRequired,
+    runnable: resolved.missingRequired.length === 0,
+    execution_policy: "orchestrator_first_then_raw_fallback",
+    tool_sequence: steps
+  };
+
+  return {
+    uri,
+    mimeType: template.mimeType,
+    text: JSON.stringify(payload, null, 2)
+  };
+}
+
 const serverLogPath = path.join(repoRoot, AUDIT_LOG_DIR, SERVER_LOG_FILE);
 const appendServerLog = (message: string) => {
   try {
@@ -992,12 +1516,24 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 
 server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
   appendServerLog("resources_templates_list");
-  return { resourceTemplates: [] };
+  return {
+    resourceTemplates: MCP_WORKFLOW_TEMPLATE_CATALOG.map((entry) => ({
+      uriTemplate: entry.uriTemplate,
+      name: entry.name,
+      description: entry.description,
+      mimeType: entry.mimeType
+    }))
+  };
 });
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
   appendServerLog(`resource_read uri=${uri}`);
+
+  const templateResource = buildWorkflowTemplateResource(uri);
+  if (templateResource) {
+    return { contents: [templateResource] };
+  }
 
   const resource = MCP_RESOURCE_CATALOG.find((entry) => entry.uri === uri);
   if (!resource) {

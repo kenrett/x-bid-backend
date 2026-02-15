@@ -990,6 +990,44 @@ test("catalog resources are listed by MCP server", async () => {
   assert.ok(uris.includes("biddersweet://maps/apps-vercel"));
 });
 
+test("workflow templates are listed by MCP server", async () => {
+  const templatesResult = await client.listResourceTemplates();
+  const templateUris = templatesResult.resourceTemplates.map((template) => template.uriTemplate);
+
+  assert.ok(templateUris.length >= 8);
+  assert.ok(
+    templateUris.includes(
+      "biddersweet://templates/triage-prod-error{?service,window_minutes,endpoint,filter,request_id}"
+    )
+  );
+  assert.ok(
+    templateUris.includes("biddersweet://templates/deploy-window-401-check{?service,window_minutes,frontend_hint}")
+  );
+  assert.ok(templateUris.includes("biddersweet://templates/env-drift-report{?service_a,service_b,show_values}"));
+  assert.ok(
+    templateUris.includes(
+      "biddersweet://templates/csp-image-loading-regression-check{?service,window_minutes,domain,image_path}"
+    )
+  );
+  assert.ok(templateUris.includes("biddersweet://templates/route-contract-check{?max_allowed_drift}"));
+  assert.ok(templateUris.includes("biddersweet://templates/fullstack-smoke{?service,include_integration}"));
+});
+
+test("workflow template read returns runnable orchestrator-first sequence", async () => {
+  const uri =
+    "biddersweet://templates/triage-prod-error?service=x-bid-backend-api&window_minutes=30&endpoint=/api/v1/uploads/";
+  const readResult = await client.readResource({ uri });
+  const text = readResult.contents?.[0]?.text ?? "";
+  const payload = JSON.parse(text);
+
+  assert.equal(payload.template_id, "triage-prod-error");
+  assert.equal(payload.runnable, true);
+  assert.equal(payload.execution_policy, "orchestrator_first_then_raw_fallback");
+  assert.equal(payload.tool_sequence[0].tool, "ops.triage_prod_error");
+  assert.equal(payload.tool_sequence[0].arguments.service, "x-bid-backend-api");
+  assert.equal(payload.tool_sequence[0].arguments.window_minutes, 30);
+});
+
 test("catalog resources are readable by URI", async () => {
   const readResult = await client.readResource({ uri: "biddersweet://runbooks/incident-triage" });
   const text = readResult.contents?.[0]?.text ?? "";
