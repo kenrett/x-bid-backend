@@ -53,10 +53,19 @@ export const OpsTriageProdErrorInputSchema = triageInputSchema.transform((value)
   requestId: value.requestId ?? value.request_id
 }));
 
-export const OpsVerifyDeployWindow401InputSchema = z.object({
-  serviceName: z.string().trim().min(1),
-  timeWindowMinutes: z.number().int().positive().optional().default(45)
-});
+export const OpsVerifyDeployWindow401InputSchema = z
+  .object({
+    service: z.string().trim().min(1).optional(),
+    serviceName: z.string().trim().min(1).optional(),
+    timeWindowMinutes: z.number().int().positive().optional(),
+    window_minutes: z.number().int().positive().optional(),
+    frontend_hint: z.string().trim().min(1).max(256).optional()
+  })
+  .transform((value) => ({
+    serviceName: value.serviceName ?? value.service ?? DEFAULT_TRIAGE_SERVICE,
+    timeWindowMinutes: value.timeWindowMinutes ?? value.window_minutes ?? 60,
+    frontendHint: value.frontend_hint
+  }));
 
 export const OpsEnvDiffInputSchema = z.object({
   sourceEnv: z.string().trim().min(1),
@@ -72,6 +81,17 @@ export const OpsEnvDiffInputSchema = z.object({
 export type OpsTriageProdErrorInput = z.infer<typeof OpsTriageProdErrorInputSchema>;
 export type OpsVerifyDeployWindow401Input = z.infer<typeof OpsVerifyDeployWindow401InputSchema>;
 export type OpsEnvDiffInput = z.infer<typeof OpsEnvDiffInputSchema>;
+
+export type OpsVerifyDeployWindow401Result = {
+  classification: "transient" | "regression" | "unknown";
+  evidence: Array<{
+    timestamp: string;
+    count: number;
+    related_deploy_ids: string[];
+    detail: string;
+  }>;
+  recommended_actions: string[];
+};
 
 export type RenderService = {
   id: string;
@@ -281,7 +301,7 @@ export function runOpsTriageProdError(
 export function runOpsVerifyDeployWindow401(
   input: OpsVerifyDeployWindow401Input,
   deps: OpsOrchestratorDeps
-): Promise<OrchestratorResult> {
+): Promise<OpsVerifyDeployWindow401Result | OrchestratorResult> {
   return (async () => {
     if (input.timeWindowMinutes > MAX_DEPLOY_WINDOW_MINUTES) {
       return refusedResult(
@@ -290,44 +310,94 @@ export function runOpsVerifyDeployWindow401(
       );
     }
 
-    const [git, runbookPresent] = await Promise.all([
-      deps.getGitSummary(),
-      deps.fileExists("runbooks/vercel-mcp.md")
-    ]);
+    const now = new Date();
+    const start = new Date(now.getTime() - input.timeWindowMinutes * 60_000);
+
+    let services: RenderService[] = [];
+    try {
+      services = await deps.listRenderServices();
+    } catch {
+      return unknownVerificationResult("render_services_unavailable");
+    }
+
+    const selectedService = selectService(input.serviceName, services);
+    if (!selectedService) {
+      return unknownVerificationResult("service_not_found");
+    }
+
+    let logsResponse: RenderLogsResponse = { logs: [] };
+    let deploys: RenderDeploy[] = [];
+    let metrics: RenderMetricSeries[] = [];
+    try {
+      [logsResponse, deploys, metrics] = await Promise.all([
+        deps.listRenderLogs({
+          serviceId: selectedService.id,
+          startTime: start.toISOString(),
+          endTime: now.toISOString(),
+          limit: TRIAGE_MAX_LOGS
+        }),
+        deps.listRenderDeploys({
+          serviceId: selectedService.id,
+          startTime: start.toISOString(),
+          endTime: now.toISOString(),
+          limit: 20
+        }),
+        deps.getRenderMetrics({
+          resourceId: selectedService.id,
+          startTime: start.toISOString(),
+          endTime: now.toISOString()
+        })
+      ]);
+    } catch {
+      return unknownVerificationResult("render_data_unavailable");
+    }
+
+    const auth401Logs = filterAuth401Logs(logsResponse.logs ?? [], input.frontendHint);
+    const deployWindows = buildDeployWindows(deploys);
+    const relatedDeployIds = collectRelatedDeployIds(auth401Logs, deployWindows);
+
+    const latestDeployEndMs =
+      deployWindows.length > 0
+        ? deployWindows.reduce((latest, deploy) => (deploy.endMs > latest ? deploy.endMs : latest), 0)
+        : null;
+
+    const postDeployGraceMs = latestDeployEndMs !== null ? latestDeployEndMs + 15 * 60_000 : null;
+    const postDeployCount =
+      postDeployGraceMs === null
+        ? 0
+        : auth401Logs.filter((entry) => toTimestampMs(entry.timestamp) > postDeployGraceMs).length;
+    const clusteredCount = auth401Logs.length - postDeployCount;
+    const total401 = auth401Logs.length;
+
+    const [firstHalfCount, secondHalfCount] = countHalfWindow(auth401Logs, start, now);
+    const metricTrend = summarize401MetricTrend(metrics);
+
+    const classification: "transient" | "regression" | "unknown" = classify401Window({
+      total401,
+      clusteredCount,
+      postDeployCount,
+      secondHalfCount,
+      firstHalfCount,
+      metricTrend
+    });
+
+    const evidence = build401Evidence({
+      start,
+      now,
+      total401,
+      clusteredCount,
+      postDeployCount,
+      firstHalfCount,
+      secondHalfCount,
+      relatedDeployIds,
+      deployWindows,
+      metricTrend
+    });
 
     return {
-      summary: `Deploy window verification prepared for ${input.serviceName}.`,
-      signals: [
-        {
-          name: "service",
-          status: "ok",
-          detail: "service selected for 401 correlation",
-          value: input.serviceName
-        },
-        {
-          name: "window_minutes",
-          status: "ok",
-          detail: "requested verification window accepted",
-          value: input.timeWindowMinutes
-        },
-        {
-          name: "git_context",
-          status: git.isGitRepo ? "ok" : "warn",
-          detail: git.isGitRepo ? "git metadata available for deploy correlation" : "git metadata unavailable"
-        },
-        {
-          name: "runbook",
-          status: runbookPresent ? "ok" : "warn",
-          detail: runbookPresent ? "401 runbook reference present" : "401 runbook reference missing"
-        }
-      ],
-      next_actions: [
-        "Compare 401 spikes to deploy timestamps inside the requested window.",
-        "Validate cookie/session and CSRF behavior before and after the suspected deploy.",
-        "Confirm auth middleware and origin settings did not drift."
-      ],
-      artifacts: [{ kind: "runbook", link: "runbooks/vercel-mcp.md" }],
-      confidence: 0.69
+      classification,
+      evidence,
+      recommended_actions: recommended401Actions(classification, input.frontendHint)
     };
   })();
 }
@@ -393,6 +463,205 @@ export function runOpsEnvDiff(input: OpsEnvDiffInput, deps: OpsOrchestratorDeps)
       confidence: symmetricDiff === 0 ? 0.9 : 0.78
     };
   })();
+}
+
+type DeployWindow = {
+  id: string;
+  startMs: number;
+  endMs: number;
+  startIso: string;
+  endIso: string;
+};
+
+type MetricTrend = "up" | "flat_or_down" | "unavailable";
+
+function unknownVerificationResult(reason: string): OpsVerifyDeployWindow401Result {
+  return {
+    classification: "unknown",
+    evidence: [
+      {
+        timestamp: new Date().toISOString(),
+        count: 0,
+        related_deploy_ids: [],
+        detail: reason
+      }
+    ],
+    recommended_actions: [
+      "Confirm the backend Render service name/id and rerun with a narrower window.",
+      "Verify Render logs and deploy history access for the selected workspace."
+    ]
+  };
+}
+
+function filterAuth401Logs(logs: RenderLogEntry[], frontendHint?: string): RenderLogEntry[] {
+  const hint = frontendHint?.toLowerCase();
+  return logs.filter((entry) => {
+    const message = (entry.message ?? "").toLowerCase();
+    const path = (entry.path ?? "").toLowerCase();
+    const status = Number(entry.statusCode ?? NaN);
+    const has401Signal =
+      status === 401 ||
+      /\b401\b/.test(message) ||
+      /unauthori[sz]ed/.test(message) ||
+      /(missing cookie|missing session|invalid session|session missing|csrf)/.test(message);
+    if (!has401Signal) return false;
+    if (!hint) return true;
+    return message.includes(hint) || path.includes(hint);
+  });
+}
+
+function buildDeployWindows(deploys: RenderDeploy[]): DeployWindow[] {
+  return deploys
+    .map((deploy) => {
+      const startIso = deploy.startedAt ?? deploy.createdAt ?? null;
+      if (!startIso) return null;
+      const startMs = toTimestampMs(startIso);
+      const finishedIso = deploy.finishedAt ?? null;
+      const endMs = finishedIso ? toTimestampMs(finishedIso) : startMs + 10 * 60_000;
+      return {
+        id: deploy.id,
+        startMs,
+        endMs: endMs >= startMs ? endMs : startMs + 10 * 60_000,
+        startIso,
+        endIso: new Date(endMs >= startMs ? endMs : startMs + 10 * 60_000).toISOString()
+      };
+    })
+    .filter((window): window is DeployWindow => Boolean(window))
+    .sort((a, b) => a.startMs - b.startMs);
+}
+
+function collectRelatedDeployIds(logs: RenderLogEntry[], deployWindows: DeployWindow[]): string[] {
+  const ids = new Set<string>();
+  for (const log of logs) {
+    const ts = toTimestampMs(log.timestamp);
+    for (const deploy of deployWindows) {
+      if (ts >= deploy.startMs - 5 * 60_000 && ts <= deploy.endMs + 5 * 60_000) ids.add(deploy.id);
+    }
+  }
+  return [...ids];
+}
+
+function countHalfWindow(logs: RenderLogEntry[], start: Date, end: Date): [number, number] {
+  const midpoint = start.getTime() + Math.floor((end.getTime() - start.getTime()) / 2);
+  let first = 0;
+  let second = 0;
+  for (const entry of logs) {
+    const ts = toTimestampMs(entry.timestamp);
+    if (ts <= midpoint) first += 1;
+    else second += 1;
+  }
+  return [first, second];
+}
+
+function summarize401MetricTrend(series: RenderMetricSeries[]): MetricTrend {
+  const metric =
+    series.find((entry) => /(401|unauthorized)/i.test(entry.metricType)) ??
+    series.find((entry) => /(http_request_count)/i.test(entry.metricType));
+  if (!metric || !Array.isArray(metric.points) || metric.points.length < 2) return "unavailable";
+  const values = metric.points
+    .map((point) => point.value)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (values.length < 2) return "unavailable";
+  const first = values[0];
+  const last = values[values.length - 1];
+  return last > first * 1.2 ? "up" : "flat_or_down";
+}
+
+function classify401Window(input: {
+  total401: number;
+  clusteredCount: number;
+  postDeployCount: number;
+  firstHalfCount: number;
+  secondHalfCount: number;
+  metricTrend: MetricTrend;
+}): "transient" | "regression" | "unknown" {
+  if (input.total401 === 0) return "unknown";
+
+  const clusteredRatio = input.total401 > 0 ? input.clusteredCount / input.total401 : 0;
+  const persistentRatio = input.total401 > 0 ? input.postDeployCount / input.total401 : 0;
+  const ramping = input.secondHalfCount >= 3 && input.secondHalfCount > input.firstHalfCount * 1.2;
+
+  if ((input.postDeployCount >= 3 && persistentRatio >= 0.4) || ramping || input.metricTrend === "up") {
+    return "regression";
+  }
+  if (
+    clusteredRatio >= 0.7 &&
+    (input.postDeployCount === 0 || input.postDeployCount <= 1) &&
+    input.secondHalfCount <= input.firstHalfCount
+  ) {
+    return "transient";
+  }
+  return "unknown";
+}
+
+function build401Evidence(input: {
+  start: Date;
+  now: Date;
+  total401: number;
+  clusteredCount: number;
+  postDeployCount: number;
+  firstHalfCount: number;
+  secondHalfCount: number;
+  relatedDeployIds: string[];
+  deployWindows: DeployWindow[];
+  metricTrend: MetricTrend;
+}): Array<{ timestamp: string; count: number; related_deploy_ids: string[]; detail: string }> {
+  const evidence: Array<{ timestamp: string; count: number; related_deploy_ids: string[]; detail: string }> = [];
+  evidence.push({
+    timestamp: input.now.toISOString(),
+    count: input.total401,
+    related_deploy_ids: input.relatedDeployIds,
+    detail: "401/unauthorized + missing cookie/session signal count in window"
+  });
+  evidence.push({
+    timestamp: input.now.toISOString(),
+    count: input.clusteredCount,
+    related_deploy_ids: input.relatedDeployIds,
+    detail: "401 signals near deploy start/finish windows (+/-5m)"
+  });
+  evidence.push({
+    timestamp: input.now.toISOString(),
+    count: input.postDeployCount,
+    related_deploy_ids: input.deployWindows.length > 0 ? [input.deployWindows[input.deployWindows.length - 1].id] : [],
+    detail: "401 signals more than 15m after latest deploy finish"
+  });
+  evidence.push({
+    timestamp: input.start.toISOString(),
+    count: input.firstHalfCount,
+    related_deploy_ids: [],
+    detail: "first half window 401 count"
+  });
+  evidence.push({
+    timestamp: input.now.toISOString(),
+    count: input.secondHalfCount,
+    related_deploy_ids: [],
+    detail: `second half window 401 count (metric trend: ${input.metricTrend})`
+  });
+  return evidence;
+}
+
+function recommended401Actions(classification: "transient" | "regression" | "unknown", frontendHint?: string): string[] {
+  if (classification === "transient") {
+    return [
+      "Frontend should retry once before logout when a single 401 appears during deploy windows.",
+      "Add lightweight client-side jitter (200-500ms) before the retry to ride out backend/frontend switchover.",
+      frontendHint
+        ? `Confirm auth cookie scope includes ${frontendHint} and backend API domain.`
+        : "Confirm auth cookie scope covers both frontend domain and backend API domain."
+    ];
+  }
+  if (classification === "regression") {
+    return [
+      "Check cookie domain and SameSite settings for cross-site/session requests.",
+      "Verify SECRET_KEY_BASE consistency across deploys and instances.",
+      "Review CORS allowlist, credentials mode, and CSRF/session middleware behavior."
+    ];
+  }
+  return [
+    "Re-run with a tighter window around deploy boundaries and a frontend_hint for domain-specific correlation.",
+    "Inspect sampled 401 request logs for cookie/session presence and Origin/Host headers.",
+    "If unclear, instrument explicit auth failure reasons (missing cookie, invalid signature, csrf mismatch)."
+  ];
 }
 
 function parseEnvManifestKeys(content: string): string[] {

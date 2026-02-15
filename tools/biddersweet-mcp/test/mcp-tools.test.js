@@ -1006,6 +1006,157 @@ test("ops.verify_deploy_window_401 returns refusal for oversized window", async 
   assert.ok(Array.isArray(payload.signals));
 });
 
+test("ops.verify_deploy_window_401 classifies transient deploy-window 401s", async () => {
+  const now = Date.now();
+  const snapshotPath = "render-snapshot-401-transient.json";
+  await fs.writeFile(
+    path.join(repoRoot, snapshotPath),
+    JSON.stringify(
+      {
+        services: [{ id: "srv-backend", name: "x-bid-backend-api", url: "https://x-bid-backend.onrender.com" }],
+        logsByServiceId: {
+          "srv-backend": [
+            {
+              timestamp: new Date(now - 24 * 60_000).toISOString(),
+              level: "warn",
+              message: "401 unauthorized missing session cookie",
+              statusCode: 401
+            },
+            {
+              timestamp: new Date(now - 23 * 60_000).toISOString(),
+              level: "warn",
+              message: "Unauthorized: missing cookie",
+              statusCode: 401
+            },
+            {
+              timestamp: new Date(now - 21 * 60_000).toISOString(),
+              level: "warn",
+              message: "request unauthorized",
+              statusCode: 401
+            }
+          ]
+        },
+        metricsByServiceId: {
+          "srv-backend": [
+            {
+              metricType: "http_request_count",
+              points: [
+                { timestamp: new Date(now - 30 * 60_000).toISOString(), value: 30 },
+                { timestamp: new Date(now - 5 * 60_000).toISOString(), value: 10 }
+              ]
+            }
+          ]
+        },
+        deploysByServiceId: {
+          "srv-backend": [
+            {
+              id: "dep-auth",
+              startedAt: new Date(now - 25 * 60_000).toISOString(),
+              finishedAt: new Date(now - 20 * 60_000).toISOString(),
+              status: "live"
+            }
+          ]
+        }
+      },
+      null,
+      2
+    )
+  );
+
+  const { client: snapshotClient } = await createClient({
+    MCP_CAPABILITY: "READ_WRITE",
+    BIDDERSWEET_RENDER_SNAPSHOT_PATH: snapshotPath
+  });
+  try {
+    const { result, payload } = await callToolWithClient(snapshotClient, "ops.verify_deploy_window_401", {
+      service: "x-bid-backend-api",
+      window_minutes: 40
+    });
+    assert.equal(result.isError, false);
+    assert.equal(payload.classification, "transient");
+    assert.ok(Array.isArray(payload.evidence));
+    assert.ok(payload.evidence.length > 0);
+    assert.ok(Array.isArray(payload.recommended_actions));
+    assert.ok(payload.recommended_actions[0].includes("retry once before logout"));
+  } finally {
+    await snapshotClient.close();
+  }
+});
+
+test("ops.verify_deploy_window_401 classifies persistent 401s as regression", async () => {
+  const now = Date.now();
+  const snapshotPath = "render-snapshot-401-regression.json";
+  await fs.writeFile(
+    path.join(repoRoot, snapshotPath),
+    JSON.stringify(
+      {
+        services: [{ id: "srv-backend", name: "x-bid-backend-api", url: "https://x-bid-backend.onrender.com" }],
+        logsByServiceId: {
+          "srv-backend": [
+            {
+              timestamp: new Date(now - 10 * 60_000).toISOString(),
+              level: "warn",
+              message: "401 unauthorized",
+              statusCode: 401
+            },
+            {
+              timestamp: new Date(now - 6 * 60_000).toISOString(),
+              level: "warn",
+              message: "missing session",
+              statusCode: 401
+            },
+            {
+              timestamp: new Date(now - 2 * 60_000).toISOString(),
+              level: "warn",
+              message: "401 unauthorized",
+              statusCode: 401
+            }
+          ]
+        },
+        metricsByServiceId: {
+          "srv-backend": [
+            {
+              metricType: "http_request_count",
+              points: [
+                { timestamp: new Date(now - 30 * 60_000).toISOString(), value: 10 },
+                { timestamp: new Date(now - 1 * 60_000).toISOString(), value: 35 }
+              ]
+            }
+          ]
+        },
+        deploysByServiceId: {
+          "srv-backend": [
+            {
+              id: "dep-auth-old",
+              startedAt: new Date(now - 45 * 60_000).toISOString(),
+              finishedAt: new Date(now - 40 * 60_000).toISOString(),
+              status: "live"
+            }
+          ]
+        }
+      },
+      null,
+      2
+    )
+  );
+
+  const { client: snapshotClient } = await createClient({
+    MCP_CAPABILITY: "READ_WRITE",
+    BIDDERSWEET_RENDER_SNAPSHOT_PATH: snapshotPath
+  });
+  try {
+    const { result, payload } = await callToolWithClient(snapshotClient, "ops.verify_deploy_window_401", {
+      serviceName: "x-bid-backend-api",
+      timeWindowMinutes: 60
+    });
+    assert.equal(result.isError, false);
+    assert.equal(payload.classification, "regression");
+    assert.ok(payload.recommended_actions.some((line) => line.includes("cookie domain")));
+  } finally {
+    await snapshotClient.close();
+  }
+});
+
 test("ops.env_diff returns structured env drift data", async () => {
   const { result, payload } = await callTool("ops.env_diff", {
     sourceEnv: "staging",

@@ -838,10 +838,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
+            service: { type: "string" },
             serviceName: { type: "string" },
-            timeWindowMinutes: { type: "number" }
+            timeWindowMinutes: { type: "number" },
+            window_minutes: { type: "number" },
+            frontend_hint: { type: "string" }
           },
-          required: ["serviceName"],
           additionalProperties: false
         }
       },
