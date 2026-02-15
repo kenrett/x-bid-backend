@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListResourceTemplatesRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ReadResourceRequestSchema, ListResourceTemplatesRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { OpsEnvDiffInputSchema, OpsTriageProdErrorInputSchema, OpsVerifyDeployWindow401InputSchema, runOpsEnvDiff, runOpsTriageProdError, runOpsVerifyDeployWindow401 } from "./orchestrators/ops.js";
 import { DevRouteContractCheckInputSchema, DevSmokeFullstackInputSchema, runDevRouteContractCheck } from "./orchestrators/dev.js";
@@ -118,6 +118,50 @@ const SKIP_DIR_NAMES = new Set([
     ".git"
 ]);
 const repoRoot = resolveRepoRoot();
+const MCP_RESOURCE_CATALOG = [
+    {
+        uri: "biddersweet://runbooks/incident-triage",
+        name: "Incident Triage Runbook",
+        description: "Production incident triage flow for backend/API outages.",
+        relativePath: "tools/biddersweet-mcp/runbooks/incident-triage.md",
+        mimeType: "text/markdown"
+    },
+    {
+        uri: "biddersweet://runbooks/deploy-checklist",
+        name: "Deploy Checklist",
+        description: "Pre-deploy and post-deploy checklist for Render releases.",
+        relativePath: "tools/biddersweet-mcp/runbooks/deploy-checklist.md",
+        mimeType: "text/markdown"
+    },
+    {
+        uri: "biddersweet://contracts/auth-session",
+        name: "Auth Session Contract",
+        description: "Session lifecycle contract for storefront/browser auth flows.",
+        relativePath: "tools/biddersweet-mcp/contracts/auth-session.md",
+        mimeType: "text/markdown"
+    },
+    {
+        uri: "biddersweet://contracts/storefront-routing",
+        name: "Storefront Routing Contract",
+        description: "Storefront host routing and data isolation rules.",
+        relativePath: "tools/biddersweet-mcp/contracts/storefront-routing.md",
+        mimeType: "text/markdown"
+    },
+    {
+        uri: "biddersweet://maps/services-render",
+        name: "Render Services Map",
+        description: "Name-to-id/url map for Render services.",
+        relativePath: "tools/biddersweet-mcp/maps/services.render.json",
+        mimeType: "application/json"
+    },
+    {
+        uri: "biddersweet://maps/apps-vercel",
+        name: "Vercel Apps Map",
+        description: "Name-to-project/domain map for Vercel apps.",
+        relativePath: "tools/biddersweet-mcp/maps/apps.vercel.json",
+        mimeType: "application/json"
+    }
+];
 const serverLogPath = path.join(repoRoot, AUDIT_LOG_DIR, SERVER_LOG_FILE);
 const appendServerLog = (message) => {
     try {
@@ -683,14 +727,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         ]
     };
 });
-// This server exposes tools only (no resources). Return empty lists to satisfy MCP clients.
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
     appendServerLog("resources_list");
-    return { resources: [] };
+    return {
+        resources: MCP_RESOURCE_CATALOG.map((entry) => ({
+            uri: entry.uri,
+            name: entry.name,
+            description: entry.description,
+            mimeType: entry.mimeType
+        }))
+    };
 });
 server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
     appendServerLog("resources_templates_list");
     return { resourceTemplates: [] };
+});
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const { uri } = request.params;
+    appendServerLog(`resource_read uri=${uri}`);
+    const resource = MCP_RESOURCE_CATALOG.find((entry) => entry.uri === uri);
+    if (!resource) {
+        throw new Error(`Unknown resource URI: ${uri}`);
+    }
+    const resolved = resolveRepoPath(resource.relativePath);
+    if (!resolved.ok) {
+        throw new Error(`Resource path is outside repo root: ${resource.relativePath}`);
+    }
+    const stats = await fs.stat(resolved.resolved);
+    if (!stats.isFile()) {
+        throw new Error(`Resource path is not a file: ${resource.relativePath}`);
+    }
+    if (stats.size > MAX_FILE_SIZE_BYTES) {
+        throw new Error(`Resource exceeds max size: ${resource.relativePath}`);
+    }
+    if (await isBinaryFile(resolved.resolved)) {
+        throw new Error(`Resource is binary and cannot be read as text: ${resource.relativePath}`);
+    }
+    const text = normalizeLineEndings(await fs.readFile(resolved.resolved, "utf8"));
+    return {
+        contents: [
+            {
+                uri: resource.uri,
+                mimeType: resource.mimeType,
+                text
+            }
+        ]
+    };
 });
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;

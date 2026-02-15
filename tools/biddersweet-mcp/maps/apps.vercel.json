@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "updated_at": "2026-02-15",
+  "projects": [
+    {
+      "name": "x-bid-frontend",
+      "project": "x-bid-frontend",
+      "domains": [
+        "https://biddersweet.app",
+        "https://www.biddersweet.app",
+        "https://afterdark.biddersweet.app",
+        "https://marketplace.biddersweet.app",
+        "https://account.biddersweet.app"
+      ],
+      "notes": "Storefront frontend project on Vercel"
+    }
+  ]
+}

@@ -175,6 +175,33 @@ before(async () => {
       2
     )
   );
+  await fs.mkdir(path.join(repoRoot, "tools", "biddersweet-mcp", "runbooks"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "tools", "biddersweet-mcp", "contracts"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "tools", "biddersweet-mcp", "maps"), { recursive: true });
+  await fs.writeFile(
+    path.join(repoRoot, "tools", "biddersweet-mcp", "runbooks", "incident-triage.md"),
+    "# Incident Triage Runbook\n\nMinimal triage guidance.\n"
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "tools", "biddersweet-mcp", "runbooks", "deploy-checklist.md"),
+    "# Deploy Checklist\n\nMinimal deploy guidance.\n"
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "tools", "biddersweet-mcp", "contracts", "auth-session.md"),
+    "# Auth Session Contract\n\nSession contract.\n"
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "tools", "biddersweet-mcp", "contracts", "storefront-routing.md"),
+    "# Storefront Routing Contract\n\nRouting contract.\n"
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "tools", "biddersweet-mcp", "maps", "services.render.json"),
+    JSON.stringify({ services: [{ name: "x-bid-backend-api", id: "srv-backend", url: "https://x-bid-backend.onrender.com" }] })
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "tools", "biddersweet-mcp", "maps", "apps.vercel.json"),
+    JSON.stringify({ projects: [{ name: "x-bid-frontend", project: "x-bid-frontend", domains: ["https://biddersweet.app"] }] })
+  );
   await fs.writeFile(
     path.join(repoRoot, "config", "env", "source.env.keys"),
     ["DATABASE_URL=", "REDIS_URL=", "SECRET_KEY_BASE=", "STRIPE_API_KEY="].join("\n")
@@ -950,6 +977,23 @@ test("orchestrator tools are listed by MCP server", async () => {
   assert.ok(names.includes("ops.env_diff"));
   assert.ok(names.includes("dev.route_contract_check"));
   assert.ok(names.includes("dev.smoke_fullstack"));
+});
+
+test("catalog resources are listed by MCP server", async () => {
+  const resourcesResult = await client.listResources();
+  const uris = resourcesResult.resources.map((resource) => resource.uri);
+  assert.ok(uris.includes("biddersweet://runbooks/incident-triage"));
+  assert.ok(uris.includes("biddersweet://runbooks/deploy-checklist"));
+  assert.ok(uris.includes("biddersweet://contracts/auth-session"));
+  assert.ok(uris.includes("biddersweet://contracts/storefront-routing"));
+  assert.ok(uris.includes("biddersweet://maps/services-render"));
+  assert.ok(uris.includes("biddersweet://maps/apps-vercel"));
+});
+
+test("catalog resources are readable by URI", async () => {
+  const readResult = await client.readResource({ uri: "biddersweet://runbooks/incident-triage" });
+  const text = readResult.contents?.[0]?.text ?? "";
+  assert.ok(text.includes("Incident Triage Runbook"));
 });
 
 test("ops.triage_prod_error returns bounded triage report payload", async () => {
