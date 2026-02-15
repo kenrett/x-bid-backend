@@ -67,16 +67,36 @@ export const OpsVerifyDeployWindow401InputSchema = z
     frontendHint: value.frontend_hint
   }));
 
-export const OpsEnvDiffInputSchema = z.object({
-  sourceEnv: z.string().trim().min(1),
-  targetEnv: z.string().trim().min(1),
-  sourcePath: z.string().trim().min(1).optional().default("config/env/source.env.keys"),
-  targetPath: z.string().trim().min(1).optional().default("config/env/target.env.keys"),
-  includeSensitive: z.boolean().optional().default(false),
-  destructiveIntent: z.boolean().optional().default(false),
-  confirmToken: z.string().optional(),
-  confirmText: z.string().optional()
-});
+export const OpsEnvDiffInputSchema = z
+  .object({
+    service_a: z.string().trim().min(1).optional(),
+    service_b: z.string().trim().min(1).optional(),
+    show_values: z.boolean().optional(),
+    sourceEnv: z.string().trim().min(1).optional(),
+    targetEnv: z.string().trim().min(1).optional(),
+    includeSensitive: z.boolean().optional(),
+    destructiveIntent: z.boolean().optional().default(false),
+    confirmToken: z.string().optional(),
+    confirmText: z.string().optional()
+  })
+  .transform((value) => ({
+    serviceA: value.service_a ?? value.sourceEnv ?? "",
+    serviceB: value.service_b ?? value.targetEnv ?? "",
+    showValues: value.show_values ?? value.includeSensitive ?? false,
+    destructiveIntent: value.destructiveIntent ?? false,
+    confirmToken: value.confirmToken,
+    confirmText: value.confirmText
+  }))
+  .pipe(
+    z.object({
+      serviceA: z.string().trim().min(1),
+      serviceB: z.string().trim().min(1),
+      showValues: z.boolean().default(false),
+      destructiveIntent: z.boolean().default(false),
+      confirmToken: z.string().optional(),
+      confirmText: z.string().optional()
+    })
+  );
 
 export type OpsTriageProdErrorInput = z.infer<typeof OpsTriageProdErrorInputSchema>;
 export type OpsVerifyDeployWindow401Input = z.infer<typeof OpsVerifyDeployWindow401InputSchema>;
@@ -134,6 +154,11 @@ export type RenderDeploy = {
   finishedAt?: string | null;
 };
 
+export type RenderEnvVar = {
+  key: string;
+  value?: string | null;
+};
+
 export type OpsTriageProdErrorResult = {
   service: { id: string; name: string; url?: string | null } | null;
   window_minutes: number;
@@ -185,6 +210,7 @@ export type OpsOrchestratorDeps = {
     endTime: string;
     limit: number;
   }) => Promise<RenderDeploy[]>;
+  listRenderEnvVars: (input: { serviceId: string }) => Promise<RenderEnvVar[]>;
 };
 
 export function runOpsTriageProdError(
@@ -417,27 +443,66 @@ export function runOpsEnvDiff(input: OpsEnvDiffInput, deps: OpsOrchestratorDeps)
       }
     }
 
-    const [sourceContent, targetContent] = await Promise.all([
-      deps.readTextFile(input.sourcePath),
-      deps.readTextFile(input.targetPath)
-    ]);
-
-    if (!sourceContent || !targetContent) {
-      return refusedResult("env_manifest_missing", "Refused: one or more environment key manifests are missing.");
+    let services: RenderService[] = [];
+    try {
+      services = await deps.listRenderServices();
+    } catch {
+      return refusedResult("render_services_unavailable", "Refused: unable to list Render services.");
     }
 
-    const sourceKeys = parseEnvManifestKeys(sourceContent);
-    const targetKeys = parseEnvManifestKeys(targetContent);
+    const serviceA = selectService(input.serviceA, services);
+    const serviceB = selectService(input.serviceB, services);
+    if (!serviceA || !serviceB) {
+      return refusedResult(
+        "render_service_not_found",
+        "Refused: unable to resolve one or both Render services from service_a/service_b."
+      );
+    }
 
-    const onlySource = sourceKeys.filter((key) => !targetKeys.includes(key));
-    const onlyTarget = targetKeys.filter((key) => !sourceKeys.includes(key));
-    const symmetricDiff = onlySource.length + onlyTarget.length;
+    const [varsA, varsB] = await Promise.all([
+      deps.listRenderEnvVars({ serviceId: serviceA.id }),
+      deps.listRenderEnvVars({ serviceId: serviceB.id })
+    ]);
+
+    const mapA = buildEnvVarMap(varsA);
+    const mapB = buildEnvVarMap(varsB);
+    const keysA = [...mapA.keys()].sort((a, b) => a.localeCompare(b));
+    const keysB = [...mapB.keys()].sort((a, b) => a.localeCompare(b));
+
+    const onlyInA = keysA.filter((key) => !mapB.has(key));
+    const onlyInB = keysB.filter((key) => !mapA.has(key));
+    const inBoth = keysA.filter((key) => mapB.has(key));
+    const suspiciousKeys = [...new Set([...keysA, ...keysB])]
+      .filter((key) => isSuspiciousOpsKey(key))
+      .sort((a, b) => a.localeCompare(b));
+    const symmetricDiff = onlyInA.length + onlyInB.length;
+
+    const driftSummary = {
+      service_a: serviceA.name,
+      service_b: serviceB.name,
+      only_in_a_count: onlyInA.length,
+      only_in_b_count: onlyInB.length,
+      in_both_count: inBoth.length,
+      symmetric_drift_count: symmetricDiff
+    };
+    const humanSummary =
+      symmetricDiff === 0
+        ? `No env key drift between ${serviceA.name} and ${serviceB.name}.`
+        : `Env drift detected between ${serviceA.name} and ${serviceB.name}: ${onlyInA.length} missing in ${serviceB.name}, ${onlyInB.length} missing in ${serviceA.name}.`;
+
+    const valuePreview =
+      input.showValues
+        ? {
+            service_a: buildValuePreview(keysA, mapA),
+            service_b: buildValuePreview(keysB, mapB)
+          }
+        : undefined;
 
     return {
-      summary: `Computed env key diff: ${input.sourceEnv} vs ${input.targetEnv}.`,
+      summary: humanSummary,
       signals: [
-        { name: "source_env", status: "ok", detail: "source manifest loaded", value: input.sourceEnv },
-        { name: "target_env", status: "ok", detail: "target manifest loaded", value: input.targetEnv },
+        { name: "service_a", status: "ok", detail: "service resolved", value: serviceA.name },
+        { name: "service_b", status: "ok", detail: "service resolved", value: serviceB.name },
         {
           name: "key_drift",
           status: symmetricDiff === 0 ? "ok" : "warn",
@@ -445,23 +510,37 @@ export function runOpsEnvDiff(input: OpsEnvDiffInput, deps: OpsOrchestratorDeps)
           value: symmetricDiff
         },
         {
-          name: "sensitive_values",
-          status: input.includeSensitive ? "warn" : "ok",
-          detail: input.includeSensitive ? "values requested (not returned by this tool)" : "key-only comparison"
+          name: "show_values",
+          status: input.showValues ? "warn" : "ok",
+          detail: input.showValues ? "value metadata enabled with redaction" : "key-only comparison mode"
         }
       ],
       next_actions: [
         "Align missing keys in deployment environment configuration before release.",
-        "Verify credentials and secrets through platform secret stores, not local files.",
+        "Verify auth/session/cors key consistency first when drift exists.",
         "Re-run env diff after updates to confirm zero drift."
       ],
       artifacts: [
-        { kind: "env_manifest", link: input.sourcePath, label: input.sourceEnv },
-        { kind: "env_manifest", link: input.targetPath, label: input.targetEnv },
+        { kind: "service", id: serviceA.id, label: serviceA.name },
+        { kind: "service", id: serviceB.id, label: serviceB.name },
         { kind: "diff_count", id: String(symmetricDiff), label: "Symmetric key drift count" }
       ],
-      confidence: symmetricDiff === 0 ? 0.9 : 0.78
-    };
+      confidence: symmetricDiff === 0 ? 0.95 : 0.84,
+      drift_summary: driftSummary,
+      missing_in_a: onlyInB,
+      missing_in_b: onlyInA,
+      in_both: inBoth,
+      suspicious_keys: suspiciousKeys,
+      report_json: {
+        drift_summary: driftSummary,
+        missing_in_a: onlyInB,
+        missing_in_b: onlyInA,
+        in_both: inBoth,
+        suspicious_keys: suspiciousKeys,
+        ...(input.showValues ? { value_preview: valuePreview } : {})
+      },
+      ...(input.showValues ? { value_preview: valuePreview } : {})
+    } as OrchestratorResult;
   })();
 }
 
@@ -664,14 +743,46 @@ function recommended401Actions(classification: "transient" | "regression" | "unk
   ];
 }
 
-function parseEnvManifestKeys(content: string): string[] {
-  return content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
-    .map((line) => line.replace(/=.*/, ""))
-    .filter((line) => line.length > 0)
-    .sort((a, b) => a.localeCompare(b));
+function buildEnvVarMap(vars: RenderEnvVar[]): Map<string, string | null> {
+  const map = new Map<string, string | null>();
+  for (const envVar of vars) {
+    const key = envVar.key.trim();
+    if (!key) continue;
+    map.set(key, typeof envVar.value === "string" ? envVar.value : null);
+  }
+  return map;
+}
+
+function isSensitiveOpsKey(key: string): boolean {
+  const normalized = key.toUpperCase();
+  if (normalized.startsWith("SECRET")) return true;
+  if (/(^|_)KEY($|_)/.test(normalized)) return true;
+  if (/(^|_)TOKEN($|_)/.test(normalized)) return true;
+  if (/(PASSWORD|PRIVATE|CREDENTIAL|JWT|COOKIE|SESSION)/.test(normalized)) return true;
+  return false;
+}
+
+function isSuspiciousOpsKey(key: string): boolean {
+  const normalized = key.toUpperCase();
+  return /(AUTH|SESSION|COOKIE|CORS|CSRF|JWT|ORIGIN|ALLOWED_ORIGINS|SECRET_KEY_BASE)/.test(normalized);
+}
+
+function buildValuePreview(keys: string[], map: Map<string, string | null>): Record<string, { length: number; last4?: string; redacted: true }> {
+  const preview: Record<string, { length: number; last4?: string; redacted: true }> = {};
+  for (const key of keys) {
+    const value = map.get(key);
+    const length = typeof value === "string" ? value.length : 0;
+    if (isSensitiveOpsKey(key)) {
+      preview[key] = { length, redacted: true };
+      continue;
+    }
+    preview[key] = {
+      length,
+      last4: typeof value === "string" ? value.slice(-4) : "",
+      redacted: true
+    };
+  }
+  return preview;
 }
 
 function buildTriageResult(input: {

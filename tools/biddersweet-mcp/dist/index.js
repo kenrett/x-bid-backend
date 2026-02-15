@@ -632,20 +632,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "ops.env_diff",
-                description: "Compare environment key manifests and flag drift (read-only).",
+                description: "Compare Render service environment keys and report drift (read-only).",
                 inputSchema: {
                     type: "object",
                     properties: {
+                        service_a: { type: "string" },
+                        service_b: { type: "string" },
+                        show_values: { type: "boolean" },
                         sourceEnv: { type: "string" },
                         targetEnv: { type: "string" },
-                        sourcePath: { type: "string" },
-                        targetPath: { type: "string" },
                         includeSensitive: { type: "boolean" },
                         destructiveIntent: { type: "boolean" },
                         confirmToken: { type: "string" },
                         confirmText: { type: "string" }
                     },
-                    required: ["sourceEnv", "targetEnv"],
+                    required: ["service_a", "service_b"],
                     additionalProperties: false
                 }
             },
@@ -2224,7 +2225,8 @@ async function handleOpsTriageProdError(input) {
         listRenderServices: listRenderServicesForOrchestrator,
         listRenderLogs: listRenderLogsForOrchestrator,
         getRenderMetrics: getRenderMetricsForOrchestrator,
-        listRenderDeploys: listRenderDeploysForOrchestrator
+        listRenderDeploys: listRenderDeploysForOrchestrator,
+        listRenderEnvVars: listRenderEnvVarsForOrchestrator
     });
 }
 async function handleOpsVerifyDeployWindow401(input) {
@@ -2236,7 +2238,8 @@ async function handleOpsVerifyDeployWindow401(input) {
         listRenderServices: listRenderServicesForOrchestrator,
         listRenderLogs: listRenderLogsForOrchestrator,
         getRenderMetrics: getRenderMetricsForOrchestrator,
-        listRenderDeploys: listRenderDeploysForOrchestrator
+        listRenderDeploys: listRenderDeploysForOrchestrator,
+        listRenderEnvVars: listRenderEnvVarsForOrchestrator
     });
 }
 async function handleOpsEnvDiff(input) {
@@ -2248,7 +2251,8 @@ async function handleOpsEnvDiff(input) {
         listRenderServices: listRenderServicesForOrchestrator,
         listRenderLogs: listRenderLogsForOrchestrator,
         getRenderMetrics: getRenderMetricsForOrchestrator,
-        listRenderDeploys: listRenderDeploysForOrchestrator
+        listRenderDeploys: listRenderDeploysForOrchestrator,
+        listRenderEnvVars: listRenderEnvVarsForOrchestrator
     });
 }
 async function handleDevRouteContractCheck(input) {
@@ -2427,6 +2431,16 @@ async function listRenderLogsForOrchestrator(input) {
         truncated: filtered.length > input.limit,
         hasMore: filtered.length > input.limit
     };
+}
+async function listRenderEnvVarsForOrchestrator(input) {
+    const snapshot = await getRenderSnapshot();
+    const envVars = snapshot?.envVarsByServiceId?.[input.serviceId] ?? [];
+    return envVars
+        .map((item) => ({
+        key: typeof item.key === "string" ? item.key : "",
+        value: typeof item.value === "string" ? item.value : null
+    }))
+        .filter((item) => item.key.length > 0);
 }
 async function getRenderMetricsForOrchestrator(input) {
     const snapshot = await getRenderSnapshot();

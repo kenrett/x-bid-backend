@@ -1157,25 +1157,116 @@ test("ops.verify_deploy_window_401 classifies persistent 401s as regression", as
   }
 });
 
-test("ops.env_diff returns structured env drift data", async () => {
-  const { result, payload } = await callTool("ops.env_diff", {
-    sourceEnv: "staging",
-    targetEnv: "production",
-    sourcePath: "config/env/source.env.keys",
-    targetPath: "config/env/target.env.keys"
+test("ops.env_diff returns deterministic Render env drift report", async () => {
+  const snapshotPath = "render-snapshot-env-diff.json";
+  await fs.writeFile(
+    path.join(repoRoot, snapshotPath),
+    JSON.stringify(
+      {
+        services: [
+          { id: "srv-prod", name: "x-bid-backend-prod", url: "https://api.example.com" },
+          { id: "srv-staging", name: "x-bid-backend-staging", url: "https://staging-api.example.com" }
+        ],
+        envVarsByServiceId: {
+          "srv-prod": [
+            { key: "DATABASE_URL", value: "postgres://prod-db" },
+            { key: "REDIS_URL", value: "redis://prod-cache" },
+            { key: "SECRET_KEY_BASE", value: "prod-secret-key-base" },
+            { key: "ALLOWED_ORIGINS", value: "https://www.example.com" },
+            { key: "AUTH_JWT_ISSUER", value: "issuer-prod" }
+          ],
+          "srv-staging": [
+            { key: "DATABASE_URL", value: "postgres://staging-db" },
+            { key: "REDIS_URL", value: "redis://staging-cache" },
+            { key: "SECRET_KEY_BASE", value: "staging-secret-key-base" },
+            { key: "FEATURE_FLAG_X", value: "true" },
+            { key: "AUTH_JWT_ISSUER", value: "issuer-staging" }
+          ]
+        }
+      },
+      null,
+      2
+    )
+  );
+
+  const { client: snapshotClient } = await createClient({
+    MCP_CAPABILITY: "READ_WRITE",
+    BIDDERSWEET_RENDER_SNAPSHOT_PATH: snapshotPath
   });
-  assert.equal(result.isError, false);
-  assert.equal(typeof payload.summary, "string");
-  assert.ok(Array.isArray(payload.signals));
-  assert.ok(Array.isArray(payload.next_actions));
-  assert.ok(Array.isArray(payload.artifacts));
-  assert.equal(typeof payload.confidence, "number");
+  try {
+    const { result, payload } = await callToolWithClient(snapshotClient, "ops.env_diff", {
+      service_a: "x-bid-backend-prod",
+      service_b: "x-bid-backend-staging"
+    });
+    assert.equal(result.isError, false);
+    assert.equal(typeof payload.summary, "string");
+    assert.ok(payload.summary.includes("Env drift detected"));
+    assert.deepEqual(payload.missing_in_a, ["FEATURE_FLAG_X"]);
+    assert.deepEqual(payload.missing_in_b, ["ALLOWED_ORIGINS"]);
+    assert.deepEqual(payload.in_both, ["AUTH_JWT_ISSUER", "DATABASE_URL", "REDIS_URL", "SECRET_KEY_BASE"]);
+    assert.ok(Array.isArray(payload.suspicious_keys));
+    assert.ok(payload.suspicious_keys.includes("ALLOWED_ORIGINS"));
+    assert.ok(payload.suspicious_keys.includes("AUTH_JWT_ISSUER"));
+    assert.ok(payload.suspicious_keys.includes("SECRET_KEY_BASE"));
+    assert.equal(payload.value_preview, undefined);
+    assert.equal(typeof payload.drift_summary, "object");
+    assert.equal(payload.drift_summary.symmetric_drift_count, 2);
+    assert.equal(typeof payload.report_json, "object");
+  } finally {
+    await snapshotClient.close();
+  }
+});
+
+test("ops.env_diff show_values mode redacts sensitive values", async () => {
+  const snapshotPath = "render-snapshot-env-diff-values.json";
+  await fs.writeFile(
+    path.join(repoRoot, snapshotPath),
+    JSON.stringify(
+      {
+        services: [
+          { id: "srv-prod", name: "x-bid-backend-prod" },
+          { id: "srv-staging", name: "x-bid-backend-staging" }
+        ],
+        envVarsByServiceId: {
+          "srv-prod": [
+            { key: "FEATURE_FLAG_X", value: "enabled" },
+            { key: "SECRET_KEY_BASE", value: "super-secret-value" }
+          ],
+          "srv-staging": [
+            { key: "FEATURE_FLAG_X", value: "disabled" },
+            { key: "SECRET_KEY_BASE", value: "another-secret-value" }
+          ]
+        }
+      },
+      null,
+      2
+    )
+  );
+
+  const { client: snapshotClient } = await createClient({
+    MCP_CAPABILITY: "READ_WRITE",
+    BIDDERSWEET_RENDER_SNAPSHOT_PATH: snapshotPath
+  });
+  try {
+    const { result, payload } = await callToolWithClient(snapshotClient, "ops.env_diff", {
+      service_a: "x-bid-backend-prod",
+      service_b: "x-bid-backend-staging",
+      show_values: true
+    });
+    assert.equal(result.isError, false);
+    assert.equal(payload.value_preview.service_a.SECRET_KEY_BASE.redacted, true);
+    assert.equal(payload.value_preview.service_a.SECRET_KEY_BASE.last4, undefined);
+    assert.equal(payload.value_preview.service_a.FEATURE_FLAG_X.last4, "bled");
+    assert.equal(payload.value_preview.service_b.FEATURE_FLAG_X.last4, "bled");
+  } finally {
+    await snapshotClient.close();
+  }
 });
 
 test("ops.env_diff refuses destructive mode without two-step confirmation", async () => {
   const { result, payload } = await callTool("ops.env_diff", {
-    sourceEnv: "staging",
-    targetEnv: "production",
+    service_a: "staging",
+    service_b: "production",
     destructiveIntent: true
   });
   assert.equal(result.isError, false);
