@@ -820,10 +820,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
+            service: { type: "string" },
             serviceName: { type: "string" },
-            timeWindowMinutes: { type: "number" }
+            timeWindowMinutes: { type: "number" },
+            window_minutes: { type: "number" },
+            filter: { type: "string" },
+            endpoint: { type: "string" },
+            requestId: { type: "string" },
+            request_id: { type: "string" }
           },
-          required: ["serviceName"],
           additionalProperties: false
         }
       },
@@ -2645,7 +2650,11 @@ async function handleOpsTriageProdError(input: OpsTriageProdErrorInput) {
     getGitSummary: getGitSummary,
     getDevToolsSummary: getDevToolsSummary,
     fileExists: existsInRepo,
-    readTextFile: readTextFileForOrchestrator
+    readTextFile: readTextFileForOrchestrator,
+    listRenderServices: listRenderServicesForOrchestrator,
+    listRenderLogs: listRenderLogsForOrchestrator,
+    getRenderMetrics: getRenderMetricsForOrchestrator,
+    listRenderDeploys: listRenderDeploysForOrchestrator
   });
 }
 
@@ -2654,7 +2663,11 @@ async function handleOpsVerifyDeployWindow401(input: OpsVerifyDeployWindow401Inp
     getGitSummary: getGitSummary,
     getDevToolsSummary: getDevToolsSummary,
     fileExists: existsInRepo,
-    readTextFile: readTextFileForOrchestrator
+    readTextFile: readTextFileForOrchestrator,
+    listRenderServices: listRenderServicesForOrchestrator,
+    listRenderLogs: listRenderLogsForOrchestrator,
+    getRenderMetrics: getRenderMetricsForOrchestrator,
+    listRenderDeploys: listRenderDeploysForOrchestrator
   });
 }
 
@@ -2663,7 +2676,11 @@ async function handleOpsEnvDiff(input: OpsEnvDiffInput) {
     getGitSummary: getGitSummary,
     getDevToolsSummary: getDevToolsSummary,
     fileExists: existsInRepo,
-    readTextFile: readTextFileForOrchestrator
+    readTextFile: readTextFileForOrchestrator,
+    listRenderServices: listRenderServicesForOrchestrator,
+    listRenderLogs: listRenderLogsForOrchestrator,
+    getRenderMetrics: getRenderMetricsForOrchestrator,
+    listRenderDeploys: listRenderDeploysForOrchestrator
   });
 }
 
@@ -2767,6 +2784,181 @@ async function readTextFileForOrchestrator(relPath: string): Promise<string | nu
   if (await isBinaryFile(resolved.resolved)) return null;
   const content = await fs.readFile(resolved.resolved, "utf8");
   return normalizeLineEndings(content);
+}
+
+type RenderSnapshot = {
+  services?: Array<{ id?: string; name?: string; url?: string | null; region?: string | null }>;
+  logsByServiceId?: Record<
+    string,
+    Array<{
+      timestamp?: string;
+      message?: string;
+      level?: string | null;
+      type?: string | null;
+      path?: string | null;
+      statusCode?: string | number | null;
+      requestId?: string | null;
+    }>
+  >;
+  metricsByServiceId?: Record<
+    string,
+    Array<{
+      metricType?: string;
+      points?: Array<{ timestamp?: string; value?: number | null }>;
+    }>
+  >;
+  deploysByServiceId?: Record<
+    string,
+    Array<{
+      id?: string;
+      status?: string | null;
+      startedAt?: string | null;
+      createdAt?: string | null;
+      finishedAt?: string | null;
+    }>
+  >;
+};
+
+let renderSnapshotCache: Promise<RenderSnapshot | null> | null = null;
+
+async function getRenderSnapshot(): Promise<RenderSnapshot | null> {
+  if (renderSnapshotCache) return renderSnapshotCache;
+  renderSnapshotCache = (async () => {
+    const snapshotPath = process.env.BIDDERSWEET_RENDER_SNAPSHOT_PATH;
+    if (!snapshotPath || snapshotPath.trim().length === 0) return null;
+    const resolved = resolveRepoPath(snapshotPath);
+    if (!resolved.ok) return null;
+    if (isProtectedPath(resolved.relative)) return null;
+    try {
+      const content = await fs.readFile(resolved.resolved, "utf8");
+      const parsed = JSON.parse(content);
+      if (!parsed || typeof parsed !== "object") return null;
+      return parsed as RenderSnapshot;
+    } catch {
+      return null;
+    }
+  })();
+  return renderSnapshotCache;
+}
+
+async function listRenderServicesForOrchestrator() {
+  const snapshot = await getRenderSnapshot();
+  const services = snapshot?.services ?? [];
+  return services
+    .map((service) => ({
+      id: typeof service.id === "string" ? service.id : "",
+      name: typeof service.name === "string" ? service.name : "",
+      url: typeof service.url === "string" ? service.url : null,
+      region: typeof service.region === "string" ? service.region : null
+    }))
+    .filter((service) => service.id.length > 0 && service.name.length > 0);
+}
+
+async function listRenderLogsForOrchestrator(input: {
+  serviceId: string;
+  startTime: string;
+  endTime: string;
+  limit: number;
+  filter?: string;
+  endpoint?: string;
+  requestId?: string;
+}) {
+  const snapshot = await getRenderSnapshot();
+  const logs = snapshot?.logsByServiceId?.[input.serviceId] ?? [];
+  const startMs = Date.parse(input.startTime);
+  const endMs = Date.parse(input.endTime);
+  const filtered = logs.filter((log) => {
+    if (!log || typeof log !== "object") return false;
+    const ts = typeof log.timestamp === "string" ? Date.parse(log.timestamp) : Number.NaN;
+    if (Number.isFinite(startMs) && Number.isFinite(ts) && ts < startMs) return false;
+    if (Number.isFinite(endMs) && Number.isFinite(ts) && ts > endMs) return false;
+    const message = typeof log.message === "string" ? log.message : "";
+    if (input.filter && !message.includes(input.filter)) return false;
+    if (input.endpoint) {
+      const pathValue = typeof log.path === "string" ? log.path : "";
+      if (!pathValue.includes(input.endpoint) && !message.includes(input.endpoint)) return false;
+    }
+    if (input.requestId) {
+      const requestId = typeof log.requestId === "string" ? log.requestId : "";
+      if (!requestId.includes(input.requestId) && !message.includes(input.requestId)) return false;
+    }
+    return true;
+  });
+
+  return {
+    logs: filtered.slice(0, Math.max(1, input.limit)).map((log) => ({
+      timestamp: typeof log.timestamp === "string" ? log.timestamp : new Date().toISOString(),
+      message: typeof log.message === "string" ? log.message : "",
+      level: typeof log.level === "string" ? log.level : null,
+      type: typeof log.type === "string" ? log.type : null,
+      path: typeof log.path === "string" ? log.path : null,
+      statusCode:
+        typeof log.statusCode === "number" || typeof log.statusCode === "string" ? log.statusCode : null,
+      requestId: typeof log.requestId === "string" ? log.requestId : null
+    })),
+    truncated: filtered.length > input.limit,
+    hasMore: filtered.length > input.limit
+  };
+}
+
+async function getRenderMetricsForOrchestrator(input: {
+  resourceId: string;
+  startTime: string;
+  endTime: string;
+}) {
+  const snapshot = await getRenderSnapshot();
+  const series = snapshot?.metricsByServiceId?.[input.resourceId] ?? [];
+  const startMs = Date.parse(input.startTime);
+  const endMs = Date.parse(input.endTime);
+
+  return series
+    .map((item) => ({
+      metricType: typeof item.metricType === "string" ? item.metricType : "",
+      points: Array.isArray(item.points)
+        ? item.points
+            .filter((point) => {
+              const ts = typeof point.timestamp === "string" ? Date.parse(point.timestamp) : Number.NaN;
+              if (Number.isFinite(startMs) && Number.isFinite(ts) && ts < startMs) return false;
+              if (Number.isFinite(endMs) && Number.isFinite(ts) && ts > endMs) return false;
+              return true;
+            })
+            .map((point) => ({
+              timestamp: typeof point.timestamp === "string" ? point.timestamp : new Date().toISOString(),
+              value: typeof point.value === "number" ? point.value : null
+            }))
+        : []
+    }))
+    .filter((item) => item.metricType.length > 0);
+}
+
+async function listRenderDeploysForOrchestrator(input: {
+  serviceId: string;
+  startTime: string;
+  endTime: string;
+  limit: number;
+}) {
+  const snapshot = await getRenderSnapshot();
+  const deploys = snapshot?.deploysByServiceId?.[input.serviceId] ?? [];
+  const startMs = Date.parse(input.startTime);
+  const endMs = Date.parse(input.endTime);
+
+  return deploys
+    .filter((deploy) => {
+      const startedAt = typeof deploy.startedAt === "string" ? deploy.startedAt : deploy.createdAt;
+      if (!startedAt || typeof startedAt !== "string") return true;
+      const ts = Date.parse(startedAt);
+      if (Number.isFinite(startMs) && Number.isFinite(ts) && ts < startMs) return false;
+      if (Number.isFinite(endMs) && Number.isFinite(ts) && ts > endMs) return false;
+      return true;
+    })
+    .slice(0, Math.max(1, input.limit))
+    .map((deploy) => ({
+      id: typeof deploy.id === "string" ? deploy.id : "unknown",
+      status: typeof deploy.status === "string" ? deploy.status : null,
+      startedAt: typeof deploy.startedAt === "string" ? deploy.startedAt : null,
+      createdAt: typeof deploy.createdAt === "string" ? deploy.createdAt : null,
+      finishedAt: typeof deploy.finishedAt === "string" ? deploy.finishedAt : null
+    }));
 }
 
 async function handleDevRun(

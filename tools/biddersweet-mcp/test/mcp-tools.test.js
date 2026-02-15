@@ -17,6 +17,7 @@ const distEntry = path.join(toolRoot, "dist", "index.js");
 let repoRoot = "";
 let client;
 let gitAvailable = false;
+let renderSnapshotRelPath = "render-snapshot.json";
 const execFileAsync = promisify(execFile);
 
 async function callTool(name, args) {
@@ -287,6 +288,55 @@ before(async () => {
       "  }",
       "];"
     ].join("\n")
+  );
+  const now = Date.now();
+  await fs.writeFile(
+    path.join(repoRoot, renderSnapshotRelPath),
+    JSON.stringify(
+      {
+        services: [{ id: "srv-backend", name: "x-bid-backend-api", url: "https://x-bid-backend.onrender.com" }],
+        logsByServiceId: {
+          "srv-backend": [
+            {
+              timestamp: new Date(now - 9 * 60_000).toISOString(),
+              level: "error",
+              message: "NoMethodError: undefined method `foo' for nil:NilClass\napp/services/payments/charge.rb:42:in `call'",
+              path: "/api/v1/checkouts",
+              statusCode: 500,
+              requestId: "req-1"
+            },
+            {
+              timestamp: new Date(now - 8 * 60_000).toISOString(),
+              level: "error",
+              message: "NoMethodError: undefined method `foo' for nil:NilClass\napp/services/payments/charge.rb:42:in `call'",
+              path: "/api/v1/checkouts",
+              statusCode: 500,
+              requestId: "req-2"
+            }
+          ]
+        },
+        metricsByServiceId: {
+          "srv-backend": [
+            {
+              metricType: "http_latency_p95",
+              points: [
+                { timestamp: new Date(now - 10 * 60_000).toISOString(), value: 120 },
+                { timestamp: new Date(now - 5 * 60_000).toISOString(), value: 340 }
+              ]
+            },
+            {
+              metricType: "cpu_usage",
+              points: [{ timestamp: new Date(now - 5 * 60_000).toISOString(), value: 68.3 }]
+            }
+          ]
+        },
+        deploysByServiceId: {
+          "srv-backend": [{ id: "dep-1", startedAt: new Date(now - 12 * 60_000).toISOString(), status: "live" }]
+        }
+      },
+      null,
+      2
+    )
   );
 
   try {
@@ -901,22 +951,45 @@ test("orchestrator tools are listed by MCP server", async () => {
   assert.ok(names.includes("dev.smoke_fullstack"));
 });
 
-test("ops.triage_prod_error returns structured orchestrator payload", async () => {
-  const { result, payload } = await callTool("ops.triage_prod_error", {
-    serviceName: "x-bid-api",
-    timeWindowMinutes: 30
-  });
+test("ops.triage_prod_error returns bounded triage report payload", async () => {
+  const { result, payload } = await callTool("ops.triage_prod_error", {});
   assert.equal(result.isError, false);
-  assert.equal(typeof payload.summary, "string");
-  assert.ok(Array.isArray(payload.signals));
-  assert.ok(Array.isArray(payload.next_actions));
-  assert.ok(Array.isArray(payload.artifacts));
-  assert.equal(typeof payload.confidence, "number");
+  assert.ok(payload);
+  assert.ok("service" in payload);
+  assert.ok("top_errors" in payload);
+  assert.ok("deploy_correlation" in payload);
+  assert.ok("metrics_summary" in payload);
+  assert.ok(Array.isArray(payload.top_errors));
+  assert.equal(typeof payload.deploy_correlation.likely, "boolean");
+  assert.ok(Array.isArray(payload.recommended_next_actions));
+  assert.ok(Array.isArray(payload.expand_instructions));
+  assert.equal(typeof payload.bounded_by.max_logs, "number");
 });
 
-test("ops.triage_prod_error rejects missing service name via schema", async () => {
+test("ops.triage_prod_error correlates deploy from snapshot data", async () => {
+  const { client: snapshotClient } = await createClient({
+    MCP_CAPABILITY: "READ_WRITE",
+    BIDDERSWEET_RENDER_SNAPSHOT_PATH: renderSnapshotRelPath
+  });
+  try {
+    const { result, payload } = await callToolWithClient(snapshotClient, "ops.triage_prod_error", {
+      service: "x-bid-backend-api",
+      timeWindowMinutes: 30
+    });
+    assert.equal(result.isError, false);
+    assert.equal(payload.service.id, "srv-backend");
+    assert.ok(payload.top_errors.length > 0);
+    assert.equal(payload.top_errors[0].signature.startsWith("NoMethodError"), true);
+    assert.equal(payload.deploy_correlation.likely, true);
+    assert.equal(payload.deploy_correlation.deploy_id, "dep-1");
+  } finally {
+    await snapshotClient.close();
+  }
+});
+
+test("ops.triage_prod_error rejects oversized time window via schema", async () => {
   const { result, payload } = await callTool("ops.triage_prod_error", {
-    serviceName: "   "
+    timeWindowMinutes: 999
   });
   assert.equal(result.isError, true);
   assert.equal(payload.error, "invalid_request");
