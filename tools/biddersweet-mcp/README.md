@@ -113,6 +113,10 @@ args = [
 
 Reload VS Code (or restart the Codex extension) and ensure the project is trusted so the config is picked up.
 
+## Runbooks
+
+- Vercel MCP setup/auth + usage examples: `tools/biddersweet-mcp/runbooks/vercel-mcp.md`
+
 ## Troubleshooting
 
 If you see `Missing script: "build"` or `Missing script: "start"`, it usually means you ran `npm` from the repo root instead of the MCP package directory. Always run commands from `tools/biddersweet-mcp` (or `cd` into it first).
