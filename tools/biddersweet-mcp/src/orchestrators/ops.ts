@@ -1,4 +1,7 @@
 import { z } from "zod";
+import crypto from "node:crypto";
+import { writeFile, readFile, rm } from "node:fs/promises";
+import { logAuditEvent } from "../lib/auditLog";
 
 export type OrchestratorSignal = {
   name: string;
@@ -97,6 +100,19 @@ export const OpsEnvDiffInputSchema = z
       confirmText: z.string().optional()
     })
   );
+
+export const OpsPlanEnvUpdateInputSchema = z.object({
+  service: z.string().trim().min(1),
+  env: z.record(z.string()),
+  allow_sensitive: z.boolean().optional().default(false),
+});
+
+export const OpsConfirmEnvUpdateInputSchema = z.object({
+  confirm_token: z.string().trim().min(1),
+});
+
+export type OpsPlanEnvUpdateInput = z.infer<typeof OpsPlanEnvUpdateInputSchema>;
+export type OpsConfirmEnvUpdateInput = z.infer<typeof OpsConfirmEnvUpdateInputSchema>;
 
 export type OpsTriageProdErrorInput = z.infer<typeof OpsTriageProdErrorInputSchema>;
 export type OpsVerifyDeployWindow401Input = z.infer<typeof OpsVerifyDeployWindow401InputSchema>;
@@ -211,6 +227,7 @@ export type OpsOrchestratorDeps = {
     limit: number;
   }) => Promise<RenderDeploy[]>;
   listRenderEnvVars: (input: { serviceId: string }) => Promise<RenderEnvVar[]>;
+  updateRenderEnvVars: (input: { serviceId: string; env: Record<string, string> }) => Promise<{ ok: boolean }>;
 };
 
 export function runOpsTriageProdError(
@@ -1153,5 +1170,131 @@ function refusedResult(reason: string, summary: string): OrchestratorResult {
     confidence: 0.98,
     refused: true,
     refusal_reason: reason
+  };
+}
+
+
+
+type PendingEnvUpdate = {
+  serviceId: string;
+  serviceName: string;
+  env: Record<string, string>;
+  expiresAt: number;
+};
+
+const PENDING_PLANS_DIR = "/Users/kenrettberg/.gemini/tmp/6a21c1d80e1f53246dc2e7d86c2a959eaf42e8375827bbc4380933309ded1591/mcp_env_update_plans/";
+const OPS_ENV_UPDATE_CONFIRM_TTL_MS = 10 * 60_000;
+const OPS_ENV_UPDATE_TOKEN_BYTES = 24;
+
+export async function runOpsPlanEnvUpdate(
+  input: OpsPlanEnvUpdateInput,
+  deps: OpsOrchestratorDeps
+): Promise<OrchestratorResult> {
+  const services = await deps.listRenderServices();
+  const service = selectService(input.service, services);
+
+  if (!service) {
+    return refusedResult("service_not_found", `Service '${input.service}' not found.`);
+  }
+
+  const sensitiveKeys = Object.keys(input.env).filter((key) => isSensitiveOpsKey(key));
+  if (sensitiveKeys.length > 0 && !input.allow_sensitive) {
+    return refusedResult(
+      "sensitive_keys_requires_ack",
+      `Refused: update includes sensitive keys (${sensitiveKeys.join(", ")}). Use allow_sensitive: true to proceed.`
+    );
+  }
+
+  const confirmToken = crypto.randomBytes(OPS_ENV_UPDATE_TOKEN_BYTES).toString("hex");
+  const expiresAt = Date.now() + OPS_ENV_UPDATE_CONFIRM_TTL_MS;
+  
+  const plan: PendingEnvUpdate = {
+    serviceId: service.id,
+    serviceName: service.name,
+    env: input.env,
+    expiresAt,
+  };
+
+  const planPath = PENDING_PLANS_DIR + confirmToken;
+
+  try {
+    await writeFile(planPath, JSON.stringify(plan, null, 2));
+  } catch (error) {
+    console.error("Failed to write pending update plan:", error);
+    return refusedResult("plan_creation_failed", "Failed to save the update plan.");
+  }
+
+  return {
+    summary: `Plan created to update ${Object.keys(input.env).length} environment variables for service '${service.name}'.`,
+    signals: [
+      { name: "service", status: "ok", detail: "service resolved", value: service.name },
+      { name: "env_vars_count", status: "ok", detail: "number of variables to update", value: Object.keys(input.env).length },
+      { name: "sensitive_keys_present", status: sensitiveKeys.length > 0 ? "warn" : "ok", detail: "sensitive keys detected", value: sensitiveKeys.length > 0 },
+    ],
+    next_actions: [`ops.confirm_env_update(confirm_token="${confirmToken}")`],
+    artifacts: [
+      { kind: "service", id: service.id, label: service.name },
+      { kind: "confirm_token", id: confirmToken, label: "Confirmation Token" },
+    ],
+    confidence: 0.9,
+  };
+}
+
+export async function runOpsConfirmEnvUpdate(
+  input: OpsConfirmEnvUpdateInput,
+  deps: OpsOrchestratorDeps
+): Promise<OrchestratorResult> {
+  const planPath = PENDING_PLANS_DIR + input.confirm_token;
+  let plan: PendingEnvUpdate;
+
+  try {
+    const fileContent = await readFile(planPath, "utf-8");
+    plan = JSON.parse(fileContent);
+  } catch (error) {
+    return refusedResult("invalid_or_expired_token", "Confirmation token is invalid or has expired.");
+  }
+
+  if (Date.now() > plan.expiresAt) {
+    try {
+      await rm(planPath);
+    } catch (e) {
+      // ignore
+    }
+    return refusedResult("expired_token", "Confirmation token has expired.");
+  }
+
+  const result = await deps.updateRenderEnvVars({
+    serviceId: plan.serviceId,
+    env: plan.env,
+  });
+
+  if (!result.ok) {
+    return refusedResult("update_failed", "Failed to update environment variables on Render.");
+  }
+
+  try {
+    await rm(planPath);
+  } catch (e) {
+    // ignore
+  }
+
+  await logAuditEvent({
+    action: "confirm_env_update",
+    target: {
+      type: "render_service",
+      id: plan.serviceId,
+      name: plan.serviceName,
+    },
+    details: {
+      updated_keys: Object.keys(plan.env),
+    },
+  });
+
+  return {
+    summary: `Successfully updated ${Object.keys(plan.env).length} environment variables for service '${plan.serviceName}'.`,
+    signals: [{ name: "update_status", status: "ok", detail: "environment variables updated successfully" }],
+    next_actions: [],
+    artifacts: [],
+    confidence: 1.0,
   };
 }

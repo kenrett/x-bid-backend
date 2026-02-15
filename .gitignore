@@ -49,3 +49,7 @@ AWSCLIV2.pkg
 
 # Local Codex machine config
 /.codex/config.toml
+
+# Local gemini machine config
+/.gemini/settings.json
+/GEMINI.md

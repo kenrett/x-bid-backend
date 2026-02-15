@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "updated_at": "2026-02-15T12:00:00Z",
+  "services": [
+    {
+      "name": "x-bid-backend-api",
+      "id": "srv-backend",
+      "url": "https://x-bid-backend.onrender.com",
+      "region": "us-east-1",
+      "notes": "Primary backend API service"
+    }
+  ],
+  "logsByServiceId": {
+    "srv-backend": []
+  }
+}
