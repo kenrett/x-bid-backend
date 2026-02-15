@@ -29,6 +29,18 @@ class BrowserSessionCookieTest < ActionDispatch::IntegrationTest
     refute_match(/domain=/i, session_cookie)
   end
 
+  test "login cookie expiry matches session token expiry" do
+    post "/api/v1/login", params: { session: { email_address: @user.email_address, password: "password" } }
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    session_token = SessionToken.find(body.fetch("session_token_id"))
+    session_cookie = cookie_header_for("__Host-bs_session_id")
+    cookie_expires = Time.httpdate(cookie_attribute(session_cookie, "expires"))
+
+    assert_in_delta session_token.expires_at.to_i, cookie_expires.to_i, 1
+  end
+
   test "login clears legacy shared-domain browser session cookie during migration" do
     Rails.stub(:env, ActiveSupport::StringInquirer.new("production")) do
       host! "api.biddersweet.app"

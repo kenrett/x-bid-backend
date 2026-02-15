@@ -51,11 +51,11 @@ class SessionToken < ApplicationRecord
   end
 
   def self.idle_ttl
-    Rails.configuration.x.session_token_idle_ttl || Rails.configuration.x.session_token_ttl || 30.minutes
+    Rails.configuration.x.session_token_idle_ttl || Rails.configuration.x.session_token_ttl || 10.minutes
   end
 
   def self.absolute_ttl
-    Rails.configuration.x.session_token_absolute_ttl || 8.hours
+    Rails.configuration.x.session_token_absolute_ttl || 2.hours
   end
 
   def absolute_expires_at

@@ -36,6 +36,20 @@ class SessionRefreshContractTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_session", body.dig("error", "code").to_s
   end
 
+  test "expired refresh token fails with 401" do
+    user = create_actor(role: :user)
+    _session_token, refresh_token = SessionToken.generate_for(user: user)
+
+    travel 11.minutes do
+      headers = csrf_headers
+      post "/api/v1/session/refresh", params: { refresh_token: refresh_token }, headers: headers
+    end
+
+    assert_response :unauthorized
+    body = JSON.parse(response.body)
+    assert_equal "invalid_session", body.dig("error", "code").to_s
+  end
+
   test "disabled user refresh fails with 403 and revokes session token" do
     user = create_actor(role: :user)
     user.update!(status: :disabled)

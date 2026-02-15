@@ -119,6 +119,26 @@ class AdminUsersApiTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "PATCH role change revokes target user sessions" do
+    target = create_actor(role: :user)
+    target_session = SessionToken.create!(
+      user: target,
+      token_digest: SessionToken.digest("patch-role-change"),
+      expires_at: 1.hour.from_now
+    )
+    target_headers = auth_headers_for_session(target, target_session)
+
+    patch "/api/v1/admin/users/#{target.id}",
+          params: { user: { role: "admin" } },
+          headers: auth_headers_for(@superadmin)
+    assert_response :success
+    assert_equal "admin", target.reload.role
+    assert target_session.reload.revoked_at.present?
+
+    get "/api/v1/me", headers: target_headers
+    assert_response :unauthorized
+  end
+
   test "POST /api/v1/admin/users/:id/ban allows admin moderation of role=user and is idempotent" do
     target = create_actor(role: :user)
 

@@ -7,8 +7,8 @@ parse_positive_minutes = lambda do |value, default_minutes|
 end
 
 idle_minutes = ENV["SESSION_TOKEN_IDLE_TTL_MINUTES"].presence || ENV["SESSION_TOKEN_TTL_MINUTES"]
-Rails.configuration.x.session_token_idle_ttl = parse_positive_minutes.call(idle_minutes || 15, 15)
+Rails.configuration.x.session_token_idle_ttl = parse_positive_minutes.call(idle_minutes || 10, 10)
 Rails.configuration.x.session_token_ttl = Rails.configuration.x.session_token_idle_ttl
 
 absolute_minutes = ENV["SESSION_TOKEN_ABSOLUTE_TTL_MINUTES"]
-Rails.configuration.x.session_token_absolute_ttl = parse_positive_minutes.call(absolute_minutes || (8 * 60), (8 * 60))
+Rails.configuration.x.session_token_absolute_ttl = parse_positive_minutes.call(absolute_minutes || (2 * 60), (2 * 60))
