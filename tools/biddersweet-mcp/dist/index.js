@@ -7,6 +7,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListResourceTemplatesRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { OpsEnvDiffInputSchema, OpsTriageProdErrorInputSchema, OpsVerifyDeployWindow401InputSchema, runOpsEnvDiff, runOpsTriageProdError, runOpsVerifyDeployWindow401 } from "./orchestrators/ops.js";
+import { DevRouteContractCheckInputSchema, DevSmokeFullstackInputSchema, runDevRouteContractCheck, runDevSmokeFullstack } from "./orchestrators/dev.js";
 const MAX_FILE_SIZE_BYTES = 200 * 1024;
 const MAX_PREVIEW_CHARS = 300;
 const MAX_CMD_OUTPUT_BYTES = 10 * 1024;
@@ -594,6 +596,78 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     },
                     additionalProperties: false
                 }
+            },
+            {
+                name: "ops.triage_prod_error",
+                description: "Compose local diagnostics to triage a production error context.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        serviceName: { type: "string" },
+                        timeWindowMinutes: { type: "number" }
+                    },
+                    required: ["serviceName"],
+                    additionalProperties: false
+                }
+            },
+            {
+                name: "ops.verify_deploy_window_401",
+                description: "Verify likely deploy-window causes for 401s using local signals.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        serviceName: { type: "string" },
+                        timeWindowMinutes: { type: "number" }
+                    },
+                    required: ["serviceName"],
+                    additionalProperties: false
+                }
+            },
+            {
+                name: "ops.env_diff",
+                description: "Compare environment key manifests and flag drift (read-only).",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        sourceEnv: { type: "string" },
+                        targetEnv: { type: "string" },
+                        sourcePath: { type: "string" },
+                        targetPath: { type: "string" },
+                        includeSensitive: { type: "boolean" },
+                        destructiveIntent: { type: "boolean" },
+                        confirmToken: { type: "string" },
+                        confirmText: { type: "string" }
+                    },
+                    required: ["sourceEnv", "targetEnv"],
+                    additionalProperties: false
+                }
+            },
+            {
+                name: "dev.route_contract_check",
+                description: "Compare routes to OpenAPI path inventory for contract drift.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        maxAllowedDrift: { type: "number" }
+                    },
+                    additionalProperties: false
+                }
+            },
+            {
+                name: "dev.smoke_fullstack",
+                description: "Run a read-only fullstack smoke orchestration.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        serviceName: { type: "string" },
+                        includeIntegration: { type: "boolean" },
+                        destructiveIntent: { type: "boolean" },
+                        confirmToken: { type: "string" },
+                        confirmText: { type: "string" }
+                    },
+                    required: ["serviceName"],
+                    additionalProperties: false
+                }
             }
         ]
     };
@@ -767,6 +841,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 case "dev.run_lint": {
                     const parsed = DevRunTargetSchema.parse(args ?? {});
                     result = await handleDevRunLint(parsed);
+                    isError = false;
+                    break;
+                }
+                case "ops.triage_prod_error": {
+                    const parsed = OpsTriageProdErrorInputSchema.parse(args ?? {});
+                    result = await handleOpsTriageProdError(parsed);
+                    isError = false;
+                    break;
+                }
+                case "ops.verify_deploy_window_401": {
+                    const parsed = OpsVerifyDeployWindow401InputSchema.parse(args ?? {});
+                    result = await handleOpsVerifyDeployWindow401(parsed);
+                    isError = false;
+                    break;
+                }
+                case "ops.env_diff": {
+                    const parsed = OpsEnvDiffInputSchema.parse(args ?? {});
+                    result = await handleOpsEnvDiff(parsed);
+                    isError = false;
+                    break;
+                }
+                case "dev.route_contract_check": {
+                    const parsed = DevRouteContractCheckInputSchema.parse(args ?? {});
+                    result = await handleDevRouteContractCheck(parsed);
+                    isError = false;
+                    break;
+                }
+                case "dev.smoke_fullstack": {
+                    const parsed = DevSmokeFullstackInputSchema.parse(args ?? {});
+                    result = await handleDevSmokeFullstack(parsed);
                     isError = false;
                     break;
                 }
@@ -2103,6 +2207,127 @@ async function handleDevRunTests(input) {
 }
 async function handleDevRunLint(input) {
     return handleDevRun(input.target, async () => ["bundle", "exec", "rubocop"], async (packageManager) => selectJsLintCommand(packageManager));
+}
+async function handleOpsTriageProdError(input) {
+    return runOpsTriageProdError(input, {
+        getGitSummary: getGitSummary,
+        getDevToolsSummary: getDevToolsSummary,
+        fileExists: existsInRepo,
+        readTextFile: readTextFileForOrchestrator
+    });
+}
+async function handleOpsVerifyDeployWindow401(input) {
+    return runOpsVerifyDeployWindow401(input, {
+        getGitSummary: getGitSummary,
+        getDevToolsSummary: getDevToolsSummary,
+        fileExists: existsInRepo,
+        readTextFile: readTextFileForOrchestrator
+    });
+}
+async function handleOpsEnvDiff(input) {
+    return runOpsEnvDiff(input, {
+        getGitSummary: getGitSummary,
+        getDevToolsSummary: getDevToolsSummary,
+        fileExists: existsInRepo,
+        readTextFile: readTextFileForOrchestrator
+    });
+}
+async function handleDevRouteContractCheck(input) {
+    return runDevRouteContractCheck(input, {
+        getRoutesSummary: async () => {
+            const routes = await handleRailsRoutes({ mode: "static" });
+            const routeList = routes && typeof routes === "object" && Array.isArray(routes.routes)
+                ? (routes.routes ?? [])
+                : [];
+            const truncated = Boolean(routes &&
+                typeof routes === "object" &&
+                "truncated" in routes &&
+                routes.truncated) || false;
+            return { routeCount: routeList.length, truncated };
+        },
+        getOpenApiPathCount: async () => {
+            const openApiText = await readTextFileForOrchestrator("docs/api/openapi.json");
+            if (!openApiText)
+                return 0;
+            try {
+                const parsed = JSON.parse(openApiText);
+                return parsed.paths ? Object.keys(parsed.paths).length : 0;
+            }
+            catch {
+                return 0;
+            }
+        },
+        getDevToolsSummary: async () => ({ rgPresent: true, gitPresent: true, nodePresent: true }),
+        runSmokeBenchmark: async () => ({ ok: true, durationMs: 0 })
+    });
+}
+async function handleDevSmokeFullstack(input) {
+    return runDevSmokeFullstack(input, {
+        getRoutesSummary: async () => ({ routeCount: 0, truncated: false }),
+        getOpenApiPathCount: async () => 0,
+        getDevToolsSummary: async () => {
+            const summary = await getDevToolsSummary();
+            const nodeVersion = await getCommandVersion("node");
+            return {
+                rgPresent: summary.rgPresent,
+                gitPresent: summary.gitPresent,
+                nodePresent: Boolean(nodeVersion)
+            };
+        },
+        runSmokeBenchmark: async () => {
+            const result = await handleDevBenchmarkSmoke({ name: "json-parse-smoke" });
+            const ok = result &&
+                typeof result === "object" &&
+                "exitCode" in result &&
+                result.exitCode === 0;
+            const durationMs = result && typeof result === "object" && "durationMs" in result
+                ? Number(result.durationMs ?? 0)
+                : 0;
+            return { ok, durationMs };
+        }
+    });
+}
+async function getGitSummary() {
+    const status = await handleGitStatus({});
+    if (!status || typeof status !== "object" || status.error) {
+        return { isGitRepo: false, branch: null, changedCount: 0 };
+    }
+    const payload = status;
+    return {
+        isGitRepo: Boolean(payload.isGitRepo),
+        branch: payload.branch ?? null,
+        changedCount: Array.isArray(payload.changed) ? payload.changed.length : 0
+    };
+}
+async function getDevToolsSummary() {
+    const check = await handleDevCheck({});
+    const tools = check && typeof check === "object" && "tools" in check
+        ? (check.tools ?? {})
+        : {};
+    return {
+        rgPresent: Boolean(tools.rg?.present),
+        gitPresent: Boolean(tools.git?.present)
+    };
+}
+async function readTextFileForOrchestrator(relPath) {
+    const resolved = resolveRepoPath(relPath);
+    if (!resolved.ok)
+        return null;
+    if (isProtectedPath(resolved.relative))
+        return null;
+    let stat;
+    try {
+        stat = await fs.stat(resolved.resolved);
+    }
+    catch {
+        return null;
+    }
+    if (!stat.isFile() || stat.size > MAX_FILE_SIZE_BYTES)
+        return null;
+    if (await isBinaryFile(resolved.resolved))
+        return null;
+    const content = await fs.readFile(resolved.resolved, "utf8");
+    return normalizeLineEndings(content);
 }
 async function handleDevRun(target, rubyCommand, jsCommand) {
     const info = await handleRepoInfo({});

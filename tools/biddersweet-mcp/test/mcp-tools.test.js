@@ -77,7 +77,9 @@ before(async () => {
   await fs.mkdir(path.join(repoRoot, "app", "models"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "src"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "config"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "config", "env"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "db"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "docs", "api"), { recursive: true });
 
   await fs.writeFile(path.join(repoRoot, "docs", "search.txt"), "alpha\nneedle beta\ngamma\n");
   await fs.writeFile(path.join(repoRoot, "file.txt"), "one\ntwo\nthree\nfour");
@@ -155,6 +157,30 @@ before(async () => {
       "  resource :profile",
       "end"
     ].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "docs", "api", "openapi.json"),
+    JSON.stringify(
+      {
+        openapi: "3.0.3",
+        info: { title: "x-bid test", version: "1.0.0" },
+        paths: {
+          "/": { get: { responses: { "200": { description: "ok" } } } },
+          "/health": { get: { responses: { "200": { description: "ok" } } } },
+          "/admin/users": { get: { responses: { "200": { description: "ok" } } } }
+        }
+      },
+      null,
+      2
+    )
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "config", "env", "source.env.keys"),
+    ["DATABASE_URL=", "REDIS_URL=", "SECRET_KEY_BASE=", "STRIPE_API_KEY="].join("\n")
+  );
+  await fs.writeFile(
+    path.join(repoRoot, "config", "env", "target.env.keys"),
+    ["DATABASE_URL=", "REDIS_URL=", "SECRET_KEY_BASE=", "FEATURE_FLAG_X="].join("\n")
   );
   await fs.writeFile(
     path.join(repoRoot, "db", "schema.rb"),
@@ -863,4 +889,114 @@ test("dev.run_lint returns structured result", async () => {
   assert.ok(Array.isArray(payload.results.js.command));
   assert.equal(typeof payload.results.ruby.stderr, "string");
   assert.equal(typeof payload.results.js.stderr, "string");
+});
+
+test("orchestrator tools are listed by MCP server", async () => {
+  const tools = await client.listTools();
+  const names = tools.tools.map((tool) => tool.name);
+  assert.ok(names.includes("ops.triage_prod_error"));
+  assert.ok(names.includes("ops.verify_deploy_window_401"));
+  assert.ok(names.includes("ops.env_diff"));
+  assert.ok(names.includes("dev.route_contract_check"));
+  assert.ok(names.includes("dev.smoke_fullstack"));
+});
+
+test("ops.triage_prod_error returns structured orchestrator payload", async () => {
+  const { result, payload } = await callTool("ops.triage_prod_error", {
+    serviceName: "x-bid-api",
+    timeWindowMinutes: 30
+  });
+  assert.equal(result.isError, false);
+  assert.equal(typeof payload.summary, "string");
+  assert.ok(Array.isArray(payload.signals));
+  assert.ok(Array.isArray(payload.next_actions));
+  assert.ok(Array.isArray(payload.artifacts));
+  assert.equal(typeof payload.confidence, "number");
+});
+
+test("ops.triage_prod_error rejects missing service name via schema", async () => {
+  const { result, payload } = await callTool("ops.triage_prod_error", {
+    serviceName: "   "
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error, "invalid_request");
+});
+
+test("ops.verify_deploy_window_401 returns refusal for oversized window", async () => {
+  const { result, payload } = await callTool("ops.verify_deploy_window_401", {
+    serviceName: "x-bid-api",
+    timeWindowMinutes: 999
+  });
+  assert.equal(result.isError, false);
+  assert.equal(payload.refused, true);
+  assert.equal(payload.refusal_reason, "time_window_too_large");
+  assert.ok(Array.isArray(payload.signals));
+});
+
+test("ops.env_diff returns structured env drift data", async () => {
+  const { result, payload } = await callTool("ops.env_diff", {
+    sourceEnv: "staging",
+    targetEnv: "production",
+    sourcePath: "config/env/source.env.keys",
+    targetPath: "config/env/target.env.keys"
+  });
+  assert.equal(result.isError, false);
+  assert.equal(typeof payload.summary, "string");
+  assert.ok(Array.isArray(payload.signals));
+  assert.ok(Array.isArray(payload.next_actions));
+  assert.ok(Array.isArray(payload.artifacts));
+  assert.equal(typeof payload.confidence, "number");
+});
+
+test("ops.env_diff refuses destructive mode without two-step confirmation", async () => {
+  const { result, payload } = await callTool("ops.env_diff", {
+    sourceEnv: "staging",
+    targetEnv: "production",
+    destructiveIntent: true
+  });
+  assert.equal(result.isError, false);
+  assert.equal(payload.refused, true);
+  assert.equal(payload.refusal_reason, "destructive_confirmation_required");
+});
+
+test("dev.route_contract_check returns structured contract check payload", async () => {
+  const { result, payload } = await callTool("dev.route_contract_check", {
+    maxAllowedDrift: 10
+  });
+  assert.equal(result.isError, false);
+  assert.equal(typeof payload.summary, "string");
+  assert.ok(Array.isArray(payload.signals));
+  assert.ok(Array.isArray(payload.next_actions));
+  assert.ok(Array.isArray(payload.artifacts));
+  assert.equal(typeof payload.confidence, "number");
+});
+
+test("dev.route_contract_check rejects invalid threshold", async () => {
+  const { result, payload } = await callTool("dev.route_contract_check", {
+    maxAllowedDrift: -1
+  });
+  assert.equal(result.isError, true);
+  assert.equal(payload.error, "invalid_request");
+});
+
+test("dev.smoke_fullstack returns structured smoke payload", async () => {
+  const { result, payload } = await callTool("dev.smoke_fullstack", {
+    serviceName: "x-bid-api"
+  });
+  assert.equal(result.isError, false);
+  assert.equal(typeof payload.summary, "string");
+  assert.ok(Array.isArray(payload.signals));
+  assert.ok(Array.isArray(payload.next_actions));
+  assert.ok(Array.isArray(payload.artifacts));
+  assert.equal(typeof payload.confidence, "number");
+});
+
+test("dev.smoke_fullstack refuses destructive mode without two-step confirmation", async () => {
+  const { result, payload } = await callTool("dev.smoke_fullstack", {
+    serviceName: "x-bid-api",
+    destructiveIntent: true
+  });
+  assert.equal(result.isError, false);
+  assert.equal(payload.refused, true);
+  assert.equal(payload.refusal_reason, "destructive_confirmation_required");
 });
